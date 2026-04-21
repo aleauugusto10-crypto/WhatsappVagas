@@ -9,16 +9,42 @@ const headers = {
   "Content-Type": "application/json"
 };
 
+// 🔥 FUNÇÃO CENTRAL COM LOG
+async function send(payload){
+  try {
+    const res = await axios.post(url, payload, { headers });
+
+    console.log("✅ WHATSAPP OK:", JSON.stringify(res.data));
+
+    return res.data;
+
+  } catch (err) {
+
+    console.error("❌ ERRO AO ENVIAR WHATSAPP:");
+
+    if(err.response){
+      console.error("STATUS:", err.response.status);
+      console.error("DATA:", JSON.stringify(err.response.data));
+    } else {
+      console.error(err.message);
+    }
+
+    return null;
+  }
+}
+
+// 📩 TEXTO
 export async function sendText(to, text){
-  await axios.post(url, {
+  return send({
     messaging_product: "whatsapp",
     to,
     text: { body: text }
-  }, { headers });
+  });
 }
 
+// 🔘 BOTÕES
 export async function sendButtons(to, body, buttons){
-  await axios.post(url, {
+  return send({
     messaging_product: "whatsapp",
     to,
     type: "interactive",
@@ -35,11 +61,12 @@ export async function sendButtons(to, body, buttons){
         }))
       }
     }
-  }, { headers });
+  });
 }
 
+// 📋 LISTA
 export async function sendList(to, body, sections){
-  await axios.post(url, {
+  return send({
     messaging_product: "whatsapp",
     to,
     type: "interactive",
@@ -51,5 +78,5 @@ export async function sendList(to, body, sections){
         sections
       }
     }
-  }, { headers });
+  });
 }
