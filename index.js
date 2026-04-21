@@ -8,16 +8,27 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+import { handleMessage } from "./src/bot.js";
+
 app.post('/webhook', async (req, res) => {
-  console.log("📩 mensagem recebida:", JSON.stringify(req.body, null, 2));
+  try {
+    console.log("📩 mensagem recebida:", JSON.stringify(req.body, null, 2));
 
-  const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-  if(msg){
-    await handleMessage(msg);
+    if(msg){
+      console.log("🔥 chamando handleMessage");
+      await handleMessage(msg);
+    } else {
+      console.log("⚠️ nenhuma mensagem encontrada");
+    }
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error("❌ erro no webhook:", err);
+    res.sendStatus(500);
   }
-
-  res.sendStatus(200);
 });
 
 app.get('/webhook',(req,res)=>{
