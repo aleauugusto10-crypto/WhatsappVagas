@@ -25,6 +25,7 @@ export function sendMenuUsuario(phone) {
       title: "Perfil",
       rows: [
         { id: "user_redefinir_interesses", title: "Atualizar interesses" },
+        { id: "redefinir_perfil", title: "Redefinir perfil" },
       ],
     },
   ]);
@@ -39,6 +40,12 @@ export function sendMenuContratante(phone) {
         { id: "contratar_criar_missao", title: "Criar missão" },
       ],
     },
+    {
+      title: "Perfil",
+      rows: [
+        { id: "redefinir_perfil", title: "Redefinir perfil" },
+      ],
+    },
   ]);
 }
 
@@ -50,6 +57,12 @@ export function sendMenuEmpresa(phone) {
         { id: "empresa_criar_vaga", title: "Criar vaga" },
         { id: "empresa_buscar_profissionais", title: "Buscar profissionais" },
         { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+      ],
+    },
+    {
+      title: "Perfil",
+      rows: [
+        { id: "redefinir_perfil", title: "Redefinir perfil" },
       ],
     },
   ]);

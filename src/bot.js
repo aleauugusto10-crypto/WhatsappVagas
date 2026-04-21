@@ -53,6 +53,12 @@ async function getCategoriasPorGrupo(contexto, grupo) {
   return data || [];
 }
 
+function getMenuByTipo(tipo, phone) {
+  if (tipo === "empresa") return sendMenuEmpresa(phone);
+  if (tipo === "contratante") return sendMenuContratante(phone);
+  return sendMenuUsuario(phone);
+}
+
 export async function handleMessage(msg) {
   const phone = msg?.from;
   if (!phone) return;
@@ -90,6 +96,7 @@ export async function handleMessage(msg) {
           tipo: "usuario",
           etapa: "tipo",
           ativo: true,
+          onboarding_finalizado: false,
         })
         .select()
         .single();
@@ -120,8 +127,29 @@ export async function handleMessage(msg) {
       return updated;
     };
 
+    // 🔁 "oi/menu" agora respeita o tipo já cadastrado
     if (["oi", "menu", "inicio", "início"].includes(text)) {
-      await updateUser({ etapa: "tipo" });
+      if (user.onboarding_finalizado) {
+        return getMenuByTipo(user.tipo, phone);
+      }
+
+      return sendRootMenu(phone);
+    }
+
+    // 🔄 redefinir perfil manual
+    if (text === "redefinir_perfil") {
+      const updated = await updateUser({
+        etapa: "tipo",
+        onboarding_finalizado: false,
+        area_principal: null,
+        categoria_principal: null,
+        raio_km: 20,
+      });
+
+      if (!updated) {
+        return sendText(phone, "Erro ao redefinir perfil.");
+      }
+
       return sendRootMenu(phone);
     }
 
@@ -194,10 +222,6 @@ export async function handleMessage(msg) {
       if (companyResponse) return companyResponse;
 
       return handleCompanyFallback(phone);
-    }
-
-    if (user.tipo === "profissional") {
-      return sendText(phone, "Fluxo de profissional ainda não foi separado nesta versão.");
     }
 
     return sendRootMenu(phone);
