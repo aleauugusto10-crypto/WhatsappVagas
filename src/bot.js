@@ -48,9 +48,29 @@ Como você quer usar?`,
     }
 
     // 🔥 RESET CONTROLADO (SÓ NO MENU)
-    if(["menu","inicio"].includes(text) && user.etapa === "menu"){
-      return sendMenu(phone);
-    }
+    if (["oi", "menu", "inicio"].includes(text)) {
+  console.log("🔄 resetando fluxo do usuário");
+
+  await supabase
+    .from("usuarios")
+    .update({
+      etapa: "onboarding",
+      tipo: null,
+      nome: null,
+      cidade: null
+    })
+    .eq("id", user.id);
+
+  return sendButtons(phone,
+`👋 Vamos começar do zero.
+
+Como você quer usar?`,
+  [
+    { id: "emprego", title: "Procurar emprego" },
+    { id: "empresa", title: "Sou empresa" },
+    { id: "profissional", title: "Oferecer serviços" }
+  ]);
+}
 
     // 🔁 FLUXO
     switch(user.etapa){
