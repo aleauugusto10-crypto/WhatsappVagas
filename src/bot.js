@@ -5,41 +5,41 @@ import { getServicos } from "./modules/servicos.js";
 
 export async function handleMessage(msg){
   try {
+
     const phone = msg.from;
 
+    // 🔥 PRIORIDADE CORRETA (interactive primeiro!)
     const text =
-      msg.text?.body?.toLowerCase().trim() ||
       msg.interactive?.button_reply?.id ||
       msg.interactive?.list_reply?.id ||
+      msg.text?.body?.toLowerCase().trim() ||
       "";
 
     console.log("📱 telefone:", phone);
     console.log("💬 texto:", text);
+    console.log("📦 msg completa:", JSON.stringify(msg, null, 2));
 
-    // 🔎 BUSCAR USUÁRIO
-    let { data: user, error } = await supabase
+    // 🔥 BUSCAR USUÁRIO
+    let { data: user } = await supabase
       .from("usuarios")
       .select("*")
       .eq("telefone", phone)
       .maybeSingle();
 
-    if(error){
-      console.error("❌ erro ao buscar usuário:", error);
-      return;
-    }
-
-    // 🆕 NOVO USUÁRIO
+    // 🟡 NOVO USUÁRIO
     if(!user){
-      console.log("🆕 criando novo usuário");
-
-      await supabase.from("usuarios").insert({
-        telefone: phone,
-        etapa: "onboarding",
-        ativo: true
-      });
+      const { data: newUser } = await supabase
+        .from("usuarios")
+        .insert({
+          telefone: phone,
+          etapa: "onboarding",
+          ativo: true
+        })
+        .select()
+        .single();
 
       return sendButtons(phone,
-`👋 Bem-vindo ao seu hub de oportunidades.
+`👋 Bem-vindo ao seu hub de oportunidades locais.
 
 💼 Encontre empregos  
 🧑‍🔧 Encontre ou divulgue serviços  
@@ -53,65 +53,58 @@ Como você quer usar?`,
       ]);
     }
 
-    // 🔥 CORREÇÃO: usuário sem etapa
-    if(!user.etapa){
-      console.log("⚠️ usuário sem etapa, resetando");
-
+    // 🔥 RESET CONTROLADO (NÃO quebra botão)
+    if(["oi","menu","inicio"].includes(text)){
       await supabase
         .from("usuarios")
         .update({ etapa: "onboarding" })
         .eq("id", user.id);
 
       return sendButtons(phone,
-        "Vamos começar rapidinho 👇",
-        [
-          { id: "emprego", title: "Procurar emprego" },
-          { id: "empresa", title: "Sou empresa" },
-          { id: "profissional", title: "Oferecer serviços" }
-        ]
-      );
+`👋 Vamos recomeçar:
+
+Como você quer usar?`,
+      [
+        { id: "emprego", title: "Procurar emprego" },
+        { id: "empresa", title: "Sou empresa" },
+        { id: "profissional", title: "Oferecer serviços" }
+      ]);
     }
 
     // 🔁 FLUXO
     switch(user.etapa){
 
-     case "onboarding":
+      // 🟢 ONBOARDING
+      case "onboarding":
 
-  // 👉 se não clicou em botão válido
-  if(!["emprego", "empresa", "profissional"].includes(text)){
-    return sendButtons(phone,
-`👋 Bem-vindo ao seu hub de oportunidades locais.
+        if(!["emprego","empresa","profissional"].includes(text)){
+          return sendButtons(phone,
+`Escolha uma opção 👇`,
+          [
+            { id: "emprego", title: "Procurar emprego" },
+            { id: "empresa", title: "Sou empresa" },
+            { id: "profissional", title: "Oferecer serviços" }
+          ]);
+        }
 
-💼 Encontre empregos  
-🧑‍🔧 Encontre ou divulgue serviços  
-🏢 Empresas contratam rápido  
+        let tipo = "usuario";
+        if(text === "empresa") tipo = "empresa";
+        if(text === "profissional") tipo = "profissional";
 
-Como você quer usar?`,
-    [
-      { id: "emprego", title: "Procurar emprego" },
-      { id: "empresa", title: "Sou empresa" },
-      { id: "profissional", title: "Oferecer serviços" }
-    ]);
-  }
+        await supabase
+          .from("usuarios")
+          .update({
+            tipo,
+            etapa: "cadastro_nome"
+          })
+          .eq("id", user.id);
 
-  let tipo = "usuario";
+        return sendText(phone, "Qual seu nome?");
 
-  if(text === "empresa") tipo = "empresa";
-  if(text === "profissional") tipo = "profissional";
-
-  await supabase
-    .from("usuarios")
-    .update({
-      tipo,
-      etapa: "cadastro_nome"
-    })
-    .eq("id", user.id);
-
-  return sendText(phone, "Qual seu nome?");
-
+      // 🟢 NOME
       case "cadastro_nome":
 
-        if(!text){
+        if(!text || text.length < 3 || text === "oi"){
           return sendText(phone, "Digite seu nome:");
         }
 
@@ -125,10 +118,11 @@ Como você quer usar?`,
 
         return sendText(phone, "Qual sua cidade?");
 
+      // 🟢 CIDADE
       case "cadastro_cidade":
 
-        if(!text){
-          return sendText(phone, "Digite sua cidade:");
+        if(!text || text.length < 3 || text === "oi"){
+          return sendText(phone, "Digite uma cidade válida:");
         }
 
         await supabase
@@ -139,31 +133,9 @@ Como você quer usar?`,
           })
           .eq("id", user.id);
 
-        return sendList(phone,
-          "✅ Cadastro concluído! Escolha uma opção:",
-          [
-            {
-              title: "Empregos",
-              rows: [
-                { id: "ver_vagas", title: "Ver vagas disponíveis" }
-              ]
-            },
-            {
-              title: "Serviços",
-              rows: [
-                { id: "buscar_servico", title: "Buscar profissional" },
-                { id: "cadastrar_servico", title: "Cadastrar meu serviço" }
-              ]
-            },
-            {
-              title: "Empresa",
-              rows: [
-                { id: "criar_vaga", title: "Publicar vaga" }
-              ]
-            }
-          ]
-        );
+        return sendMenu(phone);
 
+      // 🟢 MENU
       case "menu":
 
         if(text === "ver_vagas"){
@@ -173,7 +145,7 @@ Como você quer usar?`,
             return sendText(phone, "Sem vagas no momento.");
           }
 
-          let out = "💼 Vagas disponíveis:\n";
+          let out = "💼 Vagas:\n";
           vagas.slice(0,5).forEach(v=>{
             out += `\n• ${v.titulo} (${v.cidade})`;
           });
@@ -182,71 +154,40 @@ Como você quer usar?`,
         }
 
         if(text === "buscar_servico"){
-          await supabase
-            .from("usuarios")
-            .update({ etapa: "buscando_servico" })
-            .eq("id", user.id);
-
-          return sendText(phone, "Digite o serviço que procura:");
+          await updateEtapa(user.id, "buscando_servico");
+          return sendText(phone, "Digite o serviço:");
         }
 
         if(text === "cadastrar_servico"){
-          await supabase
-            .from("usuarios")
-            .update({ etapa: "cadastro_servico_titulo" })
-            .eq("id", user.id);
-
-          return sendText(phone, "Qual o nome do seu serviço?");
+          await updateEtapa(user.id, "cadastro_servico");
+          return sendText(phone, "Nome do serviço:");
         }
 
         if(text === "criar_vaga"){
-          await supabase
-            .from("usuarios")
-            .update({ etapa: "cadastro_vaga_titulo" })
-            .eq("id", user.id);
-
-          return sendText(phone, "Qual o título da vaga?");
+          await updateEtapa(user.id, "cadastro_vaga");
+          return sendText(phone, "Título da vaga:");
         }
 
-        return sendList(phone,
-          "Menu principal:",
-          [
-            {
-              title: "Opções",
-              rows: [
-                { id: "ver_vagas", title: "Ver vagas" },
-                { id: "buscar_servico", title: "Buscar serviço" },
-                { id: "cadastrar_servico", title: "Cadastrar serviço" },
-                { id: "criar_vaga", title: "Criar vaga" }
-              ]
-            }
-          ]
-        );
+        return sendMenu(phone);
 
+      // 🟢 BUSCA
       case "buscando_servico":
-
-        if(!text){
-          return sendText(phone, "Digite algo como: pintor, eletricista...");
-        }
 
         const servicos = await getServicos(text, user);
 
         if(!servicos.length){
-          return sendText(phone, "Nenhum profissional encontrado.");
+          return sendText(phone, "Nada encontrado.");
         }
 
-        let out = "🧑‍🔧 Profissionais:\n";
+        let lista = "🧑‍🔧 Profissionais:\n";
         servicos.slice(0,5).forEach(s=>{
-          out += `\n• ${s.titulo} - ${s.cidade}`;
+          lista += `\n• ${s.titulo} - ${s.cidade}`;
         });
 
-        return sendText(phone, out);
+        return sendText(phone, lista);
 
-      case "cadastro_servico_titulo":
-
-        if(!text){
-          return sendText(phone, "Digite o nome do serviço:");
-        }
+      // 🟢 CADASTRAR SERVIÇO
+      case "cadastro_servico":
 
         await supabase.from("servicos").insert({
           usuario_id: user.id,
@@ -254,18 +195,11 @@ Como você quer usar?`,
           ativo: true
         });
 
-        await supabase
-          .from("usuarios")
-          .update({ etapa: "menu" })
-          .eq("id", user.id);
-
+        await updateEtapa(user.id, "menu");
         return sendText(phone, "✅ Serviço cadastrado!");
 
-      case "cadastro_vaga_titulo":
-
-        if(!text){
-          return sendText(phone, "Digite o título da vaga:");
-        }
+      // 🟢 CADASTRAR VAGA
+      case "cadastro_vaga":
 
         await supabase.from("vagas").insert({
           empresa_id: user.id,
@@ -273,32 +207,50 @@ Como você quer usar?`,
           status: "aberta"
         });
 
-        await supabase
-          .from("usuarios")
-          .update({ etapa: "menu" })
-          .eq("id", user.id);
-
+        await updateEtapa(user.id, "menu");
         return sendText(phone, "✅ Vaga criada!");
 
       default:
-        console.log("⚠️ etapa inválida:", user.etapa);
-
-        await supabase
-          .from("usuarios")
-          .update({ etapa: "onboarding" })
-          .eq("id", user.id);
-
-        return sendButtons(phone,
-          "Vamos recomeçar 👇",
-          [
-            { id: "emprego", title: "Procurar emprego" },
-            { id: "empresa", title: "Sou empresa" },
-            { id: "profissional", title: "Oferecer serviços" }
-          ]
-        );
+        return sendMenu(phone);
     }
 
   } catch (err) {
-    console.error("❌ erro geral no bot:", err);
+    console.error("❌ ERRO GERAL:", err);
   }
+}
+
+// 🔧 HELPERS
+
+async function updateEtapa(userId, etapa){
+  await supabase
+    .from("usuarios")
+    .update({ etapa })
+    .eq("id", userId);
+}
+
+function sendMenu(phone){
+  return sendList(phone,
+    "Menu principal:",
+    [
+      {
+        title: "Empregos",
+        rows: [
+          { id: "ver_vagas", title: "Ver vagas" }
+        ]
+      },
+      {
+        title: "Serviços",
+        rows: [
+          { id: "buscar_servico", title: "Buscar serviço" },
+          { id: "cadastrar_servico", title: "Cadastrar serviço" }
+        ]
+      },
+      {
+        title: "Empresa",
+        rows: [
+          { id: "criar_vaga", title: "Criar vaga" }
+        ]
+      }
+    ]
+  );
 }
