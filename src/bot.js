@@ -3,10 +3,21 @@ import { sendText, sendButtons, sendList } from "./services/whatsapp.js";
 import { getVagasForUser } from "./modules/vagas.js";
 import { getServicos } from "./modules/servicos.js";
 
-export async function handleMessage(msg){
-  try {
+// 🔥 LOCK DE PROCESSAMENTO POR USUÁRIO
+const processingUsers = new Set();
 
-    const phone = msg.from;
+export async function handleMessage(msg){
+  const phone = msg.from;
+
+  // 🔒 EVITA PROCESSAMENTO DUPLICADO / CONCORRÊNCIA
+  if (processingUsers.has(phone)) {
+    console.log("⏳ ignorado (já processando):", phone);
+    return;
+  }
+
+  processingUsers.add(phone);
+
+  try {
 
     const text =
       msg.interactive?.button_reply?.id ||
@@ -26,18 +37,18 @@ export async function handleMessage(msg){
       .eq("telefone", phone)
       .maybeSingle();
 
-    // 🆕 NOVO USUÁRIO
-    if(!user){
-      await supabase
-        .from("usuarios")
-        .insert({
-          telefone: phone,
-          etapa: "onboarding",
-          ativo: true
-        });
+    // 🆕 CRIAR USUÁRIO
+    if (!user) {
+      await supabase.from("usuarios").insert({
+        telefone: phone,
+        etapa: "onboarding",
+        ativo: true
+      });
 
       return sendWelcome(phone);
     }
+
+    console.log("📌 etapa atual:", user.etapa);
 
     // 🔥 RESET (SÓ TEXTO)
     if (isText && ["oi", "menu", "inicio"].includes(text)) {
@@ -57,12 +68,14 @@ export async function handleMessage(msg){
       return sendWelcome(phone);
     }
 
-    // 🔁 SEMPRE PEGAR ESTADO ATUALIZADO
-    user = (await supabase
+    // 🔁 SEMPRE RECARREGA USUÁRIO ATUALIZADO
+    const { data: freshUser } = await supabase
       .from("usuarios")
       .select("*")
       .eq("id", user.id)
-      .single()).data;
+      .single();
+
+    user = freshUser;
 
     // 🔁 FLUXO
     switch(user.etapa){
@@ -189,6 +202,8 @@ export async function handleMessage(msg){
 
   } catch (err) {
     console.error("❌ ERRO GERAL:", err);
+  } finally {
+    processingUsers.delete(phone);
   }
 }
 
