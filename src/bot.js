@@ -3,19 +3,42 @@ import { sendText, sendButtons, sendList } from "./services/whatsapp.js";
 import { getVagasForUser } from "./modules/vagas.js";
 import { getServicos } from "./modules/servicos.js";
 
+// 🔒 anti duplicação simples em memória
+const processed = new Set();
+
 export async function handleMessage(msg){
   try {
 
+    // 🔥 IGNORAR STATUS / EVENTOS SEM TEXTO
+    if (!msg || !msg.from) return;
+
+    if (processed.has(msg.id)) {
+      console.log("🔁 duplicado ignorado:", msg.id);
+      return;
+    }
+
+    processed.add(msg.id);
+    setTimeout(() => processed.delete(msg.id), 30000);
+
     const phone = msg.from;
 
+    // 🔥 PRIORIDADE CORRETA
     const text =
       msg.interactive?.button_reply?.id ||
       msg.interactive?.list_reply?.id ||
       msg.text?.body?.toLowerCase().trim() ||
       "";
 
+    const isText = msg.type === "text";
+
     console.log("📱 telefone:", phone);
     console.log("💬 texto:", text);
+    console.log("📦 tipo:", msg.type);
+
+    if (!text) {
+      console.log("⚠️ mensagem vazia ignorada");
+      return;
+    }
 
     // 🔥 BUSCAR USUÁRIO
     let { data: user } = await supabase
@@ -36,74 +59,49 @@ export async function handleMessage(msg){
         .select()
         .single();
 
-      return sendButtons(phone,
-`👋 Bem-vindo ao seu hub de oportunidades locais.
-
-Como você quer usar?`,
-      [
-        { id: "emprego", title: "Procurar emprego" },
-        { id: "empresa", title: "Sou empresa" },
-        { id: "profissional", title: "Oferecer serviços" }
-      ]);
+      return sendWelcome(phone);
     }
 
-    // 🔥 RESET CONTROLADO (SÓ NO MENU)
-    if (["oi", "menu", "inicio"].includes(text)) {
-  console.log("🔄 resetando fluxo do usuário");
+    // 🔥 RESET CONTROLADO (SÓ TEXTO REAL)
+    if (isText && ["oi", "menu", "inicio"].includes(text)) {
+      console.log("🔄 resetando usuário");
 
-  await supabase
-    .from("usuarios")
-    .update({
-      etapa: "onboarding",
-      tipo: null,
-      nome: null,
-      cidade: null
-    })
-    .eq("id", user.id);
+      await supabase
+        .from("usuarios")
+        .update({
+          etapa: "onboarding",
+          tipo: null,
+          nome: null,
+          cidade: null
+        })
+        .eq("id", user.id);
 
-  return sendButtons(phone,
-`👋 Vamos começar do zero.
+      return sendWelcome(phone);
+    }
 
-Como você quer usar?`,
-  [
-    { id: "emprego", title: "Procurar emprego" },
-    { id: "empresa", title: "Sou empresa" },
-    { id: "profissional", title: "Oferecer serviços" }
-  ]);
-}
-
-    // 🔁 FLUXO
+    // 🔁 FLUXO PRINCIPAL
     switch(user.etapa){
 
       // 🟢 ONBOARDING
       case "onboarding":
 
-  if(!["emprego","empresa","profissional"].includes(text)){
-    return sendButtons(phone,
-      "Escolha uma opção 👇",
-      [
-        { id: "emprego", title: "Procurar emprego" },
-        { id: "empresa", title: "Sou empresa" },
-        { id: "profissional", title: "Oferecer serviços" }
-      ]
-    );
-  }
+        if(!["emprego","empresa","profissional"].includes(text)){
+          return sendWelcome(phone);
+        }
 
-  let tipo = "usuario";
-  if(text === "empresa") tipo = "empresa";
-  if(text === "profissional") tipo = "profissional";
+        let tipo = "usuario";
+        if(text === "empresa") tipo = "empresa";
+        if(text === "profissional") tipo = "profissional";
 
-  await supabase
-    .from("usuarios")
-    .update({
-      tipo,
-      etapa: "cadastro_nome"
-    })
-    .eq("id", user.id);
+        await updateUser(user.id, {
+          tipo,
+          etapa: "cadastro_nome"
+        });
 
-  user.etapa = "cadastro_nome"; // 🔥 CRÍTICO
+        user.etapa = "cadastro_nome";
 
-  return sendText(phone, "Qual seu nome?");
+        return sendText(phone, "Qual seu nome?");
+
 
       // 🟢 NOME
       case "cadastro_nome":
@@ -112,15 +110,15 @@ Como você quer usar?`,
           return sendText(phone, "Digite seu nome:");
         }
 
-        await supabase
-          .from("usuarios")
-          .update({
-            nome: text,
-            etapa: "cadastro_cidade"
-          })
-          .eq("id", user.id);
+        await updateUser(user.id, {
+          nome: text,
+          etapa: "cadastro_cidade"
+        });
+
+        user.etapa = "cadastro_cidade";
 
         return sendText(phone, "Qual sua cidade?");
+
 
       // 🟢 CIDADE
       case "cadastro_cidade":
@@ -129,15 +127,15 @@ Como você quer usar?`,
           return sendText(phone, "Digite uma cidade válida:");
         }
 
-        await supabase
-          .from("usuarios")
-          .update({
-            cidade: text,
-            etapa: "menu"
-          })
-          .eq("id", user.id);
+        await updateUser(user.id, {
+          cidade: text,
+          etapa: "menu"
+        });
+
+        user.etapa = "menu";
 
         return sendMenu(phone);
+
 
       // 🟢 MENU
       case "menu":
@@ -158,21 +156,28 @@ Como você quer usar?`,
         }
 
         if(text === "buscar_servico"){
-          await updateEtapa(user.id, "buscando_servico");
+          await updateUser(user.id, { etapa: "buscando_servico" });
+          user.etapa = "buscando_servico";
+
           return sendText(phone, "Digite o serviço:");
         }
 
         if(text === "cadastrar_servico"){
-          await updateEtapa(user.id, "cadastro_servico");
+          await updateUser(user.id, { etapa: "cadastro_servico" });
+          user.etapa = "cadastro_servico";
+
           return sendText(phone, "Nome do serviço:");
         }
 
         if(text === "criar_vaga"){
-          await updateEtapa(user.id, "cadastro_vaga");
+          await updateUser(user.id, { etapa: "cadastro_vaga" });
+          user.etapa = "cadastro_vaga";
+
           return sendText(phone, "Título da vaga:");
         }
 
         return sendMenu(phone);
+
 
       // 🟢 BUSCA
       case "buscando_servico":
@@ -190,6 +195,7 @@ Como você quer usar?`,
 
         return sendText(phone, lista);
 
+
       // 🟢 CADASTRAR SERVIÇO
       case "cadastro_servico":
 
@@ -199,8 +205,11 @@ Como você quer usar?`,
           ativo: true
         });
 
-        await updateEtapa(user.id, "menu");
+        await updateUser(user.id, { etapa: "menu" });
+        user.etapa = "menu";
+
         return sendText(phone, "✅ Serviço cadastrado!");
+
 
       // 🟢 CADASTRAR VAGA
       case "cadastro_vaga":
@@ -211,10 +220,14 @@ Como você quer usar?`,
           status: "aberta"
         });
 
-        await updateEtapa(user.id, "menu");
+        await updateUser(user.id, { etapa: "menu" });
+        user.etapa = "menu";
+
         return sendText(phone, "✅ Vaga criada!");
 
+
       default:
+        console.log("⚠️ etapa desconhecida:", user.etapa);
         return sendMenu(phone);
     }
 
@@ -223,17 +236,35 @@ Como você quer usar?`,
   }
 }
 
-// 🔧 HELPERS
 
-async function updateEtapa(userId, etapa){
+// ==========================
+// 🔧 HELPERS
+// ==========================
+
+async function updateUser(userId, data){
   await supabase
     .from("usuarios")
-    .update({ etapa })
+    .update(data)
     .eq("id", userId);
 }
 
+function sendWelcome(phone){
+  return sendButtons(
+    phone,
+`👋 Bem-vindo ao seu hub de oportunidades locais.
+
+Como você quer usar?`,
+    [
+      { id: "emprego", title: "Procurar emprego" },
+      { id: "empresa", title: "Sou empresa" },
+      { id: "profissional", title: "Oferecer serviços" }
+    ]
+  );
+}
+
 function sendMenu(phone){
-  return sendList(phone,
+  return sendList(
+    phone,
     "Menu principal:",
     [
       {
