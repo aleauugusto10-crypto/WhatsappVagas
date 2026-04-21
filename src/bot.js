@@ -3,26 +3,11 @@ import { sendText, sendButtons, sendList } from "./services/whatsapp.js";
 import { getVagasForUser } from "./modules/vagas.js";
 import { getServicos } from "./modules/servicos.js";
 
-// 🔒 anti duplicação simples em memória
-const processed = new Set();
-
 export async function handleMessage(msg){
   try {
 
-    // 🔥 IGNORAR STATUS / EVENTOS SEM TEXTO
-    if (!msg || !msg.from) return;
-
-    if (processed.has(msg.id)) {
-      console.log("🔁 duplicado ignorado:", msg.id);
-      return;
-    }
-
-    processed.add(msg.id);
-    setTimeout(() => processed.delete(msg.id), 30000);
-
     const phone = msg.from;
 
-    // 🔥 PRIORIDADE CORRETA
     const text =
       msg.interactive?.button_reply?.id ||
       msg.interactive?.list_reply?.id ||
@@ -33,38 +18,31 @@ export async function handleMessage(msg){
 
     console.log("📱 telefone:", phone);
     console.log("💬 texto:", text);
-    console.log("📦 tipo:", msg.type);
 
-    if (!text) {
-      console.log("⚠️ mensagem vazia ignorada");
-      return;
-    }
-
-    // 🔥 BUSCAR USUÁRIO
+    // 🔍 BUSCAR USUÁRIO
     let { data: user } = await supabase
       .from("usuarios")
       .select("*")
       .eq("telefone", phone)
       .maybeSingle();
 
-    // 🟡 NOVO USUÁRIO
+    // 🆕 NOVO USUÁRIO
     if(!user){
-      const { data: newUser } = await supabase
+      await supabase
         .from("usuarios")
         .insert({
           telefone: phone,
           etapa: "onboarding",
           ativo: true
-        })
-        .select()
-        .single();
+        });
 
       return sendWelcome(phone);
     }
 
-    // 🔥 RESET CONTROLADO (SÓ TEXTO REAL)
+    // 🔥 RESET (SÓ TEXTO)
     if (isText && ["oi", "menu", "inicio"].includes(text)) {
-      console.log("🔄 resetando usuário");
+
+      console.log("🔄 RESETANDO USUÁRIO");
 
       await supabase
         .from("usuarios")
@@ -79,10 +57,16 @@ export async function handleMessage(msg){
       return sendWelcome(phone);
     }
 
-    // 🔁 FLUXO PRINCIPAL
+    // 🔁 SEMPRE PEGAR ESTADO ATUALIZADO
+    user = (await supabase
+      .from("usuarios")
+      .select("*")
+      .eq("id", user.id)
+      .single()).data;
+
+    // 🔁 FLUXO
     switch(user.etapa){
 
-      // 🟢 ONBOARDING
       case "onboarding":
 
         if(!["emprego","empresa","profissional"].includes(text)){
@@ -98,12 +82,8 @@ export async function handleMessage(msg){
           etapa: "cadastro_nome"
         });
 
-        user.etapa = "cadastro_nome";
-
         return sendText(phone, "Qual seu nome?");
 
-
-      // 🟢 NOME
       case "cadastro_nome":
 
         if(!text || text.length < 3){
@@ -115,12 +95,8 @@ export async function handleMessage(msg){
           etapa: "cadastro_cidade"
         });
 
-        user.etapa = "cadastro_cidade";
-
         return sendText(phone, "Qual sua cidade?");
 
-
-      // 🟢 CIDADE
       case "cadastro_cidade":
 
         if(!text || text.length < 3){
@@ -132,12 +108,8 @@ export async function handleMessage(msg){
           etapa: "menu"
         });
 
-        user.etapa = "menu";
-
         return sendMenu(phone);
 
-
-      // 🟢 MENU
       case "menu":
 
         if(text === "ver_vagas"){
@@ -157,29 +129,21 @@ export async function handleMessage(msg){
 
         if(text === "buscar_servico"){
           await updateUser(user.id, { etapa: "buscando_servico" });
-          user.etapa = "buscando_servico";
-
           return sendText(phone, "Digite o serviço:");
         }
 
         if(text === "cadastrar_servico"){
           await updateUser(user.id, { etapa: "cadastro_servico" });
-          user.etapa = "cadastro_servico";
-
           return sendText(phone, "Nome do serviço:");
         }
 
         if(text === "criar_vaga"){
           await updateUser(user.id, { etapa: "cadastro_vaga" });
-          user.etapa = "cadastro_vaga";
-
           return sendText(phone, "Título da vaga:");
         }
 
         return sendMenu(phone);
 
-
-      // 🟢 BUSCA
       case "buscando_servico":
 
         const servicos = await getServicos(text, user);
@@ -195,8 +159,6 @@ export async function handleMessage(msg){
 
         return sendText(phone, lista);
 
-
-      // 🟢 CADASTRAR SERVIÇO
       case "cadastro_servico":
 
         await supabase.from("servicos").insert({
@@ -206,12 +168,9 @@ export async function handleMessage(msg){
         });
 
         await updateUser(user.id, { etapa: "menu" });
-        user.etapa = "menu";
 
         return sendText(phone, "✅ Serviço cadastrado!");
 
-
-      // 🟢 CADASTRAR VAGA
       case "cadastro_vaga":
 
         await supabase.from("vagas").insert({
@@ -221,14 +180,11 @@ export async function handleMessage(msg){
         });
 
         await updateUser(user.id, { etapa: "menu" });
-        user.etapa = "menu";
 
         return sendText(phone, "✅ Vaga criada!");
 
-
       default:
-        console.log("⚠️ etapa desconhecida:", user.etapa);
-        return sendMenu(phone);
+        return sendWelcome(phone);
     }
 
   } catch (err) {
@@ -236,10 +192,7 @@ export async function handleMessage(msg){
   }
 }
 
-
-// ==========================
 // 🔧 HELPERS
-// ==========================
 
 async function updateUser(userId, data){
   await supabase
@@ -263,8 +216,7 @@ Como você quer usar?`,
 }
 
 function sendMenu(phone){
-  return sendList(
-    phone,
+  return sendList(phone,
     "Menu principal:",
     [
       {
