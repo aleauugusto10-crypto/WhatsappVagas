@@ -78,29 +78,32 @@ Como você quer usar?`,
       // 🟢 ONBOARDING
       case "onboarding":
 
-        if(!["emprego","empresa","profissional"].includes(text)){
-          return sendButtons(phone,
-`Escolha uma opção 👇`,
-          [
-            { id: "emprego", title: "Procurar emprego" },
-            { id: "empresa", title: "Sou empresa" },
-            { id: "profissional", title: "Oferecer serviços" }
-          ]);
-        }
+  if(!["emprego","empresa","profissional"].includes(text)){
+    return sendButtons(phone,
+      "Escolha uma opção 👇",
+      [
+        { id: "emprego", title: "Procurar emprego" },
+        { id: "empresa", title: "Sou empresa" },
+        { id: "profissional", title: "Oferecer serviços" }
+      ]
+    );
+  }
 
-        let tipo = "usuario";
-        if(text === "empresa") tipo = "empresa";
-        if(text === "profissional") tipo = "profissional";
+  let tipo = "usuario";
+  if(text === "empresa") tipo = "empresa";
+  if(text === "profissional") tipo = "profissional";
 
-        await supabase
-          .from("usuarios")
-          .update({
-            tipo,
-            etapa: "cadastro_nome"
-          })
-          .eq("id", user.id);
+  await supabase
+    .from("usuarios")
+    .update({
+      tipo,
+      etapa: "cadastro_nome"
+    })
+    .eq("id", user.id);
 
-        return sendText(phone, "Qual seu nome?");
+  user.etapa = "cadastro_nome"; // 🔥 CRÍTICO
+
+  return sendText(phone, "Qual seu nome?");
 
       // 🟢 NOME
       case "cadastro_nome":
