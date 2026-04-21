@@ -1,62 +1,115 @@
 import { sendText } from "../services/whatsapp.js";
-import { inferCategoryFromText } from "../lib/categories.js";
 
-export async function handleMissions(user, text, phone, supabase, updateUser) {
-  switch (user.etapa) {
-    case "missao_titulo": {
-      if (!text || text.length < 3) return sendText(phone, "Título da missão:");
-      await updateUser({ missao_titulo: text, etapa: "missao_desc" });
-      return sendText(phone, "Descreva melhor o que precisa:");
-    }
+function inferCategoria(text = "") {
+  const t = String(text).toLowerCase();
 
-    case "missao_desc": {
-      if (!text || text.length < 5) return sendText(phone, "Descreva melhor:");
-      const cat = inferCategoryFromText(text) || "outros";
-      await updateUser({ missao_desc: text, missao_categoria: cat, etapa: "missao_valor" });
-      return sendText(phone, "Qual valor você paga? (ex: 50)");
-    }
+  if (t.includes("limp") || t.includes("faxina") || t.includes("lavar")) return "limpeza";
+  if (t.includes("frete") || t.includes("mudan") || t.includes("transport")) return "frete";
+  if (t.includes("pet") || t.includes("cachorro") || t.includes("passear")) return "passeio_pet";
+  if (t.includes("jard")) return "jardinagem";
+  if (t.includes("mont")) return "montagem";
+  if (t.includes("entrega")) return "entrega";
 
-    case "missao_valor": {
-      const valor = Number(text.replace(",", "."));
-      if (!valor || valor <= 0) return sendText(phone, "Digite um valor válido:");
-      await updateUser({ missao_valor: valor, etapa: "missao_confirm" });
-      return sendText(phone, `Confirmar missão?\n\n"${user.missao_titulo}"\n💰 R$ ${valor}\n\nResponda: confirmar`);
-    }
+  return "outros";
+}
 
-    case "missao_confirm": {
-      if (text !== "confirmar") return sendText(phone, "Digite 'confirmar' para publicar.");
-
-      // cria missão
-      const { error } = await supabase.from("missoes").insert({
-        usuario_id: user.id,
-        titulo: user.missao_titulo,
-        descricao: user.missao_desc,
-        categoria: user.missao_categoria,
-        valor: user.missao_valor,
-        cidade: user.cidade,
-        status: "aberta",
-      });
-
-      if (error) {
-        console.error(error);
-        return sendText(phone, "Erro ao criar missão.");
-      }
-
-      await updateUser({ etapa: "menu" });
-      return sendText(phone, "🚀 Missão publicada!");
-    }
-  }
-
+export async function handleMissions({
+  user,
+  text,
+  phone,
+  supabase,
+  updateUser,
+}) {
   if (text === "contratar_criar_missao") {
     await updateUser({ etapa: "missao_titulo" });
-    return sendText(phone, "Título da missão:\nEx: Lavar garagem");
+    return sendText(phone, "Qual o título da missão?\nEx: Lavar garagem");
   }
 
   if (text === "user_ver_missoes") {
-    // MOCK v1
+    const { data: missoes, error } = await supabase
+      .from("missoes")
+      .select("*")
+      .eq("status", "aberta")
+      .limit(5);
+
+    if (error) {
+      console.error("❌ erro ao buscar missões:", error);
+      return sendText(phone, "Erro ao buscar missões.");
+    }
+
+    if (!missoes?.length) {
+      return sendText(phone, "Sem missões no momento.");
+    }
+
+    let out = "🔥 Missões disponíveis:\n";
+    for (const m of missoes) {
+      out += `\n• ${m.titulo} - R$ ${Number(m.valor).toFixed(2)}`;
+    }
+
+    return sendText(phone, out);
+  }
+
+  if (user.etapa === "missao_titulo") {
+    if (!text || text.length < 3) {
+      return sendText(phone, "Digite um título válido para a missão:");
+    }
+
+    await updateUser({
+      missao_titulo: text,
+      etapa: "missao_desc",
+    });
+
+    return sendText(phone, "Agora descreva melhor o que precisa:");
+  }
+
+  if (user.etapa === "missao_desc") {
+    if (!text || text.length < 5) {
+      return sendText(phone, "Descreva melhor a missão:");
+    }
+
+    await updateUser({
+      missao_desc: text,
+      etapa: "missao_valor",
+    });
+
+    return sendText(phone, "Qual valor você quer pagar?\nEx: 50");
+  }
+
+  if (user.etapa === "missao_valor") {
+    const valor = Number(String(text).replace(",", "."));
+
+    if (!valor || valor <= 0) {
+      return sendText(phone, "Digite um valor válido.\nEx: 50");
+    }
+
+    const categoria = inferCategoria(user.missao_desc || "");
+
+    const { error } = await supabase.from("missoes").insert({
+      usuario_id: user.id,
+      titulo: user.missao_titulo,
+      descricao: user.missao_desc,
+      valor,
+      categoria_chave: categoria,
+      cidade: user.cidade,
+      estado: user.estado,
+      status: "aberta",
+      pagamento_status: "pendente",
+    });
+
+    if (error) {
+      console.error("❌ erro ao criar missão:", error);
+      return sendText(phone, "Erro ao criar missão.");
+    }
+
+    await updateUser({
+      etapa: "menu",
+      missao_titulo: null,
+      missao_desc: null,
+    });
+
     return sendText(
       phone,
-      "🔥 Missões disponíveis:\n\n• Lavar garagem - R$ 50\n• Frete pequeno - R$ 80\n• Passear com cachorro - R$ 30\n\n(Em breve com botão de aceitar + fila)"
+      `🚀 Missão criada com sucesso!\n\nTítulo: ${user.missao_titulo}\nValor: R$ ${valor.toFixed(2)}`
     );
   }
 
