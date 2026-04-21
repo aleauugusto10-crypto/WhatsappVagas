@@ -16,7 +16,7 @@ export async function handleMessage(msg){
     console.log("📱 telefone:", phone);
     console.log("💬 texto:", text);
 
-    // 🔥 CORREÇÃO CRÍTICA AQUI
+    // 🔎 BUSCAR USUÁRIO
     let { data: user, error } = await supabase
       .from("usuarios")
       .select("*")
@@ -28,27 +28,18 @@ export async function handleMessage(msg){
       return;
     }
 
-    // 🟡 NOVO USUÁRIO
+    // 🆕 NOVO USUÁRIO
     if(!user){
       console.log("🆕 criando novo usuário");
 
-      const { data: newUser, error: insertError } = await supabase
-        .from("usuarios")
-        .insert({
-          telefone: phone,
-          etapa: "onboarding",
-          ativo: true
-        })
-        .select()
-        .single();
-
-      if(insertError){
-        console.error("❌ erro ao criar usuário:", insertError);
-        return sendText(phone, "Erro ao iniciar cadastro.");
-      }
+      await supabase.from("usuarios").insert({
+        telefone: phone,
+        etapa: "onboarding",
+        ativo: true
+      });
 
       return sendButtons(phone,
-`👋 Bem-vindo ao seu hub de oportunidades locais.
+`👋 Bem-vindo ao seu hub de oportunidades.
 
 💼 Encontre empregos  
 🧑‍🔧 Encontre ou divulgue serviços  
@@ -62,10 +53,41 @@ Como você quer usar?`,
       ]);
     }
 
-    // 🔁 FLUXO PRINCIPAL
+    // 🔥 CORREÇÃO: usuário sem etapa
+    if(!user.etapa){
+      console.log("⚠️ usuário sem etapa, resetando");
+
+      await supabase
+        .from("usuarios")
+        .update({ etapa: "onboarding" })
+        .eq("id", user.id);
+
+      return sendButtons(phone,
+        "Vamos começar rapidinho 👇",
+        [
+          { id: "emprego", title: "Procurar emprego" },
+          { id: "empresa", title: "Sou empresa" },
+          { id: "profissional", title: "Oferecer serviços" }
+        ]
+      );
+    }
+
+    // 🔁 FLUXO
     switch(user.etapa){
 
       case "onboarding":
+
+        if(!text){
+          return sendButtons(phone,
+            "Escolha uma opção 👇",
+            [
+              { id: "emprego", title: "Procurar emprego" },
+              { id: "empresa", title: "Sou empresa" },
+              { id: "profissional", title: "Oferecer serviços" }
+            ]
+          );
+        }
+
         let tipo = "usuario";
 
         if(text === "empresa") tipo = "empresa";
@@ -82,7 +104,10 @@ Como você quer usar?`,
         return sendText(phone, "Qual seu nome?");
 
       case "cadastro_nome":
-        if(!text) return sendText(phone, "Digite seu nome:");
+
+        if(!text){
+          return sendText(phone, "Digite seu nome:");
+        }
 
         await supabase
           .from("usuarios")
@@ -95,7 +120,10 @@ Como você quer usar?`,
         return sendText(phone, "Qual sua cidade?");
 
       case "cadastro_cidade":
-        if(!text) return sendText(phone, "Digite sua cidade:");
+
+        if(!text){
+          return sendText(phone, "Digite sua cidade:");
+        }
 
         await supabase
           .from("usuarios")
@@ -191,6 +219,10 @@ Como você quer usar?`,
 
       case "buscando_servico":
 
+        if(!text){
+          return sendText(phone, "Digite algo como: pintor, eletricista...");
+        }
+
         const servicos = await getServicos(text, user);
 
         if(!servicos.length){
@@ -205,6 +237,10 @@ Como você quer usar?`,
         return sendText(phone, out);
 
       case "cadastro_servico_titulo":
+
+        if(!text){
+          return sendText(phone, "Digite o nome do serviço:");
+        }
 
         await supabase.from("servicos").insert({
           usuario_id: user.id,
@@ -221,6 +257,10 @@ Como você quer usar?`,
 
       case "cadastro_vaga_titulo":
 
+        if(!text){
+          return sendText(phone, "Digite o título da vaga:");
+        }
+
         await supabase.from("vagas").insert({
           empresa_id: user.id,
           titulo: text,
@@ -235,8 +275,21 @@ Como você quer usar?`,
         return sendText(phone, "✅ Vaga criada!");
 
       default:
-        console.log("⚠️ etapa desconhecida:", user.etapa);
-        return sendText(phone, "Algo deu errado, vamos recomeçar.");
+        console.log("⚠️ etapa inválida:", user.etapa);
+
+        await supabase
+          .from("usuarios")
+          .update({ etapa: "onboarding" })
+          .eq("id", user.id);
+
+        return sendButtons(phone,
+          "Vamos recomeçar 👇",
+          [
+            { id: "emprego", title: "Procurar emprego" },
+            { id: "empresa", title: "Sou empresa" },
+            { id: "profissional", title: "Oferecer serviços" }
+          ]
+        );
     }
 
   } catch (err) {
