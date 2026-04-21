@@ -67,3 +67,7 @@ export function sendMenuEmpresa(phone) {
     },
   ]);
 }
+
+export function sendActionButtons(phone, body, buttons) {
+  return sendButtons(phone, body, buttons.slice(0, 3));
+}

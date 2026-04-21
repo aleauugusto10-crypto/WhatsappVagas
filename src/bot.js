@@ -127,16 +127,17 @@ export async function handleMessage(msg) {
       return updated;
     };
 
-    // 🔁 "oi/menu" agora respeita o tipo já cadastrado
     if (["oi", "menu", "inicio", "início"].includes(text)) {
       if (user.onboarding_finalizado) {
         return getMenuByTipo(user.tipo, phone);
       }
-
       return sendRootMenu(phone);
     }
 
-    // 🔄 redefinir perfil manual
+    if (text === "voltar_menu") {
+      return getMenuByTipo(user.tipo, phone);
+    }
+
     if (text === "redefinir_perfil") {
       const updated = await updateUser({
         etapa: "tipo",

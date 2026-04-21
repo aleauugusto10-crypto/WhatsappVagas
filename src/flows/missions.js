@@ -1,14 +1,21 @@
 import { sendText } from "../services/whatsapp.js";
+import { sendActionButtons } from "./menus.js";
 
 function inferCategoria(text = "") {
   const t = String(text).toLowerCase();
 
-  if (t.includes("limp") || t.includes("faxina") || t.includes("lavar")) return "limpeza";
-  if (t.includes("frete") || t.includes("mudan") || t.includes("transport")) return "frete";
-  if (t.includes("pet") || t.includes("cachorro") || t.includes("passear")) return "passeio_pet";
-  if (t.includes("jard")) return "jardinagem";
-  if (t.includes("mont")) return "montagem";
-  if (t.includes("entrega")) return "entrega";
+  if (t.includes("limp") || t.includes("faxina") || t.includes("lavar") || t.includes("capin"))
+    return "limpeza";
+  if (t.includes("frete") || t.includes("mudan") || t.includes("transport"))
+    return "frete";
+  if (t.includes("pet") || t.includes("cachorro") || t.includes("passear"))
+    return "passeio_pet";
+  if (t.includes("jard"))
+    return "jardinagem";
+  if (t.includes("mont"))
+    return "montagem";
+  if (t.includes("entrega"))
+    return "entrega";
 
   return "outros";
 }
@@ -21,8 +28,13 @@ export async function handleMissions({
   updateUser,
 }) {
   if (text === "contratar_criar_missao") {
-    await updateUser({ etapa: "missao_titulo" });
-    return sendText(phone, "Qual o título da missão?\nEx: Lavar garagem");
+    await updateUser({
+      etapa: "missao_titulo",
+      missao_titulo: null,
+      missao_desc: null,
+    });
+
+    return sendText(phone, "Qual o título da missão?\nEx: Capinar jardim");
   }
 
   if (text === "user_ver_missoes") {
@@ -30,15 +42,22 @@ export async function handleMissions({
       .from("missoes")
       .select("*")
       .eq("status", "aberta")
+      .order("created_at", { ascending: false })
       .limit(5);
 
     if (error) {
       console.error("❌ erro ao buscar missões:", error);
-      return sendText(phone, "Erro ao buscar missões.");
+      await sendText(phone, "Erro ao buscar missões.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
     }
 
     if (!missoes?.length) {
-      return sendText(phone, "Sem missões no momento.");
+      await sendText(phone, "Sem missões no momento.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
     }
 
     let out = "🔥 Missões disponíveis:\n";
@@ -46,7 +65,10 @@ export async function handleMissions({
       out += `\n• ${m.titulo} - R$ ${Number(m.valor).toFixed(2)}`;
     }
 
-    return sendText(phone, out);
+    await sendText(phone, out);
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
   }
 
   if (user.etapa === "missao_titulo") {
@@ -72,19 +94,19 @@ export async function handleMissions({
       etapa: "missao_valor",
     });
 
-    return sendText(phone, "Qual valor você quer pagar?\nEx: 50");
+    return sendText(phone, "Qual valor você quer pagar?\nEx: 40");
   }
 
   if (user.etapa === "missao_valor") {
     const valor = Number(String(text).replace(",", "."));
 
     if (!valor || valor <= 0) {
-      return sendText(phone, "Digite um valor válido.\nEx: 50");
+      return sendText(phone, "Digite um valor válido.\nEx: 40");
     }
 
-    const categoria = inferCategoria(user.missao_desc || "");
+    const categoria = inferCategoria(user.missao_desc || user.missao_titulo || "");
 
-    const { error } = await supabase.from("missoes").insert({
+    const payload = {
       usuario_id: user.id,
       titulo: user.missao_titulo,
       descricao: user.missao_desc,
@@ -94,11 +116,17 @@ export async function handleMissions({
       estado: user.estado,
       status: "aberta",
       pagamento_status: "pendente",
-    });
+    };
+
+    const { error } = await supabase.from("missoes").insert(payload);
 
     if (error) {
       console.error("❌ erro ao criar missão:", error);
-      return sendText(phone, "Erro ao criar missão.");
+      await sendText(phone, "Erro ao criar missão.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "contratar_criar_missao", title: "Tentar novamente" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
     }
 
     await updateUser({
@@ -107,10 +135,15 @@ export async function handleMissions({
       missao_desc: null,
     });
 
-    return sendText(
+    await sendText(
       phone,
-      `🚀 Missão criada com sucesso!\n\nTítulo: ${user.missao_titulo}\nValor: R$ ${valor.toFixed(2)}`
+      `🚀 Missão criada com sucesso!\n\nTítulo: ${payload.titulo}\nValor: R$ ${valor.toFixed(2)}`
     );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "contratar_criar_missao", title: "Criar outra missão" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
   }
 
   return false;
