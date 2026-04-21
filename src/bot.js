@@ -75,33 +75,39 @@ Como você quer usar?`,
     // 🔁 FLUXO
     switch(user.etapa){
 
-      case "onboarding":
+     case "onboarding":
 
-        if(!text){
-          return sendButtons(phone,
-            "Escolha uma opção 👇",
-            [
-              { id: "emprego", title: "Procurar emprego" },
-              { id: "empresa", title: "Sou empresa" },
-              { id: "profissional", title: "Oferecer serviços" }
-            ]
-          );
-        }
+  // 👉 se não clicou em botão válido
+  if(!["emprego", "empresa", "profissional"].includes(text)){
+    return sendButtons(phone,
+`👋 Bem-vindo ao seu hub de oportunidades locais.
 
-        let tipo = "usuario";
+💼 Encontre empregos  
+🧑‍🔧 Encontre ou divulgue serviços  
+🏢 Empresas contratam rápido  
 
-        if(text === "empresa") tipo = "empresa";
-        if(text === "profissional") tipo = "profissional";
+Como você quer usar?`,
+    [
+      { id: "emprego", title: "Procurar emprego" },
+      { id: "empresa", title: "Sou empresa" },
+      { id: "profissional", title: "Oferecer serviços" }
+    ]);
+  }
 
-        await supabase
-          .from("usuarios")
-          .update({
-            tipo,
-            etapa: "cadastro_nome"
-          })
-          .eq("id", user.id);
+  let tipo = "usuario";
 
-        return sendText(phone, "Qual seu nome?");
+  if(text === "empresa") tipo = "empresa";
+  if(text === "profissional") tipo = "profissional";
+
+  await supabase
+    .from("usuarios")
+    .update({
+      tipo,
+      etapa: "cadastro_nome"
+    })
+    .eq("id", user.id);
+
+  return sendText(phone, "Qual seu nome?");
 
       case "cadastro_nome":
 
