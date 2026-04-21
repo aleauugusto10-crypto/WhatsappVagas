@@ -8,7 +8,6 @@ export async function handleMessage(msg){
 
     const phone = msg.from;
 
-    // 🔥 PRIORIDADE CORRETA (interactive primeiro!)
     const text =
       msg.interactive?.button_reply?.id ||
       msg.interactive?.list_reply?.id ||
@@ -17,7 +16,6 @@ export async function handleMessage(msg){
 
     console.log("📱 telefone:", phone);
     console.log("💬 texto:", text);
-    console.log("📦 msg completa:", JSON.stringify(msg, null, 2));
 
     // 🔥 BUSCAR USUÁRIO
     let { data: user } = await supabase
@@ -41,10 +39,6 @@ export async function handleMessage(msg){
       return sendButtons(phone,
 `👋 Bem-vindo ao seu hub de oportunidades locais.
 
-💼 Encontre empregos  
-🧑‍🔧 Encontre ou divulgue serviços  
-🏢 Empresas contratam rápido  
-
 Como você quer usar?`,
       [
         { id: "emprego", title: "Procurar emprego" },
@@ -53,22 +47,9 @@ Como você quer usar?`,
       ]);
     }
 
-    // 🔥 RESET CONTROLADO (NÃO quebra botão)
-    if(["oi","menu","inicio"].includes(text)){
-      await supabase
-        .from("usuarios")
-        .update({ etapa: "onboarding" })
-        .eq("id", user.id);
-
-      return sendButtons(phone,
-`👋 Vamos recomeçar:
-
-Como você quer usar?`,
-      [
-        { id: "emprego", title: "Procurar emprego" },
-        { id: "empresa", title: "Sou empresa" },
-        { id: "profissional", title: "Oferecer serviços" }
-      ]);
+    // 🔥 RESET CONTROLADO (SÓ NO MENU)
+    if(["menu","inicio"].includes(text) && user.etapa === "menu"){
+      return sendMenu(phone);
     }
 
     // 🔁 FLUXO
@@ -104,7 +85,7 @@ Como você quer usar?`,
       // 🟢 NOME
       case "cadastro_nome":
 
-        if(!text || text.length < 3 || text === "oi"){
+        if(!text || text.length < 3){
           return sendText(phone, "Digite seu nome:");
         }
 
@@ -121,7 +102,7 @@ Como você quer usar?`,
       // 🟢 CIDADE
       case "cadastro_cidade":
 
-        if(!text || text.length < 3 || text === "oi"){
+        if(!text || text.length < 3){
           return sendText(phone, "Digite uma cidade válida:");
         }
 
