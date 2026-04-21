@@ -7,7 +7,9 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// 🔐 verificação do webhook
+/**
+ * 🔐 VERIFICAÇÃO DO WEBHOOK (Facebook)
+ */
 app.get("/webhook", (req, res) => {
   const verify_token = process.env.VERIFY_TOKEN;
 
@@ -19,28 +21,70 @@ app.get("/webhook", (req, res) => {
     console.log("✅ Webhook verificado");
     return res.status(200).send(challenge);
   } else {
+    console.log("❌ Falha na verificação");
     return res.sendStatus(403);
   }
 });
 
-// 📩 recebendo mensagens
+/**
+ * 📩 RECEBIMENTO DE EVENTOS DO WHATSAPP
+ */
 app.post("/webhook", async (req, res) => {
   try {
-    console.log("📩 mensagem recebida:", JSON.stringify(req.body, null, 2));
+    console.log("📩 webhook recebido");
 
-    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const entry = req.body.entry?.[0];
+    const change = entry?.changes?.[0];
+    const value = change?.value;
 
-    if (msg) {
-      await handleMessage(msg);
+    // 🚨 1. Ignorar eventos sem mensagens (status, delivery, etc)
+    if (!value || !value.messages) {
+      console.log("⛔ ignorando evento (sem messages)");
+      return res.sendStatus(200);
     }
 
-    res.sendStatus(200);
+    const msg = value.messages[0];
+
+    // 🚨 2. Validar mensagem
+    if (!msg || !msg.from) {
+      console.log("⛔ mensagem inválida");
+      return res.sendStatus(200);
+    }
+
+    // 🚨 3. Ignorar tipos que não são interação de usuário
+    const allowedTypes = ["text", "interactive"];
+
+    if (!allowedTypes.includes(msg.type)) {
+      console.log("⛔ tipo ignorado:", msg.type);
+      return res.sendStatus(200);
+    }
+
+    // 🔥 LOG LIMPO PRA DEBUG
+    console.log("📱 de:", msg.from);
+    console.log("💬 tipo:", msg.type);
+
+    if (msg.text) {
+      console.log("📝 texto:", msg.text.body);
+    }
+
+    if (msg.interactive) {
+      console.log("🧠 interação:", msg.interactive);
+    }
+
+    // 🚀 PROCESSAR MENSAGEM
+    await handleMessage(msg);
+
+    return res.sendStatus(200);
+
   } catch (err) {
     console.error("❌ erro no webhook:", err);
-    res.sendStatus(500);
+    return res.sendStatus(500);
   }
 });
 
+/**
+ * 🚀 START SERVER
+ */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
