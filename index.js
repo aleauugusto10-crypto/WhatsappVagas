@@ -7,8 +7,11 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+// 🔥 ANTI DUPLICAÇÃO EM MEMÓRIA
+const processedMessages = new Set();
+
 /**
- * 🔐 VERIFICAÇÃO DO WEBHOOK (Facebook)
+ * 🔐 VERIFICAÇÃO DO WEBHOOK (META)
  */
 app.get("/webhook", (req, res) => {
   const verify_token = process.env.VERIFY_TOKEN;
@@ -27,7 +30,7 @@ app.get("/webhook", (req, res) => {
 });
 
 /**
- * 📩 RECEBIMENTO DE EVENTOS DO WHATSAPP
+ * 📩 RECEBENDO EVENTOS DO WHATSAPP
  */
 app.post("/webhook", async (req, res) => {
   try {
@@ -37,21 +40,21 @@ app.post("/webhook", async (req, res) => {
     const change = entry?.changes?.[0];
     const value = change?.value;
 
-    // 🚨 1. Ignorar eventos sem mensagens (status, delivery, etc)
+    // 🚨 1. IGNORAR EVENTOS SEM MENSAGEM
     if (!value || !value.messages) {
-      console.log("⛔ ignorando evento (sem messages)");
+      console.log("⛔ ignorado: sem messages (status/evento)");
       return res.sendStatus(200);
     }
 
     const msg = value.messages[0];
 
-    // 🚨 2. Validar mensagem
-    if (!msg || !msg.from) {
+    // 🚨 2. VALIDAR MENSAGEM
+    if (!msg || !msg.from || !msg.id) {
       console.log("⛔ mensagem inválida");
       return res.sendStatus(200);
     }
 
-    // 🚨 3. Ignorar tipos que não são interação de usuário
+    // 🚨 3. IGNORAR TIPOS NÃO SUPORTADOS
     const allowedTypes = ["text", "interactive"];
 
     if (!allowedTypes.includes(msg.type)) {
@@ -59,7 +62,20 @@ app.post("/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    // 🔥 LOG LIMPO PRA DEBUG
+    // 🔥 4. ANTI DUPLICAÇÃO
+    if (processedMessages.has(msg.id)) {
+      console.log("🔁 duplicado ignorado:", msg.id);
+      return res.sendStatus(200);
+    }
+
+    processedMessages.add(msg.id);
+
+    // limpa depois de 60s
+    setTimeout(() => {
+      processedMessages.delete(msg.id);
+    }, 60000);
+
+    // 🔍 LOGS PRA DEBUG
     console.log("📱 de:", msg.from);
     console.log("💬 tipo:", msg.type);
 
@@ -68,10 +84,10 @@ app.post("/webhook", async (req, res) => {
     }
 
     if (msg.interactive) {
-      console.log("🧠 interação:", msg.interactive);
+      console.log("🧠 interação:", JSON.stringify(msg.interactive, null, 2));
     }
 
-    // 🚀 PROCESSAR MENSAGEM
+    // 🚀 PROCESSA
     await handleMessage(msg);
 
     return res.sendStatus(200);
@@ -83,7 +99,7 @@ app.post("/webhook", async (req, res) => {
 });
 
 /**
- * 🚀 START SERVER
+ * 🚀 START DO SERVIDOR
  */
 const PORT = process.env.PORT || 3000;
 
