@@ -52,7 +52,7 @@ export async function handleMessage(msg) {
         .insert({
           telefone: phone,
           etapa: "onboarding",
-          tipo: "pendente",
+          tipo: "usuario",
           ativo: true,
         })
         .select()
@@ -74,7 +74,7 @@ export async function handleMessage(msg) {
 
       const updated = await updateUser(user.id, {
         etapa: "onboarding",
-        tipo: "pendente",
+        tipo: "usuario",
         nome: null,
         cidade: null,
       });
@@ -257,7 +257,7 @@ export async function handleMessage(msg) {
       default: {
         const updated = await updateUser(user.id, {
           etapa: "onboarding",
-          tipo: "pendente",
+          tipo: "usuario",
         });
 
         if (!updated) return;
