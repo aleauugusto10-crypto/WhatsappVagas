@@ -10,12 +10,24 @@ import { createMercadoPagoPixIntent } from "../services/payments.js";
 function inferCategoria(text = "") {
   const t = String(text).toLowerCase();
 
-  if (t.includes("limp") || t.includes("faxina") || t.includes("lavar") || t.includes("capin")) return "limpeza";
-  if (t.includes("frete") || t.includes("mudan") || t.includes("transport")) return "frete";
-  if (t.includes("pet") || t.includes("cachorro") || t.includes("passear")) return "passeio_pet";
-  if (t.includes("jard")) return "jardinagem";
-  if (t.includes("mont")) return "montagem";
-  if (t.includes("entrega")) return "entrega";
+  if (t.includes("limp") || t.includes("faxina") || t.includes("lavar") || t.includes("capin")) {
+    return "limpeza";
+  }
+  if (t.includes("frete") || t.includes("mudan") || t.includes("transport")) {
+    return "frete";
+  }
+  if (t.includes("pet") || t.includes("cachorro") || t.includes("passear")) {
+    return "passeio_pet";
+  }
+  if (t.includes("jard")) {
+    return "jardinagem";
+  }
+  if (t.includes("mont")) {
+    return "montagem";
+  }
+  if (t.includes("entrega")) {
+    return "entrega";
+  }
 
   return "outros";
 }
@@ -52,10 +64,10 @@ function statusLabel(status) {
   return map[status] || status;
 }
 
-async function enviarMissaoParaDono(phone, missao, interessado, sendActionButtonsFn) {
-  return sendActionButtonsFn(
+async function enviarMissaoParaDono(phone, missao, interessado) {
+  return sendActionButtons(
     phone,
-    `📩 Novo aceite de missão\n\nMissão: ${missao.titulo}\nInteressado: ${interessado.nome || "Usuário"}\nTelefone: ${interessado.telefone}`,
+    `📩 Novo interessado na sua missão\n\nMissão: ${missao.titulo}\nInteressado: ${interessado.nome || "Usuário"}\nTelefone: ${interessado.telefone}`,
     [
       { id: `missao_aprovar_${missao.id}_${interessado.id}`, title: "Aceitar executor" },
       { id: `missao_recusar_${missao.id}_${interessado.id}`, title: "Recusar" },
@@ -72,7 +84,7 @@ export async function handleMissions({
   updateUser,
 }) {
   // =====================
-  // LISTA PÚBLICA DE MISSÕES PARA TRABALHADOR
+  // LISTA PÚBLICA DE MISSÕES
   // =====================
 
   if (text === "user_ver_missoes") {
@@ -127,23 +139,11 @@ export async function handleMissions({
       ]);
     }
 
-    const { data: dono } = await supabase
-      .from("usuarios")
-      .select("id,nome,telefone")
-      .eq("id", missao.usuario_id)
-      .maybeSingle();
-
     await sendText(
       phone,
       `📌 ${missao.titulo}\n\nDescrição: ${missao.descricao || "-"}\nValor: R$ ${Number(
         missao.valor
       ).toFixed(2)}\nCidade: ${missao.cidade || "-"}`
-    );
-
-    // como WhatsApp comum não abre URL wa.me via botão reply, mandamos o número no texto
-    await sendText(
-      phone,
-      `📞 Para conversar com o dono da missão:\n${dono?.telefone || "Telefone indisponível"}`
     );
 
     return sendActionButtons(phone, "O que deseja fazer agora?", [
@@ -166,6 +166,10 @@ export async function handleMissions({
       return sendText(phone, "Missão não encontrada.");
     }
 
+    if (missao.usuario_id === user.id) {
+      return sendText(phone, "Você não pode aceitar a própria missão.");
+    }
+
     if (missao.status !== "aberta") {
       return sendText(phone, "Essa missão não está mais disponível.");
     }
@@ -183,7 +187,7 @@ export async function handleMissions({
 
     if (interessadoError) {
       console.error("❌ erro ao registrar interessado:", interessadoError);
-      return sendText(phone, "Erro ao registrar aceite.");
+      return sendText(phone, "Erro ao registrar interesse na missão.");
     }
 
     await supabase
@@ -194,27 +198,33 @@ export async function handleMissions({
 
     const { data: dono } = await supabase
       .from("usuarios")
-      .select("telefone")
+      .select("id,nome,telefone")
       .eq("id", missao.usuario_id)
       .maybeSingle();
 
     if (dono?.telefone) {
-      await enviarMissaoParaDono(
-        dono.telefone,
-        missao,
-        { id: user.id, nome: user.nome, telefone: user.telefone },
-        sendActionButtons
-      );
+      await enviarMissaoParaDono(dono.telefone, missao, {
+        id: user.id,
+        nome: user.nome,
+        telefone: user.telefone,
+      });
     }
 
-    return sendText(
+    await sendText(
       phone,
-      "✅ Seu interesse foi enviado ao dono da missão. Agora ele precisa aceitar você no sistema."
+      `✅ Seu interesse foi registrado com sucesso.\n\nAgora você já pode conversar com o dono da missão pelo número abaixo:\n${dono?.telefone || "Telefone indisponível"}`
     );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "user_ver_missoes", title: "Ver missões" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
   }
 
   if (text.startsWith("missao_aprovar_")) {
-    const [, , missaoId, executorId] = text.split("_");
+    const parts = text.split("_");
+    const missaoId = parts[2];
+    const executorId = parts[3];
 
     const { data: missao } = await supabase
       .from("missoes")
@@ -267,7 +277,9 @@ export async function handleMissions({
   }
 
   if (text.startsWith("missao_recusar_")) {
-    const [, , missaoId, executorId] = text.split("_");
+    const parts = text.split("_");
+    const missaoId = parts[2];
+    const executorId = parts[3];
 
     await supabase
       .from("missoes_interessados")
@@ -308,7 +320,9 @@ export async function handleMissions({
   }
 
   if (user.etapa === "missao_titulo") {
-    if (!text || text.length < 3) return sendText(phone, "Digite um título válido para a missão:");
+    if (!text || text.length < 3) {
+      return sendText(phone, "Digite um título válido para a missão:");
+    }
 
     await updateUser({
       missao_titulo: text,
@@ -319,7 +333,9 @@ export async function handleMissions({
   }
 
   if (user.etapa === "missao_desc") {
-    if (!text || text.length < 5) return sendText(phone, "Descreva melhor a missão:");
+    if (!text || text.length < 5) {
+      return sendText(phone, "Descreva melhor a missão:");
+    }
 
     await updateUser({
       missao_desc: text,
@@ -331,7 +347,10 @@ export async function handleMissions({
 
   if (user.etapa === "missao_valor") {
     const valor = Number(String(text).replace(",", "."));
-    if (!valor || valor <= 0) return sendText(phone, "Digite um valor válido.\nEx: 40");
+
+    if (!valor || valor <= 0) {
+      return sendText(phone, "Digite um valor válido.\nEx: 40");
+    }
 
     await updateUser({
       etapa: "missao_urgencia",
@@ -344,7 +363,9 @@ export async function handleMissions({
       phone,
       `Resumo da missão:\n\nValor da missão: R$ ${valor.toFixed(
         2
-      )}\nTaxa da plataforma (10%): R$ ${taxa.toFixed(2)}\n\nQuer adicionar urgência por +R$ 4,90?`,
+      )}\nTaxa da plataforma (10%): R$ ${taxa.toFixed(
+        2
+      )}\n\nQuer adicionar urgência por +R$ 4,90?`,
       [
         { id: "missao_urgencia_sim", title: "Com urgência" },
         { id: "missao_urgencia_nao", title: "Sem urgência" },
@@ -410,9 +431,11 @@ export async function handleMissions({
           2
         )}\nTaxa da plataforma: R$ ${resumo.taxa.toFixed(
           2
-        )}\nUrgência: R$ ${resumo.urgencia.toFixed(2)}\nTotal: R$ ${resumo.total.toFixed(
+        )}\nUrgência: R$ ${resumo.urgencia.toFixed(
           2
-        )}\nPedido: ${payment.id}\n\nNão consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+        )}\nTotal: R$ ${resumo.total.toFixed(2)}\nPedido: ${
+          payment.id
+        }\n\nNão consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
       );
 
       return sendActionButtons(phone, "O que deseja fazer agora?", [
@@ -501,8 +524,8 @@ export async function handleMissions({
     if (missao.status === "em_andamento") {
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: `missao_dono_concluir_${missao.id}`, title: "Marcar finalizada" },
+        { id: `missao_cancelar_${missao.id}`, title: "Cancelar missão" },
         { id: "contratar_minhas_missoes", title: "Minhas missões" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
 
@@ -564,35 +587,21 @@ export async function handleMissions({
     if (missao.status === "em_andamento") {
       await sendText(
         phone,
-        "Essa missão já está em andamento. O cancelamento não é livre e a taxa da plataforma não é devolvida."
+        "Essa missão já está em andamento. O cancelamento exige motivo e a taxa da plataforma não será devolvida."
       );
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: `missao_cancelar_forcado_${missao.id}`, title: "Cancelar mesmo assim" },
-        { id: "contratar_minhas_missoes", title: "Minhas missões" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
+      await updateUser({
+        etapa: `missao_cancelar_motivo_${missaoId}`,
+        missao_cancelamento_motivo_temp: null,
+      });
+      return sendText(phone, "Informe o motivo do cancelamento:");
     }
-
-    await updateUser({
-      etapa: `missao_cancelar_motivo_${missao.id}`,
-      missao_cancelamento_motivo_temp: null,
-    });
-
-    return sendText(phone, "Informe o motivo do cancelamento:");
-  }
-
-  if (text.startsWith("missao_cancelar_forcado_")) {
-    const missaoId = text.replace("missao_cancelar_forcado_", "");
 
     await updateUser({
       etapa: `missao_cancelar_motivo_${missaoId}`,
       missao_cancelamento_motivo_temp: null,
     });
 
-    return sendText(
-      phone,
-      "Informe o motivo do cancelamento.\nA taxa da plataforma não será devolvida."
-    );
+    return sendText(phone, "Informe o motivo do cancelamento:");
   }
 
   if (user.etapa?.startsWith("missao_cancelar_motivo_")) {
@@ -733,9 +742,14 @@ export async function handleMissions({
     if (!missao) return sendText(phone, "Missão não encontrada.");
 
     const novosDados = { dono_confirmou_conclusao: true };
-    let status = missao.executor_confirmou_conclusao ? "concluida" : "aguardando_confirmacao_executor";
+    const status = missao.executor_confirmou_conclusao
+      ? "concluida"
+      : "aguardando_confirmacao_executor";
+
     novosDados.status = status;
-    if (status === "concluida") novosDados.concluida_em = new Date().toISOString();
+    if (status === "concluida") {
+      novosDados.concluida_em = new Date().toISOString();
+    }
 
     await supabase.from("missoes").update(novosDados).eq("id", missaoId);
 
@@ -759,9 +773,14 @@ export async function handleMissions({
     if (!missao) return sendText(phone, "Missão não encontrada.");
 
     const novosDados = { executor_confirmou_conclusao: true };
-    let status = missao.dono_confirmou_conclusao ? "concluida" : "aguardando_confirmacao_dono";
+    const status = missao.dono_confirmou_conclusao
+      ? "concluida"
+      : "aguardando_confirmacao_dono";
+
     novosDados.status = status;
-    if (status === "concluida") novosDados.concluida_em = new Date().toISOString();
+    if (status === "concluida") {
+      novosDados.concluida_em = new Date().toISOString();
+    }
 
     await supabase.from("missoes").update(novosDados).eq("id", missaoId);
 

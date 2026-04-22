@@ -122,7 +122,7 @@ async function gerarPagamentoPix({
 
   await sendText(
     phone,
-    `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`
+    `\n\n${buildPixCodeOnly(intent)}`
   );
 
   await sendText(phone, afterSuccessLabel);

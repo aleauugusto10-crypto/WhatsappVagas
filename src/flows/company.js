@@ -512,7 +512,7 @@ export async function handleCompanyMenu({
 
     await sendText(
       phone,
-      `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`
+      `\n\n${buildPixCodeOnly(intent)}`
     );
 
     return sendActionButtons(phone, "Depois do pagamento:", [
