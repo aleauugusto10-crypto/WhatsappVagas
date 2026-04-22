@@ -3,51 +3,20 @@ import { sendMenuContratante, sendActionButtons } from "./menus.js";
 import {
   createPendingPayment,
   getPlanoByCodigo,
-  hasPaidAccessForProfessionals,
 } from "../lib/monetization.js";
 import { createMercadoPagoPixIntent } from "../services/payments.js";
+import { getSubcategoriasByCategoria } from "../lib/subcategories.js";
 
 const gruposMap = {
   construcao: "construcao",
   saude: "saude",
-  logistica: "transporte",
-  vendas: "comercio",
-  administrativo: "administracao",
-  servicos_gerais: "limpeza",
+  logistica: "logistica",
+  vendas: "vendas",
+  administrativo: "administrativo",
+  servicos_gerais: "servicos_gerais",
   tecnologia: "tecnologia",
-  outros: "tarefas",
+  outros: "outros",
 };
-
-function buildProfessionalsPreview(servicos = [], locked = true) {
-  if (!servicos.length) {
-    return "Nenhum profissional encontrado no momento.";
-  }
-
-  let out = locked
-    ? "🔎 *Encontramos profissionais para sua busca:*\n"
-    : "🧑‍🔧 *Profissionais encontrados:*\n";
-
-  servicos.forEach((s) => {
-    const titulo = s.titulo || "Profissional";
-    const cidade = s.cidade || "Sem cidade";
-    out += `\n• ${titulo} - ${cidade}`;
-  });
-
-  if (locked) {
-    out += "\n\n🔒 Para ver a lista completa e os detalhes, escolha uma opção abaixo:";
-  }
-
-  return out;
-}
-
-function buildProfessionalCard(servico) {
-  return (
-    `🧑‍🔧 *Profissional encontrado*\n\n` +
-    `💼 *Serviço:* ${servico.titulo || "-"}\n` +
-    `📍 *Cidade:* ${servico.cidade || "-"}${servico.estado ? `/${servico.estado}` : ""}\n` +
-    `📝 *Descrição:* ${servico.descricao || "-"}`
-  );
-}
 
 function buildPixResumo(intent, plano) {
   const checkoutUrl = intent?.checkout_url || null;
@@ -70,22 +39,61 @@ function buildPixCodeOnly(intent) {
   return intent?.qr_code || "Código Pix indisponível no momento.";
 }
 
-async function gerarPagamentoPixProfissionais({
+function formatEspecialidades(especialidades = []) {
+  if (!especialidades.length) return "Não informadas";
+  return especialidades.join(" • ");
+}
+
+function buildProfessionalsPreview(servicos = [], locked = true) {
+  if (!servicos.length) {
+    return "Nenhum profissional encontrado no momento.";
+  }
+
+  let out = locked
+    ? "🔎 *Encontramos profissionais para sua busca:*\n"
+    : "🧑‍🔧 *Profissionais encontrados:*\n";
+
+  servicos.forEach((s) => {
+    out +=
+      `\n\n• *${s.titulo || "Profissional"}*` +
+      `\n📍 ${s.cidade || "Sem cidade"}${s.estado ? `/${s.estado}` : ""}` +
+      `\n🧩 Especialidades: ${formatEspecialidades(s.especialidades || [])}` +
+      `\n🎯 Compatibilidade: ${s.match_count || 0}`;
+  });
+
+  if (locked) {
+    out +=
+      "\n\n🔒 Para liberar a lista completa dessa busca e os detalhes, o desbloqueio é avulso.";
+  }
+
+  return out;
+}
+
+function buildProfessionalCard(servico) {
+  return (
+    `🧑‍🔧 *Profissional encontrado*\n\n` +
+    `💼 *Serviço:* ${servico.titulo || "-"}\n` +
+    `📍 *Cidade:* ${servico.cidade || "-"}${servico.estado ? `/${servico.estado}` : ""}\n` +
+    `📝 *Descrição:* ${servico.descricao || "-"}\n` +
+    `🧩 *Especialidades:* ${formatEspecialidades(servico.especialidades || [])}\n` +
+    `🎯 *Compatibilidade:* ${servico.match_count || 0}`
+  );
+}
+
+async function gerarPagamentoPixBuscaProfissional({
   supabase,
   phone,
   user,
   planoCodigo,
   referenciaTipo,
   afterSuccessLabel = "Acesso liberado após a aprovação do pagamento.",
-  backActionId = "contratar_pacotes",
-  backActionTitle = "Ver pacotes",
 }) {
   const plano = await getPlanoByCodigo(supabase, planoCodigo);
 
   if (!plano) {
     await sendText(phone, "Plano indisponível no momento.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: backActionId, title: backActionTitle },
+      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
@@ -101,13 +109,15 @@ async function gerarPagamentoPixProfissionais({
       estado: user.estado,
       area_principal: user.area_principal,
       categoria_principal: user.categoria_principal,
+      subcategorias_busca: user.subcategorias_temp || [],
+      modo: "busca_profissional_avulsa",
     },
   });
 
   if (!payment) {
     await sendText(phone, "Erro ao gerar cobrança.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: backActionId, title: backActionTitle },
+      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
@@ -133,7 +143,7 @@ async function gerarPagamentoPixProfissionais({
 
     return sendActionButtons(phone, "Depois do pagamento:", [
       { id: "payment_check_status", title: "Já paguei" },
-      { id: backActionId, title: backActionTitle },
+      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
@@ -144,20 +154,125 @@ async function gerarPagamentoPixProfissionais({
 
   return sendActionButtons(phone, "Depois do pagamento:", [
     { id: "payment_check_status", title: "Já paguei" },
-    { id: backActionId, title: backActionTitle },
+    { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
 
-async function mostrarPacotesContratante(phone) {
-  return sendList(phone, "🛠️ Escolha um pacote para buscar profissionais:", [
+async function buscarProfissionaisPorCategoriaESubcategorias({
+  supabase,
+  user,
+  limit = 10,
+}) {
+  const categoria = user.categoria_principal;
+  const subcategoriasBusca = Array.from(
+    new Set((user.subcategorias_temp || []).filter(Boolean))
+  ).slice(0, 3);
+
+  if (!categoria || !subcategoriasBusca.length) {
+    return { servicos: [], error: null };
+  }
+
+  const { data: servicos, error } = await supabase
+    .from("servicos")
+    .select("*")
+    .eq("ativo", true)
+    .eq("categoria_chave", categoria)
+    .ilike("cidade", user.cidade || "")
+    .limit(50);
+
+  if (error) {
+    console.error("❌ erro ao buscar serviços base:", error);
+    return { servicos: [], error };
+  }
+
+  if (!servicos?.length) {
+    return { servicos: [], error: null };
+  }
+
+  const usuarioIds = Array.from(
+    new Set(servicos.map((s) => s.usuario_id).filter(Boolean))
+  );
+
+  if (!usuarioIds.length) {
+    return { servicos: [], error: null };
+  }
+
+  const { data: subRows, error: subError } = await supabase
+    .from("usuarios_subcategorias")
+    .select("*")
+    .in("usuario_id", usuarioIds)
+    .eq("categoria_chave", categoria);
+
+  if (subError) {
+    console.error("❌ erro ao buscar subcategorias dos profissionais:", subError);
+    return { servicos: [], error: subError };
+  }
+
+  const subcategoriasMap = new Map();
+  for (const row of subRows || []) {
+    if (!subcategoriasMap.has(row.usuario_id)) {
+      subcategoriasMap.set(row.usuario_id, []);
+    }
+    subcategoriasMap.get(row.usuario_id).push(row.subcategoria_chave);
+  }
+
+  const filtrados = servicos
+    .map((servico) => {
+      const subsProfissional = Array.from(
+        new Set(subcategoriasMap.get(servico.usuario_id) || [])
+      );
+
+      const matchCount = subsProfissional.filter((s) =>
+        subcategoriasBusca.includes(s)
+      ).length;
+
+      return {
+        ...servico,
+        especialidades: subsProfissional,
+        match_count: matchCount,
+      };
+    })
+    .filter((s) => s.match_count > 0)
+    .sort((a, b) => {
+      const visA = Number(a.nivel_visibilidade || 0);
+      const visB = Number(b.nivel_visibilidade || 0);
+
+      if (visB !== visA) return visB - visA;
+      if (b.match_count !== a.match_count) return b.match_count - a.match_count;
+
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    })
+    .slice(0, limit);
+
+  return { servicos: filtrados, error: null };
+}
+
+async function pedirListaDeSubcategorias({
+  supabase,
+  phone,
+  categoria,
+  etapa,
+  usadas = [],
+  titulo = "Escolha uma subcategoria:",
+}) {
+  const subcategorias = await getSubcategoriasByCategoria(supabase, categoria);
+  const usadasSet = new Set(usadas || []);
+  const disponiveis = subcategorias.filter((s) => !usadasSet.has(s.chave));
+
+  if (!disponiveis.length) {
+    return null;
+  }
+
+  return sendList(phone, titulo, [
     {
-      title: "Pacotes de busca",
-      rows: [
-        { id: "prof_buy_single", title: "Busca avulsa - R$ 7,90" },
-        { id: "prof_buy_week", title: "Passe semanal - R$ 14,90" },
-        { id: "prof_buy_month", title: "Passe mensal - R$ 29,90" },
-      ],
+      title: "Subcategorias",
+      rows: disponiveis.slice(0, 10).map((s) => ({
+        id: `${etapa}_${s.chave}`,
+        title: s.nome,
+      })),
     },
   ]);
 }
@@ -172,21 +287,18 @@ export async function handleServicesMenu({
   getCategoriasPorGrupo,
 }) {
   // =====================
-  // MENU DE PACOTES
-  // =====================
-
-  if (text === "contratar_pacotes") {
-    return mostrarPacotesContratante(phone);
-  }
-
-  // =====================
   // BUSCAR PROFISSIONAIS
   // =====================
 
   if (text === "contratar_buscar_profissionais") {
     const areas = await getCategorias("geral");
 
-    await updateUser({ etapa: "contratar_area" });
+    await updateUser({
+      etapa: "contratar_area",
+      subcategorias_temp: [],
+      categoria_principal: null,
+      area_principal: null,
+    });
 
     return sendList(phone, "🧑‍🔧 Em qual área você quer buscar profissionais?", [
       {
@@ -205,20 +317,20 @@ export async function handleServicesMenu({
     if (!text.startsWith("contratar_area_")) return false;
 
     const area = text.replace("contratar_area_", "");
+    const grupo = gruposMap[area] || area;
+    const categorias = await getCategoriasPorGrupo("servico", grupo);
 
     await updateUser({
       area_principal: area,
       etapa: "contratar_categoria",
+      subcategorias_temp: [],
     });
-
-    const grupo = gruposMap[area] || area;
-    const categorias = await getCategoriasPorGrupo("servico", grupo);
 
     if (!categorias.length) {
       await updateUser({ etapa: "menu" });
       await sendText(phone, "Não encontrei categorias nessa área.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_pacotes", title: "Ver pacotes" },
+        { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
@@ -238,104 +350,244 @@ export async function handleServicesMenu({
     if (!text.startsWith("contratar_cat_")) return false;
 
     const categoria = text.replace("contratar_cat_", "");
-    const paidAccess = await hasPaidAccessForProfessionals(supabase, user.id);
 
     await updateUser({
       categoria_principal: categoria,
+      etapa: "contratar_subcat_1",
+      subcategorias_temp: [],
+    });
+
+    const firstList = await pedirListaDeSubcategorias({
+      supabase,
+      phone,
+      categoria,
+      etapa: "contratar_subcat_1",
+      usadas: [],
+      titulo: "Escolha a 1ª subcategoria que deseja buscar:",
+    });
+
+    if (!firstList) {
+      await updateUser({ etapa: "menu" });
+      await sendText(
+        phone,
+        "Não encontrei subcategorias para essa categoria. Tente outra busca."
+      );
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    return firstList;
+  }
+
+  if (user.etapa === "contratar_subcat_1") {
+    if (!text.startsWith("contratar_subcat_1_")) return false;
+
+    const sub = text.replace("contratar_subcat_1_", "");
+
+    await updateUser({
+      subcategorias_temp: [sub],
+      etapa: "contratar_subcat_2_confirm",
+    });
+
+    return sendActionButtons(
+      phone,
+      "Deseja adicionar outra subcategoria ao filtro?",
+      [
+        { id: "contratar_add_more_subcat", title: "Adicionar mais" },
+        { id: "contratar_finish_subcat", title: "Buscar agora" },
+      ]
+    );
+  }
+
+  if (user.etapa === "contratar_subcat_2_confirm") {
+    if (text === "contratar_finish_subcat") {
+      const { servicos, error } =
+        await buscarProfissionaisPorCategoriaESubcategorias({
+          supabase,
+          user,
+          limit: 5,
+        });
+
+      await updateUser({ etapa: "menu" });
+
+      if (error) {
+        await sendText(phone, "Erro ao buscar profissionais.");
+        return sendActionButtons(phone, "O que deseja fazer agora?", [
+          { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+          { id: "voltar_menu", title: "Voltar ao menu" },
+        ]);
+      }
+
+      if (!servicos.length) {
+        await sendText(
+          phone,
+          "Nenhum profissional encontrado com essa combinação de categoria e subcategorias no momento."
+        );
+        return sendActionButtons(phone, "O que deseja fazer agora?", [
+          { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+          { id: "voltar_menu", title: "Voltar ao menu" },
+        ]);
+      }
+
+      await sendText(phone, buildProfessionalsPreview(servicos, true));
+
+      return sendActionButtons(phone, "Deseja liberar a lista completa dessa busca?", [
+        { id: "prof_buy_single", title: "Pagar R$ 4,90" },
+        { id: "contratar_buscar_profissionais", title: "Nova busca" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    if (text !== "contratar_add_more_subcat") return false;
+
+    await updateUser({ etapa: "contratar_subcat_2" });
+
+    return pedirListaDeSubcategorias({
+      supabase,
+      phone,
+      categoria: user.categoria_principal,
+      etapa: "contratar_subcat_2",
+      usadas: user.subcategorias_temp || [],
+      titulo: "Escolha a 2ª subcategoria que deseja buscar:",
+    });
+  }
+
+  if (user.etapa === "contratar_subcat_2") {
+    if (!text.startsWith("contratar_subcat_2_")) return false;
+
+    const sub = text.replace("contratar_subcat_2_", "");
+    const atuais = Array.from(new Set([...(user.subcategorias_temp || []), sub]));
+
+    await updateUser({
+      subcategorias_temp: atuais,
+      etapa: "contratar_subcat_3_confirm",
+    });
+
+    return sendActionButtons(
+      phone,
+      "Deseja adicionar mais uma subcategoria ao filtro?",
+      [
+        { id: "contratar_add_last_subcat", title: "Adicionar mais uma" },
+        { id: "contratar_finish_subcat", title: "Buscar agora" },
+      ]
+    );
+  }
+
+  if (user.etapa === "contratar_subcat_3_confirm") {
+    if (text === "contratar_finish_subcat") {
+      const { servicos, error } =
+        await buscarProfissionaisPorCategoriaESubcategorias({
+          supabase,
+          user,
+          limit: 5,
+        });
+
+      await updateUser({ etapa: "menu" });
+
+      if (error) {
+        await sendText(phone, "Erro ao buscar profissionais.");
+        return sendActionButtons(phone, "O que deseja fazer agora?", [
+          { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+          { id: "voltar_menu", title: "Voltar ao menu" },
+        ]);
+      }
+
+      if (!servicos.length) {
+        await sendText(
+          phone,
+          "Nenhum profissional encontrado com essa combinação de categoria e subcategorias no momento."
+        );
+        return sendActionButtons(phone, "O que deseja fazer agora?", [
+          { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+          { id: "voltar_menu", title: "Voltar ao menu" },
+        ]);
+      }
+
+      await sendText(phone, buildProfessionalsPreview(servicos, true));
+
+      return sendActionButtons(phone, "Deseja liberar a lista completa dessa busca?", [
+        { id: "prof_buy_single", title: "Pagar R$ 4,90" },
+        { id: "contratar_buscar_profissionais", title: "Nova busca" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    if (text !== "contratar_add_last_subcat") return false;
+
+    await updateUser({ etapa: "contratar_subcat_3" });
+
+    return pedirListaDeSubcategorias({
+      supabase,
+      phone,
+      categoria: user.categoria_principal,
+      etapa: "contratar_subcat_3",
+      usadas: user.subcategorias_temp || [],
+      titulo: "Escolha a 3ª subcategoria que deseja buscar:",
+    });
+  }
+
+  if (user.etapa === "contratar_subcat_3") {
+    if (!text.startsWith("contratar_subcat_3_")) return false;
+
+    const sub = text.replace("contratar_subcat_3_", "");
+    const atuais = Array.from(
+      new Set([...(user.subcategorias_temp || []), sub])
+    ).slice(0, 3);
+
+    await updateUser({
+      subcategorias_temp: atuais,
       etapa: "menu",
     });
 
-    const { data: servicos, error } = await supabase
-      .from("servicos")
-      .select("*")
-      .eq("ativo", true)
-      .eq("categoria_chave", categoria)
-      .ilike("cidade", user.cidade || "")
-      .limit(paidAccess ? 10 : 3);
+    const { servicos, error } = await buscarProfissionaisPorCategoriaESubcategorias({
+      supabase,
+      user: { ...user, subcategorias_temp: atuais },
+      limit: 5,
+    });
 
     if (error) {
-      console.error("❌ erro ao buscar profissionais:", error);
       await sendText(phone, "Erro ao buscar profissionais.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_pacotes", title: "Ver pacotes" },
+        { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
 
-    if (!servicos?.length) {
-      await sendText(phone, "Nenhum profissional encontrado nessa categoria no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_pacotes", title: "Ver pacotes" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    if (paidAccess) {
-      await sendText(phone, buildProfessionalsPreview(servicos, false));
-
-      if (servicos[0]) {
-        await sendText(phone, buildProfessionalCard(servicos[0]));
-      }
-
+    if (!servicos.length) {
+      await sendText(
+        phone,
+        "Nenhum profissional encontrado com essa combinação de categoria e subcategorias no momento."
+      );
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
-        { id: "contratar_pacotes", title: "Ver pacotes" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
 
     await sendText(phone, buildProfessionalsPreview(servicos, true));
 
-    return sendActionButtons(phone, "Escolha como deseja desbloquear:", [
-      { id: "prof_buy_single", title: "Pagar R$ 7,90" },
-      { id: "prof_buy_week", title: "7 dias R$ 14,90" },
-      { id: "prof_buy_month", title: "30 dias R$ 29,90" },
+    return sendActionButtons(phone, "Deseja liberar a lista completa dessa busca?", [
+      { id: "prof_buy_single", title: "Pagar R$ 4,90" },
+      { id: "contratar_buscar_profissionais", title: "Nova busca" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
 
   // =====================
-  // PLANOS DE BUSCA
+  // DESBLOQUEIO AVULSO DA BUSCA
   // =====================
 
   if (text === "prof_buy_single") {
-    return gerarPagamentoPixProfissionais({
+    return gerarPagamentoPixBuscaProfissional({
       supabase,
       phone,
       user,
       planoCodigo: "empresa_busca_prof_avulso",
       referenciaTipo: "contratante_busca_prof_avulso",
       afterSuccessLabel:
-        "Assim que o pagamento for aprovado, você poderá visualizar essa busca.",
-      backActionId: "contratar_pacotes",
-      backActionTitle: "Ver pacotes",
-    });
-  }
-
-  if (text === "prof_buy_week") {
-    return gerarPagamentoPixProfissionais({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "empresa_busca_prof_semanal",
-      referenciaTipo: "contratante_busca_prof_semanal",
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, suas buscas ficarão liberadas por 7 dias.",
-      backActionId: "contratar_pacotes",
-      backActionTitle: "Ver pacotes",
-    });
-  }
-
-  if (text === "prof_buy_month") {
-    return gerarPagamentoPixProfissionais({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "empresa_busca_prof_mensal",
-      referenciaTipo: "contratante_busca_prof_mensal",
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, suas buscas ficarão liberadas por 30 dias.",
-      backActionId: "contratar_pacotes",
-      backActionTitle: "Ver pacotes",
+        "Assim que o pagamento for aprovado, a lista completa dessa busca ficará liberada.",
     });
   }
 

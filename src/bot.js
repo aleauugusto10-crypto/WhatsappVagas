@@ -74,7 +74,7 @@ async function getLastUserPayment(userId) {
     .maybeSingle();
 
   if (error) {
-    console.error("❌ erro ao buscar último pagamento do usuário:", error);
+    console.error("❌ erro ao buscar último pagamento:", error);
     return null;
   }
 
@@ -85,10 +85,7 @@ async function handlePaymentCheckStatus(user, phone) {
   const payment = await getLastUserPayment(user.id);
 
   if (!payment) {
-    return sendText(
-      phone,
-      "Não encontrei nenhum pagamento recente para verificar."
-    );
+    return sendText(phone, "Nenhum pagamento recente encontrado.");
   }
 
   if (payment.mp_payment_id) {
@@ -102,39 +99,38 @@ async function handlePaymentCheckStatus(user, phone) {
 
         return sendText(
           phone,
-          `✅ Pagamento confirmado com sucesso!\n\nPedido: ${
+          `✅ Pagamento confirmado!\n\nPedido: ${
             updated?.id || payment.id
-          }\nStatus: aprovado`
+          }`
         );
       }
 
       return sendText(
         phone,
-        `⏳ Seu pagamento ainda está pendente.\n\nPedido: ${payment.id}\nStatus atual: ${
-          mpStatus?.status || payment.status || "pendente"
-        }`
+        `⏳ Pagamento pendente\nStatus: ${mpStatus?.status || "pendente"}`
       );
     } catch (err) {
-      console.error("❌ erro ao consultar status no Mercado Pago:", err);
+      console.error("❌ erro MP:", err);
 
       return sendText(
         phone,
-        `⏳ Ainda não consegui confirmar esse pagamento.\n\nPedido: ${payment.id}\nTente novamente em instantes.`
+        "⏳ Ainda não consegui confirmar seu pagamento."
       );
     }
   }
 
   return sendText(
     phone,
-    `⏳ Seu pedido foi criado, mas ainda não encontrei confirmação de pagamento.\n\nPedido: ${payment.id}\nStatus: ${payment.status || "pendente"}`
+    `⏳ Pedido criado, aguardando pagamento.\nID: ${payment.id}`
   );
 }
+
 export async function handleMessage(msg) {
   const phone = msg?.from;
   if (!phone) return;
 
   if (processingUsers.has(phone)) {
-    console.log("⏳ ignorado (já processando):", phone);
+    console.log("⏳ ignorado:", phone);
     return;
   }
 
@@ -147,19 +143,14 @@ export async function handleMessage(msg) {
       msg?.text?.body?.toLowerCase().trim() ||
       "";
 
-    let { data: user, error: userError } = await supabase
+    let { data: user } = await supabase
       .from("usuarios")
       .select("*")
       .eq("telefone", phone)
       .maybeSingle();
 
-    if (userError) {
-      console.error("❌ erro ao buscar usuário:", userError);
-      return sendText(phone, "Erro ao buscar usuário.");
-    }
-
     if (!user) {
-      const { data: created, error: createError } = await supabase
+      const { data: created } = await supabase
         .from("usuarios")
         .insert({
           telefone: phone,
@@ -171,33 +162,27 @@ export async function handleMessage(msg) {
         .select()
         .single();
 
-      if (createError) {
-        console.error("❌ erro ao criar usuário:", createError);
-        return sendText(phone, "Erro ao iniciar cadastro.");
-      }
-
       user = created;
       return sendRootMenu(phone);
     }
 
     const updateUser = async (data) => {
-      const { data: updated, error } = await supabase
+      const { data: updated } = await supabase
         .from("usuarios")
         .update(data)
         .eq("id", user.id)
         .select()
         .single();
 
-      if (error) {
-        console.error("❌ erro ao atualizar usuário:", error);
-        return null;
-      }
-
       Object.assign(user, updated);
       return updated;
     };
 
-    if (["oi", "menu", "inicio", "início"].includes(text)) {
+    // =====================
+    // COMANDOS GLOBAIS
+    // =====================
+
+    if (["oi", "menu", "inicio"].includes(text)) {
       if (user.onboarding_finalizado) {
         return getMenuByTipo(user.tipo, phone);
       }
@@ -213,25 +198,27 @@ export async function handleMessage(msg) {
     }
 
     if (text === "redefinir_perfil") {
-      const updated = await updateUser({
+      await updateUser({
         etapa: "tipo",
         onboarding_finalizado: false,
         area_principal: null,
         categoria_principal: null,
+        subcategorias_temp: [],
         raio_km: 20,
       });
 
-      if (!updated) {
-        return sendText(phone, "Erro ao redefinir perfil.");
-      }
-
       return sendRootMenu(phone);
     }
+
+    // =====================
+    // ONBOARDING
+    // =====================
 
     const onboardingResponse = await handleOnboarding({
       user,
       text,
       phone,
+      supabase, // 🔥 CORREÇÃO CRÍTICA
       updateUser,
       getCategorias,
       getCategoriasPorGrupo,
@@ -239,29 +226,37 @@ export async function handleMessage(msg) {
 
     if (onboardingResponse) return onboardingResponse;
 
+    // =====================
+    // USUÁRIO
+    // =====================
+
     if (user.tipo === "usuario") {
-      const jobsResponse = await handleJobsMenu({
+      const jobs = await handleJobsMenu({
         user,
         text,
         phone,
         supabase,
       });
-      if (jobsResponse) return jobsResponse;
+      if (jobs) return jobs;
 
-      const missionsResponse = await handleMissions({
+      const missions = await handleMissions({
         user,
         text,
         phone,
         supabase,
         updateUser,
       });
-      if (missionsResponse) return missionsResponse;
+      if (missions) return missions;
 
       return handleUserFallback(phone);
     }
 
+    // =====================
+    // CONTRATANTE
+    // =====================
+
     if (user.tipo === "contratante") {
-      const servicesResponse = await handleServicesMenu({
+      const services = await handleServicesMenu({
         user,
         text,
         phone,
@@ -270,22 +265,26 @@ export async function handleMessage(msg) {
         getCategorias,
         getCategoriasPorGrupo,
       });
-      if (servicesResponse) return servicesResponse;
+      if (services) return services;
 
-      const missionsResponse = await handleMissions({
+      const missions = await handleMissions({
         user,
         text,
         phone,
         supabase,
         updateUser,
       });
-      if (missionsResponse) return missionsResponse;
+      if (missions) return missions;
 
       return handleContratanteFallback(phone);
     }
 
+    // =====================
+    // EMPRESA
+    // =====================
+
     if (user.tipo === "empresa") {
-      const companyResponse = await handleCompanyMenu({
+      const company = await handleCompanyMenu({
         user,
         text,
         phone,
@@ -294,15 +293,15 @@ export async function handleMessage(msg) {
         getCategorias,
         getCategoriasPorGrupo,
       });
-      if (companyResponse) return companyResponse;
+      if (company) return company;
 
       return handleCompanyFallback(phone);
     }
 
     return sendRootMenu(phone);
   } catch (err) {
-    console.error("❌ erro geral no bot:", err);
-    return sendText(phone, "Erro ao processar sua mensagem.");
+    console.error("❌ erro geral:", err);
+    return sendText(phone, "Erro ao processar mensagem.");
   } finally {
     processingUsers.delete(phone);
   }

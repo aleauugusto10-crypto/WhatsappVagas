@@ -18,7 +18,6 @@ export async function getPlanoByCodigo(supabase, codigo) {
   }
 
   console.log("📦 plano encontrado:", codigo, data);
-
   return data || null;
 }
 
@@ -63,7 +62,10 @@ export async function createPendingPayment(
     metadata,
   };
 
-  console.log("📦 createPendingPayment payload:", JSON.stringify(payload, null, 2));
+  console.log(
+    "📦 createPendingPayment payload:",
+    JSON.stringify(payload, null, 2)
+  );
 
   const { data, error } = await supabase
     .from("pagamentos_plataforma")
@@ -84,6 +86,11 @@ export async function createPendingPayment(
   return data;
 }
 
+/**
+ * Trabalhador:
+ * agora o acesso recorrente faz sentido por NOTIFICAÇÕES.
+ * Mantemos esses tipos como acesso pago útil para o fluxo de vagas.
+ */
 export async function hasPaidAccessForJobs(supabase, usuarioId) {
   return hasActiveSubscription(supabase, usuarioId, [
     "usuario_vagas_semanal",
@@ -91,29 +98,44 @@ export async function hasPaidAccessForJobs(supabase, usuarioId) {
   ]);
 }
 
-export async function hasPaidAccessForProfessionals(supabase, usuarioId) {
-  return hasActiveSubscription(supabase, usuarioId, [
-    "empresa_busca_prof_semanal",
-    "empresa_busca_prof_mensal",
-    "contratante_busca_prof_semanal",
-    "contratante_busca_prof_mensal",
-  ]);
+/**
+ * Busca de profissionais:
+ * no modelo novo NÃO tem assinatura semanal/mensal.
+ * É desbloqueio avulso por busca.
+ *
+ * Então deixamos false por padrão para não confundir lógica antiga.
+ */
+export async function hasPaidAccessForProfessionals() {
+  return false;
 }
 
+/**
+ * Preview simples legado.
+ * O jobs.js novo já usa o preview próprio dele,
+ * mas deixamos aqui para compatibilidade.
+ */
 export function buildJobsPreview(vagas = [], locked = true) {
   if (!vagas.length) {
     return "Sem vagas no momento para seu perfil.";
   }
 
+  const lista = locked ? vagas.slice(0, 5) : vagas;
+
   let out = locked
     ? "🔎 Encontramos vagas para seu perfil:\n"
     : "💼 Vagas disponíveis:\n";
 
-  vagas.forEach((vaga) => {
-    out += `\n• ${vaga.titulo} (${vaga.cidade || "Sem cidade"})`;
+  lista.forEach((vaga) => {
+    out += `\n• ${vaga.titulo || "Vaga"} (${vaga.cidade || "Sem cidade"})`;
   });
 
   if (locked) {
+    const restante = Math.max(0, vagas.length - lista.length);
+
+    if (restante > 0) {
+      out += `\n\n📌 E ainda existem mais ${restante} oportunidade(s) nessa busca.`;
+    }
+
     out +=
       "\n\n🔒 Para ver a lista completa e os detalhes, escolha uma opção abaixo:";
   }

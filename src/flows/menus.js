@@ -35,7 +35,6 @@ export function sendMenuContratante(phone) {
       title: "Serviços",
       rows: [
         { id: "contratar_buscar_profissionais", title: "Buscar profissionais" },
-        { id: "contratar_pacotes", title: "Pacotes" },
         { id: "contratar_criar_missao", title: "Criar missão" },
         { id: "contratar_minhas_missoes", title: "Ver minhas missões" },
       ],

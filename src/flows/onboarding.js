@@ -4,7 +4,12 @@ import {
   sendMenuUsuario,
   sendMenuContratante,
   sendMenuEmpresa,
+  sendActionButtons,
 } from "./menus.js";
+import {
+  getSubcategoriasByCategoria,
+  replaceUserSubcategorias,
+} from "../lib/subcategories.js";
 
 function isValidEmail(value = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim().toLowerCase());
@@ -18,11 +23,8 @@ function isValidCPF(cpf = "") {
   cpf = cleanCPF(cpf);
 
   if (!cpf || cpf.length !== 11) return false;
-
-  // bloqueia sequências repetidas tipo 11111111111
   if (/^(\d)\1+$/.test(cpf)) return false;
 
-  // primeiro dígito verificador
   let sum = 0;
   for (let i = 0; i < 9; i++) {
     sum += Number(cpf[i]) * (10 - i);
@@ -30,10 +32,8 @@ function isValidCPF(cpf = "") {
 
   let firstDigit = (sum * 10) % 11;
   if (firstDigit === 10) firstDigit = 0;
-
   if (firstDigit !== Number(cpf[9])) return false;
 
-  // segundo dígito verificador
   sum = 0;
   for (let i = 0; i < 10; i++) {
     sum += Number(cpf[i]) * (11 - i);
@@ -48,18 +48,31 @@ function isValidCPF(cpf = "") {
 const gruposMap = {
   construcao: "construcao",
   saude: "saude",
-  logistica: "transporte",
-  vendas: "comercio",
-  administrativo: "administracao",
-  servicos_gerais: "limpeza",
+  logistica: "logistica",
+  vendas: "vendas",
+  administrativo: "administrativo",
+  servicos_gerais: "servicos_gerais",
   tecnologia: "tecnologia",
-  outros: "tarefas",
+  outros: "outros",
 };
+
+function buildRaioList(phone) {
+  return sendList(phone, "Até quantos km você aceita trabalhar?", [
+    {
+      title: "Raio",
+      rows: [3, 5, 10, 20, 50].map((km) => ({
+        id: `raio_${km}`,
+        title: `${km} km`,
+      })),
+    },
+  ]);
+}
 
 export async function handleOnboarding({
   user,
   text,
   phone,
+  supabase,
   updateUser,
   getCategorias,
   getCategoriasPorGrupo,
@@ -194,7 +207,6 @@ export async function handleOnboarding({
       cpf: cpfLimpo,
     });
 
-    // EMPRESA
     if (user.tipo === "empresa") {
       await updateUser({
         etapa: "nome_empresa",
@@ -203,7 +215,6 @@ export async function handleOnboarding({
       return sendText(phone, "Qual o nome da empresa?");
     }
 
-    // CONTRATANTE
     if (user.tipo === "contratante") {
       await updateUser({
         etapa: "menu",
@@ -213,7 +224,6 @@ export async function handleOnboarding({
       return sendMenuContratante(phone);
     }
 
-    // USUÁRIO COMUM
     await updateUser({
       etapa: "area",
     });
@@ -266,6 +276,7 @@ export async function handleOnboarding({
     });
 
     const grupo = gruposMap[area] || area;
+
     let categorias = await getCategoriasPorGrupo("vaga", grupo);
 
     if (!categorias.length) {
@@ -301,18 +312,221 @@ export async function handleOnboarding({
 
     await updateUser({
       categoria_principal: categoria,
-      etapa: "raio",
+      etapa: "subcategoria_1",
+      subcategorias_temp: [],
     });
 
-    return sendList(phone, "Até quantos km você aceita trabalhar?", [
+    const subcategorias = await getSubcategoriasByCategoria(supabase, categoria);
+
+    if (!subcategorias.length) {
+      await updateUser({ etapa: "raio" });
+      return buildRaioList(phone);
+    }
+
+    return sendList(phone, "Escolha sua 1ª especialidade:", [
       {
-        title: "Raio",
-        rows: [3, 5, 10, 20, 50].map((km) => ({
-          id: `raio_${km}`,
-          title: `${km} km`,
+        title: "Subcategorias",
+        rows: subcategorias.slice(0, 10).map((s) => ({
+          id: `subcat_${s.chave}`,
+          title: s.nome,
         })),
       },
     ]);
+  }
+
+  // =====================
+  // SUBCATEGORIA 1
+  // =====================
+
+  if (user.etapa === "subcategoria_1") {
+    if (!text.startsWith("subcat_")) return false;
+
+    const sub = text.replace("subcat_", "");
+    const atuais = [sub];
+
+    await updateUser({
+      subcategorias_temp: atuais,
+      etapa: "subcategoria_2_confirm",
+    });
+
+    return sendActionButtons(phone, "Deseja adicionar outra especialidade?", [
+      { id: "subcat_add_more", title: "Adicionar mais" },
+      { id: "subcat_finish", title: "Concluir" },
+    ]);
+  }
+
+  // =====================
+  // CONFIRMAR SUBCATEGORIA 2
+  // =====================
+
+  if (user.etapa === "subcategoria_2_confirm") {
+    if (text === "subcat_finish") {
+      const ok = await replaceUserSubcategorias(
+        supabase,
+        user.id,
+        user.categoria_principal,
+        user.subcategorias_temp || []
+      );
+
+      if (!ok) {
+        return sendText(phone, "Erro ao salvar suas especialidades.");
+      }
+
+      await updateUser({ etapa: "raio" });
+      return buildRaioList(phone);
+    }
+
+    if (text !== "subcat_add_more") return false;
+
+    const subcategorias = await getSubcategoriasByCategoria(
+      supabase,
+      user.categoria_principal
+    );
+
+    const usadas = new Set(user.subcategorias_temp || []);
+    const disponiveis = subcategorias.filter((s) => !usadas.has(s.chave));
+
+    if (!disponiveis.length) {
+      const ok = await replaceUserSubcategorias(
+        supabase,
+        user.id,
+        user.categoria_principal,
+        user.subcategorias_temp || []
+      );
+
+      if (!ok) {
+        return sendText(phone, "Erro ao salvar suas especialidades.");
+      }
+
+      await updateUser({ etapa: "raio" });
+      return buildRaioList(phone);
+    }
+
+    await updateUser({ etapa: "subcategoria_2" });
+
+    return sendList(phone, "Escolha sua 2ª especialidade:", [
+      {
+        title: "Subcategorias",
+        rows: disponiveis.slice(0, 10).map((s) => ({
+          id: `subcat_${s.chave}`,
+          title: s.nome,
+        })),
+      },
+    ]);
+  }
+
+  // =====================
+  // SUBCATEGORIA 2
+  // =====================
+
+  if (user.etapa === "subcategoria_2") {
+    if (!text.startsWith("subcat_")) return false;
+
+    const sub = text.replace("subcat_", "");
+    const atuais = Array.from(
+      new Set([...(user.subcategorias_temp || []), sub])
+    );
+
+    await updateUser({
+      subcategorias_temp: atuais,
+      etapa: "subcategoria_3_confirm",
+    });
+
+    return sendActionButtons(phone, "Deseja adicionar mais uma especialidade?", [
+      { id: "subcat_add_last", title: "Adicionar mais uma" },
+      { id: "subcat_finish", title: "Concluir" },
+    ]);
+  }
+
+  // =====================
+  // CONFIRMAR SUBCATEGORIA 3
+  // =====================
+
+  if (user.etapa === "subcategoria_3_confirm") {
+    if (text === "subcat_finish") {
+      const ok = await replaceUserSubcategorias(
+        supabase,
+        user.id,
+        user.categoria_principal,
+        user.subcategorias_temp || []
+      );
+
+      if (!ok) {
+        return sendText(phone, "Erro ao salvar suas especialidades.");
+      }
+
+      await updateUser({ etapa: "raio" });
+      return buildRaioList(phone);
+    }
+
+    if (text !== "subcat_add_last") return false;
+
+    const subcategorias = await getSubcategoriasByCategoria(
+      supabase,
+      user.categoria_principal
+    );
+
+    const usadas = new Set(user.subcategorias_temp || []);
+    const disponiveis = subcategorias.filter((s) => !usadas.has(s.chave));
+
+    if (!disponiveis.length) {
+      const ok = await replaceUserSubcategorias(
+        supabase,
+        user.id,
+        user.categoria_principal,
+        user.subcategorias_temp || []
+      );
+
+      if (!ok) {
+        return sendText(phone, "Erro ao salvar suas especialidades.");
+      }
+
+      await updateUser({ etapa: "raio" });
+      return buildRaioList(phone);
+    }
+
+    await updateUser({ etapa: "subcategoria_3" });
+
+    return sendList(phone, "Escolha sua 3ª especialidade:", [
+      {
+        title: "Subcategorias",
+        rows: disponiveis.slice(0, 10).map((s) => ({
+          id: `subcat_${s.chave}`,
+          title: s.nome,
+        })),
+      },
+    ]);
+  }
+
+  // =====================
+  // SUBCATEGORIA 3
+  // =====================
+
+  if (user.etapa === "subcategoria_3") {
+    if (!text.startsWith("subcat_")) return false;
+
+    const sub = text.replace("subcat_", "");
+    const atuais = Array.from(
+      new Set([...(user.subcategorias_temp || []), sub])
+    ).slice(0, 3);
+
+    const ok = await replaceUserSubcategorias(
+      supabase,
+      user.id,
+      user.categoria_principal,
+      atuais
+    );
+
+    if (!ok) {
+      return sendText(phone, "Erro ao salvar suas especialidades.");
+    }
+
+    await updateUser({
+      subcategorias_temp: atuais,
+      etapa: "raio",
+    });
+
+    return buildRaioList(phone);
   }
 
   // =====================

@@ -139,9 +139,7 @@ async function buildPayerEmail(payment) {
 export async function createMercadoPagoPixIntent(paymentId) {
   const payment = await getPendingPaymentById(paymentId);
 
-  if (!payment) {
-    return null;
-  }
+  if (!payment) return null;
 
   if (payment.status !== "pendente") {
     return payment;
@@ -180,7 +178,7 @@ export async function createMercadoPagoPixIntent(paymentId) {
 
   const updated = await updatePayment(payment.id, {
     mp_payment_id: String(mpData.id),
-    status: mpData.status || "pendente",
+    status: "pendente",
     qr_code: qrData.qr_code || null,
     qr_code_base64: qrData.qr_code_base64 || null,
     checkout_url: qrData.ticket_url || null,
@@ -239,6 +237,11 @@ export function verifyMercadoPagoWebhookSignature(req) {
   return expected === v1;
 }
 
+/**
+ * Assinaturas recorrentes que ainda fazem sentido:
+ * - trabalhador semanal
+ * - trabalhador mensal/notificações
+ */
 export async function activateSubscriptionFromPayment(payment) {
   if (!payment?.usuario_id) return null;
 
@@ -255,26 +258,6 @@ export async function activateSubscriptionFromPayment(payment) {
 
   if (payment.referencia_tipo === "usuario_alerta_mensal") {
     tipo = "usuario_alerta_mensal";
-    dias = 30;
-  }
-
-  if (payment.referencia_tipo === "contratante_busca_prof_semanal") {
-    tipo = "contratante_busca_prof_semanal";
-    dias = 7;
-  }
-
-  if (payment.referencia_tipo === "contratante_busca_prof_mensal") {
-    tipo = "contratante_busca_prof_mensal";
-    dias = 30;
-  }
-
-  if (payment.referencia_tipo === "empresa_busca_prof_semanal") {
-    tipo = "empresa_busca_prof_semanal";
-    dias = 7;
-  }
-
-  if (payment.referencia_tipo === "empresa_busca_prof_mensal") {
-    tipo = "empresa_busca_prof_mensal";
     dias = 30;
   }
 
@@ -301,6 +284,10 @@ export async function activateSubscriptionFromPayment(payment) {
 
   return data;
 }
+
+/**
+ * Créditos de publicação de vagas da empresa
+ */
 export async function activateCompanyJobCreditsFromPayment(payment) {
   if (!payment?.usuario_id) return null;
 
@@ -359,6 +346,7 @@ export async function getActiveCompanyJobCredits(empresaId) {
 
 export async function consumeCompanyJobCredit(empresaId) {
   const credits = await getActiveCompanyJobCredits(empresaId);
+
   const credit = credits.find(
     (c) => Number(c.creditos_usados || 0) < Number(c.total_creditos || 0)
   );
@@ -386,6 +374,10 @@ export async function consumeCompanyJobCredit(empresaId) {
 
   return data;
 }
+
+/**
+ * Missões
+ */
 export async function publishMissionFromPayment(payment) {
   if (payment.referencia_tipo !== "missao_publicacao") return null;
 
@@ -417,10 +409,14 @@ export async function publishMissionFromPayment(payment) {
   return data;
 }
 
+/**
+ * Vagas pagas individualmente.
+ * No modelo atual da empresa, a publicação normal acontece por crédito.
+ * Mantemos essa função por compatibilidade caso ainda exista algum fluxo legado.
+ */
 export async function publishJobFromPayment(payment) {
   if (payment.referencia_tipo !== "empresa_publicar_vaga") return null;
 
-  // 🔒 só publica se estiver pago
   if (payment.status !== "pago") {
     console.log("⛔ tentativa de publicar vaga sem pagamento aprovado");
     return null;
@@ -428,7 +424,6 @@ export async function publishJobFromPayment(payment) {
 
   const md = payment.metadata || {};
 
-  // 🔁 evita duplicação
   const { data: existing } = await supabase
     .from("vagas")
     .select("id")
@@ -459,7 +454,7 @@ export async function publishJobFromPayment(payment) {
       cidade: md.cidade,
       estado: md.estado,
       destaque: !!md.destaque,
-      status: "ativa", // ✅ só aqui vira ativa
+      status: "ativa",
       publicada_em: new Date().toISOString(),
       contato_whatsapp: md.contato_whatsapp || null,
     })
@@ -473,12 +468,120 @@ export async function publishJobFromPayment(payment) {
 
   return data;
 }
+
+/**
+ * Publicação do profissional em "servicos"
+ */
+export async function publishProfessionalServiceFromPayment(payment) {
+  if (payment.referencia_tipo !== "profissional_anuncio") return null;
+  if (payment.status !== "pago") return null;
+
+  const md = payment.metadata || {};
+
+  const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("nome, telefone, cidade, estado, categoria_principal")
+    .eq("id", payment.usuario_id)
+    .maybeSingle();
+
+  const categoriaChave =
+    md.categoria_chave || usuario?.categoria_principal || null;
+
+  const tituloBase = md.titulo || usuario?.nome || "Profissional";
+  const descricaoBase =
+    md.descricao ||
+    "Profissional disponível para oportunidades e prestação de serviço.";
+
+  const { data: existing } = await supabase
+    .from("servicos")
+    .select("id")
+    .eq("usuario_id", payment.usuario_id)
+    .eq("categoria_chave", categoriaChave)
+    .eq("ativo", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    console.log("ℹ️ anúncio profissional já existe, não duplicando");
+    return existing;
+  }
+
+  const { data, error } = await supabase
+    .from("servicos")
+    .insert({
+      usuario_id: payment.usuario_id,
+      titulo: tituloBase,
+      descricao: descricaoBase,
+      categoria_chave: categoriaChave,
+      cidade: md.cidade || usuario?.cidade || null,
+      estado: md.estado || usuario?.estado || null,
+      contato_whatsapp: md.contato_whatsapp || usuario?.telefone || null,
+      ativo: true,
+      nivel_visibilidade: 0,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("❌ erro ao publicar anúncio profissional:", error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Destaque profissional:
+ * eleva a visibilidade do último anúncio ativo do usuário.
+ */
+export async function applyProfessionalHighlightFromPayment(payment) {
+  if (payment.referencia_tipo !== "profissional_destaque") return null;
+  if (payment.status !== "pago") return null;
+
+  const { data: servico, error: findError } = await supabase
+    .from("servicos")
+    .select("*")
+    .eq("usuario_id", payment.usuario_id)
+    .eq("ativo", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (findError) {
+    console.error("❌ erro ao localizar serviço para destaque:", findError);
+    return null;
+  }
+
+  if (!servico) {
+    console.log("ℹ️ nenhum anúncio ativo encontrado para destacar");
+    return null;
+  }
+
+  const novoNivel = Math.max(Number(servico.nivel_visibilidade || 0), 1);
+
+  const { data, error } = await supabase
+    .from("servicos")
+    .update({
+      nivel_visibilidade: novoNivel,
+    })
+    .eq("id", servico.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("❌ erro ao aplicar destaque profissional:", error);
+    return null;
+  }
+
+  return data;
+}
+
 export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const mpPayment = await getMercadoPagoPayment(mpPaymentId);
 
   if (!mpPayment) return null;
 
-  // 🔒 só continua se o Mercado Pago disser APPROVED
   if (mpPayment.status !== "approved") {
     console.log("⏳ pagamento ainda não aprovado no Mercado Pago:", {
       id: mpPayment.id,
@@ -503,8 +606,11 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
 
   if (internalPayment.status === "pago") {
     await activateSubscriptionFromPayment(internalPayment);
+    await activateCompanyJobCreditsFromPayment(internalPayment);
     await publishMissionFromPayment(internalPayment);
     await publishJobFromPayment(internalPayment);
+    await publishProfessionalServiceFromPayment(internalPayment);
+    await applyProfessionalHighlightFromPayment(internalPayment);
     return internalPayment;
   }
 
@@ -523,17 +629,8 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   await activateCompanyJobCreditsFromPayment(paid);
   await publishMissionFromPayment(paid);
   await publishJobFromPayment(paid);
+  await publishProfessionalServiceFromPayment(paid);
+  await applyProfessionalHighlightFromPayment(paid);
 
   return paid;
 }
-
-
-
-
-
-
-
-
-
-
-
