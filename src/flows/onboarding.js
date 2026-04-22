@@ -55,7 +55,78 @@ const areaGroupsMap = {
   tecnologia: ["tecnologia"],
   outros: ["tarefas", "outros"],
 };
+const UF_SET = new Set([
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
+  "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
+  "RS","RO","RR","SC","SP","SE","TO",
+]);
 
+const ESTADO_NOME_TO_UF = {
+  acre: "AC",
+  alagoas: "AL",
+  amapa: "AP",
+  amapá: "AP",
+  amazonas: "AM",
+  bahia: "BA",
+  ceara: "CE",
+  ceará: "CE",
+  "distrito federal": "DF",
+  espirito_santo: "ES",
+  "espírito santo": "ES",
+  espirito: "ES",
+  espírito: "ES",
+  goias: "GO",
+  goiás: "GO",
+  maranhao: "MA",
+  maranhão: "MA",
+  mato_grosso: "MT",
+  "mato grosso": "MT",
+  mato_grosso_do_sul: "MS",
+  "mato grosso do sul": "MS",
+  minas_gerais: "MG",
+  "minas gerais": "MG",
+  para: "PA",
+  pará: "PA",
+  paraiba: "PB",
+  paraíba: "PB",
+  parana: "PR",
+  paraná: "PR",
+  pernambuco: "PE",
+  piaui: "PI",
+  piauí: "PI",
+  rio_de_janeiro: "RJ",
+  "rio de janeiro": "RJ",
+  rio_grande_do_norte: "RN",
+  "rio grande do norte": "RN",
+  rio_grande_do_sul: "RS",
+  "rio grande do sul": "RS",
+  rondonia: "RO",
+  rondônia: "RO",
+  roraima: "RR",
+  santa_catarina: "SC",
+  "santa catarina": "SC",
+  sao_paulo: "SP",
+  "são paulo": "SP",
+  sergipe: "SE",
+  tocantins: "TO",
+};
+
+function normalizeEstadoInput(value = "") {
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const upper = raw.toUpperCase();
+  if (UF_SET.has(upper)) return upper;
+
+  const normalized = raw
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+
+  return ESTADO_NOME_TO_UF[normalized] || null;
+}
 function buildRaioList(phone) {
   return sendList(phone, "Até quantos km você aceita trabalhar?", [
     {
@@ -145,7 +216,7 @@ export async function handleOnboarding({
       etapa: "estado",
     });
 
-    return sendList(phone, "Agora escolha o estado:", [
+    return sendList(phone, "Agora escolha o estado ou digite a sigla.\nEx: SE", [
       {
         title: "Estados",
         rows: estadosRows(),
@@ -158,19 +229,51 @@ export async function handleOnboarding({
   // =====================
 
   if (user.etapa === "estado") {
-    if (!text.startsWith("estado_")) {
-      return sendText(phone, "Escolha o estado pela lista.");
-    }
-
-    const estado = text.replace("estado_", "").toUpperCase();
-
+  if (["voltar", "voltar_menu"].includes(text)) {
     await updateUser({
-      estado,
-      etapa: "email",
+      etapa: "cidade",
+      estado: null,
     });
 
-    return sendText(phone, "Qual seu e-mail?");
+    return sendText(
+      phone,
+      "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana\n• Itabaiana - SE"
+    );
   }
+
+  if (["menu", "inicio", "início"].includes(text)) {
+    await updateUser({
+      etapa: "tipo",
+      onboarding_finalizado: false,
+      cidade: null,
+      estado: null,
+    });
+
+    return sendText(phone, "Escolha como deseja continuar pelo menu inicial.");
+  }
+
+  let estado = null;
+
+  if (text.startsWith("estado_")) {
+    estado = text.replace("estado_", "").toUpperCase();
+  } else {
+    estado = normalizeEstadoInput(text);
+  }
+
+  if (!estado) {
+    return sendText(
+      phone,
+      "Escolha o estado pela lista ou digite a sigla.\nEx: SE"
+    );
+  }
+
+  await updateUser({
+    estado,
+    etapa: "email",
+  });
+
+  return sendText(phone, "Qual seu e-mail?");
+}
 
   // =====================
   // EMAIL
