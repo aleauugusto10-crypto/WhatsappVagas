@@ -19,7 +19,7 @@ export function sendMenuUsuario(phone) {
       rows: [
         { id: "user_ver_vagas", title: "Ver vagas" },
         { id: "user_ver_missoes", title: "Ver bicos / missões" },
-        { id: "jobs_pacotes", title: "Pacotes de oportunidades" },
+        { id: "jobs_pacotes", title: "Pacotes de notificações" },
       ],
     },
     {

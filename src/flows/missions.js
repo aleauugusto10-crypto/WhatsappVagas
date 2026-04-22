@@ -470,15 +470,15 @@ if (text === "jobs_total_buy_month") {
   });
 }
   const { data: missoes, error } = await supabase
-    .from("missoes")
-    .select(`
-      *,
-      usuarios (
-        id,
-        nome,
-        telefone
-      )
-    `)
+  .from("missoes")
+  .select(`
+    *,
+    usuarios:usuarios!missoes_usuario_id_fkey (
+      id,
+      nome,
+      telefone
+    )
+  `)
     .eq("status", "aberta")
     .order("created_at", { ascending: false })
     .limit(10);
@@ -519,12 +519,11 @@ if (text === "jobs_total_buy_month") {
 
   if (text.startsWith("missao_publica_")) {
     const missaoId = text.replace("missao_publica_", "");
-
-    const { data: missao, error } = await supabase
+const { data: missao, error } = await supabase
   .from("missoes")
   .select(`
     *,
-    usuarios (
+    usuarios:usuarios!missoes_usuario_id_fkey (
       id,
       nome,
       telefone
