@@ -173,17 +173,28 @@ function buildPixDescription(payment) {
   return `Pagamento plataforma ${payment.id}`;
 
 }
+async function buildPayerEmail(payment) {
+  const { data: usuario, error } = await supabase
+    .from("usuarios")
+    .select("email")
+    .eq("id", payment.usuario_id)
+    .maybeSingle();
 
-function buildPayerEmail(payment) {
+  if (error) {
+    console.error("❌ erro ao buscar email do usuário:", error);
+  }
 
-  // Mercado Pago exige email válido.
+  const email = usuario?.email;
 
-  // Mantemos um fallback técnico caso o usuário ainda não tenha email real.
+  if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim().toLowerCase())) {
+    return String(email).trim().toLowerCase();
+  }
 
-  const safeUserId = String(payment.usuario_id || "guest").replace(/[^a-zA-Z0-9_-]/g, "");
+  const safeUserId = String(payment.usuario_id || "guest")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 40);
 
-  return `${safeUserId}@whatsappvagas.local`;
-
+  return `${safeUserId}@example.com`;
 }
 
 export async function createMercadoPagoPixIntent(paymentId) {
@@ -223,10 +234,8 @@ export async function createMercadoPagoPixIntent(paymentId) {
     external_reference: payment.id,
 
     payer: {
-
-      email: buildPayerEmail(payment),
-
-    },
+  email: await buildPayerEmail(payment),
+},
 
     metadata: {
 
