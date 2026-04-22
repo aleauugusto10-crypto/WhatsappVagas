@@ -1,11 +1,11 @@
 import { sendList, sendText } from "../services/whatsapp.js";
 import { sendMenuContratante, sendActionButtons } from "./menus.js";
 import {
-  buildJobsPreview,
   createPendingPayment,
   getPlanoByCodigo,
   hasPaidAccessForProfessionals,
 } from "../lib/monetization.js";
+import { createMercadoPagoPixIntent } from "../services/payments.js";
 
 const gruposMap = {
   construcao: "construcao",
@@ -36,6 +36,103 @@ function buildProfessionalsPreview(servicos = [], locked = true) {
   }
 
   return out;
+}
+
+function buildPixResumo(intent, plano) {
+  const checkoutUrl = intent?.checkout_url || null;
+
+  let out =
+    `💳 Pagamento gerado com sucesso!\n\n` +
+    `Plano: ${plano.nome}\n` +
+    `Valor: R$ ${Number(plano.valor).toFixed(2)}`;
+
+  if (checkoutUrl) {
+    out += `\n\n🔗 Link de pagamento:\n${checkoutUrl}`;
+  }
+
+  return out;
+}
+
+function buildPixCodeOnly(intent) {
+  return intent?.qr_code || "Código Pix indisponível no momento.";
+}
+
+async function gerarPagamentoPixProfissionais({
+  supabase,
+  phone,
+  user,
+  planoCodigo,
+  referenciaTipo,
+  afterSuccessLabel = "Acesso liberado após a aprovação do pagamento.",
+}) {
+  const plano = await getPlanoByCodigo(supabase, planoCodigo);
+
+  if (!plano) {
+    await sendText(phone, "Plano indisponível no momento.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  const payment = await createPendingPayment(supabase, {
+    usuarioId: user.id,
+    referenciaTipo,
+    planoCodigo: plano.codigo,
+    valor: plano.valor,
+    metadata: {
+      telefone: user.telefone,
+      cidade: user.cidade,
+      estado: user.estado,
+      area_principal: user.area_principal,
+      categoria_principal: user.categoria_principal,
+    },
+  });
+
+  if (!payment) {
+    await sendText(phone, "Erro ao gerar cobrança.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "contratar_buscar_profissionais", title: "Tentar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  let intent = null;
+  try {
+    intent = await createMercadoPagoPixIntent(payment.id);
+  } catch (err) {
+    console.error("❌ erro ao gerar Pix da busca de profissionais:", err);
+  }
+
+  if (!intent) {
+    await sendText(
+      phone,
+      `💳 Pedido criado com sucesso!\n\nPlano: ${plano.nome}\nValor: R$ ${Number(
+        plano.valor
+      ).toFixed(2)}\nPedido: ${
+        payment.id
+      }\n\nNão consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+    );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  await sendText(phone, buildPixResumo(intent, plano));
+
+  await sendText(
+    phone,
+    `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`
+  );
+
+  await sendText(phone, afterSuccessLabel);
+
+  return sendActionButtons(phone, "Depois do pagamento:", [
+    { id: "payment_check_status", title: "Já paguei" },
+    { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
 }
 
 export async function handleServicesMenu({
@@ -69,7 +166,11 @@ export async function handleServicesMenu({
     if (!text.startsWith("contratar_area_")) return false;
 
     const area = text.replace("contratar_area_", "");
-    await updateUser({ area_principal: area, etapa: "contratar_categoria" });
+
+    await updateUser({
+      area_principal: area,
+      etapa: "contratar_categoria",
+    });
 
     const grupo = gruposMap[area] || area;
     const categorias = await getCategoriasPorGrupo("servico", grupo);
@@ -99,6 +200,11 @@ export async function handleServicesMenu({
     const categoria = text.replace("contratar_cat_", "");
     const paidAccess = await hasPaidAccessForProfessionals(supabase, user.id);
 
+    await updateUser({
+      categoria_principal: categoria,
+      etapa: "menu",
+    });
+
     const { data: servicos, error } = await supabase
       .from("servicos")
       .select("*")
@@ -106,8 +212,6 @@ export async function handleServicesMenu({
       .eq("categoria_chave", categoria)
       .ilike("cidade", user.cidade || "")
       .limit(paidAccess ? 10 : 3);
-
-    await updateUser({ etapa: "menu" });
 
     if (error) {
       console.error("❌ erro ao buscar profissionais:", error);
@@ -142,132 +246,39 @@ export async function handleServicesMenu({
   }
 
   if (text === "prof_buy_single") {
-    const plano = await getPlanoByCodigo(supabase, "empresa_busca_prof_avulso");
-
-    if (!plano) {
-      await sendText(phone, "Plano indisponível no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    const payment = await createPendingPayment(supabase, {
-      usuarioId: user.id,
-      referenciaTipo: "contratante_busca_prof_avulso",
-      planoCodigo: plano.codigo,
-      valor: plano.valor,
-      metadata: {
-        telefone: user.telefone,
-        cidade: user.cidade,
-        estado: user.estado,
-      },
-    });
-
-    if (!payment) {
-      await sendText(phone, "Erro ao gerar cobrança.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_buscar_profissionais", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    await sendText(
+    return gerarPagamentoPixProfissionais({
+      supabase,
       phone,
-      `💳 Cobrança criada com sucesso!\n\nAcesso: ${plano.nome}\nValor: R$ ${Number(plano.valor).toFixed(
-        2
-      )}\nPedido: ${payment.id}`
-    );
-
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+      user,
+      planoCodigo: "empresa_busca_prof_avulso",
+      referenciaTipo: "contratante_busca_prof_avulso",
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, você poderá visualizar essa busca.",
+    });
   }
 
   if (text === "prof_buy_week") {
-    const plano = await getPlanoByCodigo(supabase, "empresa_busca_prof_semanal");
-
-    if (!plano) {
-      await sendText(phone, "Plano indisponível no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    const payment = await createPendingPayment(supabase, {
-      usuarioId: user.id,
-      referenciaTipo: "contratante_busca_prof_semanal",
-      planoCodigo: plano.codigo,
-      valor: plano.valor,
-      metadata: {
-        telefone: user.telefone,
-        cidade: user.cidade,
-        estado: user.estado,
-      },
-    });
-
-    if (!payment) {
-      await sendText(phone, "Erro ao gerar cobrança.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_buscar_profissionais", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    await sendText(
+    return gerarPagamentoPixProfissionais({
+      supabase,
       phone,
-      `💳 Cobrança criada com sucesso!\n\nPlano: ${plano.nome}\nValor: R$ ${Number(plano.valor).toFixed(
-        2
-      )}\nPedido: ${payment.id}`
-    );
-
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+      user,
+      planoCodigo: "empresa_busca_prof_semanal",
+      referenciaTipo: "contratante_busca_prof_semanal",
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, suas buscas ficarão liberadas por 7 dias.",
+    });
   }
 
   if (text === "prof_buy_month") {
-    const plano = await getPlanoByCodigo(supabase, "empresa_busca_prof_mensal");
-
-    if (!plano) {
-      await sendText(phone, "Plano indisponível no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    const payment = await createPendingPayment(supabase, {
-      usuarioId: user.id,
-      referenciaTipo: "contratante_busca_prof_mensal",
-      planoCodigo: plano.codigo,
-      valor: plano.valor,
-      metadata: {
-        telefone: user.telefone,
-        cidade: user.cidade,
-        estado: user.estado,
-      },
-    });
-
-    if (!payment) {
-      await sendText(phone, "Erro ao gerar cobrança.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_buscar_profissionais", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    await sendText(
+    return gerarPagamentoPixProfissionais({
+      supabase,
       phone,
-      `💳 Cobrança criada com sucesso!\n\nPlano: ${plano.nome}\nValor: R$ ${Number(plano.valor).toFixed(
-        2
-      )}\nPedido: ${payment.id}`
-    );
-
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+      user,
+      planoCodigo: "empresa_busca_prof_mensal",
+      referenciaTipo: "contratante_busca_prof_mensal",
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, suas buscas ficarão liberadas por 30 dias.",
+    });
   }
 
   return false;

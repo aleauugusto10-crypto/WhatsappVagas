@@ -5,6 +5,7 @@ import {
   calcMissaoTotal,
   createPendingPayment,
 } from "../lib/monetization.js";
+import { createMercadoPagoPixIntent } from "../services/payments.js";
 
 function inferCategoria(text = "") {
   const t = String(text).toLowerCase();
@@ -41,6 +42,27 @@ function inferCategoria(text = "") {
   return "outros";
 }
 
+function buildPixResumo(intent, resumo) {
+  const checkoutUrl = intent?.checkout_url || null;
+
+  let out =
+    `💳 Pagamento da missão gerado com sucesso!\n\n` +
+    `Valor da missão: R$ ${resumo.valorMissao.toFixed(2)}\n` +
+    `Taxa da plataforma: R$ ${resumo.taxa.toFixed(2)}\n` +
+    `Urgência: R$ ${resumo.urgencia.toFixed(2)}\n` +
+    `Total: R$ ${resumo.total.toFixed(2)}`;
+
+  if (checkoutUrl) {
+    out += `\n\n🔗 Link de pagamento:\n${checkoutUrl}`;
+  }
+
+  return out;
+}
+
+function buildPixCodeOnly(intent) {
+  return intent?.qr_code || "Código Pix indisponível no momento.";
+}
+
 export async function handleMissions({
   user,
   text,
@@ -53,6 +75,7 @@ export async function handleMissions({
       etapa: "missao_titulo",
       missao_titulo: null,
       missao_desc: null,
+      missao_valor_temp: null,
     });
 
     return sendText(phone, "Qual o título da missão?\nEx: Capinar jardim");
@@ -181,6 +204,13 @@ export async function handleMissions({
       ]);
     }
 
+    let intent = null;
+    try {
+      intent = await createMercadoPagoPixIntent(payment.id);
+    } catch (err) {
+      console.error("❌ erro ao gerar Pix da missão:", err);
+    }
+
     await updateUser({
       etapa: "menu",
       missao_titulo: null,
@@ -188,21 +218,40 @@ export async function handleMissions({
       missao_valor_temp: null,
     });
 
-    await sendText(
-      phone,
-      `💳 Pedido criado com sucesso!\n\nMissão: ${
-        payment.metadata?.titulo || "Missão"
-      }\nValor da missão: R$ ${resumo.valorMissao.toFixed(
-        2
-      )}\nTaxa da plataforma: R$ ${resumo.taxa.toFixed(2)}\nUrgência: R$ ${resumo.urgencia.toFixed(
-        2
-      )}\nTotal: R$ ${resumo.total.toFixed(2)}\nPedido: ${payment.id}\n\nDepois do pagamento aprovado, a missão pode ser publicada.`
-    );
+    if (!intent) {
+      await sendText(
+        phone,
+        `💳 Pedido criado com sucesso!\n\nMissão: ${
+          payment.metadata?.titulo || "Missão"
+        }\nValor da missão: R$ ${resumo.valorMissao.toFixed(
+          2
+        )}\nTaxa da plataforma: R$ ${resumo.taxa.toFixed(
+          2
+        )}\nUrgência: R$ ${resumo.urgencia.toFixed(
+          2
+        )}\nTotal: R$ ${resumo.total.toFixed(2)}\nPedido: ${
+          payment.id
+        }\n\nNão consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+      );
 
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "contratar_criar_missao", title: "Criar outra missão" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "contratar_criar_missao", title: "Criar outra missão" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    await sendText(phone, buildPixResumo(intent, resumo));
+
+await sendText(
+  phone,
+  `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`
+);
+
+return sendActionButtons(phone, "Depois do pagamento:", [
+  { id: "payment_check_status", title: "Já paguei" },
+  { id: "voltar_menu", title: "Voltar ao menu" },
+  { id: "contratar_criar_missao", title: "Criar outra missão" },
+]);
   }
 
   return false;

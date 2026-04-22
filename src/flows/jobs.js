@@ -6,6 +6,7 @@ import {
   getPlanoByCodigo,
   hasPaidAccessForJobs,
 } from "../lib/monetization.js";
+import { createMercadoPagoPixIntent } from "../services/payments.js";
 
 async function buscarVagasParaUsuario(supabase, user, limit = 10) {
   let query = supabase
@@ -37,6 +38,102 @@ async function buscarVagasParaUsuario(supabase, user, limit = 10) {
   return { vagas: data || [], error: null };
 }
 
+function buildPixResumo(intent, plano) {
+  const checkoutUrl = intent?.checkout_url || null;
+
+  let out =
+    `💳 Pagamento gerado com sucesso!\n\n` +
+    `Plano: ${plano.nome}\n` +
+    `Valor: R$ ${Number(plano.valor).toFixed(2)}`;
+
+  if (checkoutUrl) {
+    out += `\n\n🔗 Link de pagamento:\n${checkoutUrl}`;
+  }
+
+  return out;
+}
+
+function buildPixCodeOnly(intent) {
+  return intent?.qr_code || "Código Pix indisponível no momento.";
+}
+
+async function gerarPagamentoPix({
+  supabase,
+  phone,
+  user,
+  planoCodigo,
+  referenciaTipo,
+  afterSuccessLabel = "Acesso liberado após a aprovação do pagamento.",
+}) {
+  const plano = await getPlanoByCodigo(supabase, planoCodigo);
+
+  if (!plano) {
+    await sendText(phone, "Plano indisponível no momento.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  const payment = await createPendingPayment(supabase, {
+    usuarioId: user.id,
+    referenciaTipo,
+    planoCodigo: plano.codigo,
+    valor: plano.valor,
+    metadata: {
+      telefone: user.telefone,
+      cidade: user.cidade,
+      estado: user.estado,
+      categoria_principal: user.categoria_principal,
+    },
+  });
+
+  if (!payment) {
+    await sendText(phone, "Erro ao gerar cobrança.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "user_ver_vagas", title: "Tentar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  let intent = null;
+  try {
+    intent = await createMercadoPagoPixIntent(payment.id);
+  } catch (err) {
+    console.error("❌ erro ao gerar Pix das vagas:", err);
+  }
+
+  if (!intent) {
+    await sendText(
+      phone,
+      `💳 Pedido criado com sucesso!\n\nPlano: ${plano.nome}\nValor: R$ ${Number(
+        plano.valor
+      ).toFixed(2)}\nPedido: ${
+        payment.id
+      }\n\nNão consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+    );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "user_ver_vagas", title: "Ver vagas de novo" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  await sendText(phone, buildPixResumo(intent, plano));
+
+  await sendText(
+    phone,
+    `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`
+  );
+
+  await sendText(phone, afterSuccessLabel);
+
+  return sendActionButtons(phone, "Depois do pagamento:", [
+    { id: "payment_check_status", title: "Já paguei" },
+    { id: "user_ver_vagas", title: "Ver vagas de novo" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
 export async function handleJobsMenu({
   user,
   text,
@@ -44,7 +141,10 @@ export async function handleJobsMenu({
   supabase,
 }) {
   if (text === "user_redefinir_interesses") {
-    return sendText(phone, "Envie 'redefinir perfil' no menu para refazer seus interesses.");
+    return sendText(
+      phone,
+      "Envie 'redefinir perfil' no menu para refazer seus interesses."
+    );
   }
 
   if (text === "user_ver_vagas") {
@@ -89,129 +189,39 @@ export async function handleJobsMenu({
   }
 
   if (text === "jobs_buy_single") {
-    const plano = await getPlanoByCodigo(supabase, "vaga_avulsa_usuario");
-
-    if (!plano) {
-      await sendText(phone, "Plano indisponível no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    const payment = await createPendingPayment(supabase, {
-      usuarioId: user.id,
-      referenciaTipo: "usuario_vagas_avulso",
-      planoCodigo: plano.codigo,
-      valor: plano.valor,
-      metadata: {
-        telefone: user.telefone,
-        cidade: user.cidade,
-        estado: user.estado,
-        categoria_principal: user.categoria_principal,
-      },
-    });
-
-    if (!payment) {
-      await sendText(phone, "Erro ao gerar cobrança.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "user_ver_vagas", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    await sendText(
+    return gerarPagamentoPix({
+      supabase,
       phone,
-      `💳 Cobrança criada com sucesso!\n\nAcesso: ${plano.nome}\nValor: R$ ${Number(plano.valor).toFixed(2)}\nPedido: ${payment.id}\n\nEm seguida vamos conectar esse pedido ao pagamento.`
-    );
-
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "user_ver_vagas", title: "Ver vagas de novo" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+      user,
+      planoCodigo: "vaga_avulsa_usuario",
+      referenciaTipo: "usuario_vagas_avulso",
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, você poderá visualizar essa busca.",
+    });
   }
 
   if (text === "jobs_buy_week") {
-    const plano = await getPlanoByCodigo(supabase, "vaga_semanal_usuario");
-
-    if (!plano) {
-      await sendText(phone, "Plano indisponível no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    const payment = await createPendingPayment(supabase, {
-      usuarioId: user.id,
-      referenciaTipo: "usuario_vagas_semanal",
-      planoCodigo: plano.codigo,
-      valor: plano.valor,
-      metadata: {
-        telefone: user.telefone,
-        cidade: user.cidade,
-        estado: user.estado,
-        categoria_principal: user.categoria_principal,
-      },
-    });
-
-    if (!payment) {
-      await sendText(phone, "Erro ao gerar cobrança.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "user_ver_vagas", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    await sendText(
+    return gerarPagamentoPix({
+      supabase,
       phone,
-      `💳 Cobrança criada com sucesso!\n\nPlano: ${plano.nome}\nValor: R$ ${Number(plano.valor).toFixed(2)}\nPedido: ${payment.id}\n\nQuando o pagamento for integrado, esse acesso libera suas buscas por 7 dias.`
-    );
-
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "user_ver_vagas", title: "Ver vagas de novo" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+      user,
+      planoCodigo: "vaga_semanal_usuario",
+      referenciaTipo: "usuario_vagas_semanal",
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, suas buscas ficarão liberadas por 7 dias.",
+    });
   }
 
   if (text === "jobs_buy_alert") {
-    const plano = await getPlanoByCodigo(supabase, "alerta_mensal_usuario");
-
-    if (!plano) {
-      await sendText(phone, "Plano indisponível no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    const payment = await createPendingPayment(supabase, {
-      usuarioId: user.id,
-      referenciaTipo: "usuario_alerta_mensal",
-      planoCodigo: plano.codigo,
-      valor: plano.valor,
-      metadata: {
-        telefone: user.telefone,
-        cidade: user.cidade,
-        estado: user.estado,
-        categoria_principal: user.categoria_principal,
-      },
-    });
-
-    if (!payment) {
-      await sendText(phone, "Erro ao gerar cobrança.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "user_ver_vagas", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    await sendText(
+    return gerarPagamentoPix({
+      supabase,
       phone,
-      `🔔 Pedido de assinatura criado!\n\nPlano: ${plano.nome}\nValor: R$ ${Number(plano.valor).toFixed(2)}\nPedido: ${payment.id}\n\nEsse plano vai liberar a busca e também permitir receber notificações automáticas.`
-    );
-
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "user_ver_vagas", title: "Ver vagas de novo" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+      user,
+      planoCodigo: "alerta_mensal_usuario",
+      referenciaTipo: "usuario_alerta_mensal",
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, sua busca será liberada e você também poderá receber notificações automáticas.",
+    });
   }
 
   return false;

@@ -4,6 +4,7 @@ import {
   createPendingPayment,
   getPlanoByCodigo,
 } from "../lib/monetization.js";
+import { createMercadoPagoPixIntent } from "../services/payments.js";
 
 const gruposMap = {
   construcao: "construcao",
@@ -45,9 +46,30 @@ function resumoVaga(user) {
   );
 }
 
+function buildPixResumo(intent, plano, total, destaqueValor) {
+  const checkoutUrl = intent?.checkout_url || null;
+
+  let out =
+    `💳 Pagamento da vaga gerado com sucesso!\n\n` +
+    `Pacote: ${plano.nome}\n` +
+    `Pacote base: R$ ${Number(plano.valor).toFixed(2)}\n` +
+    `Destaque: R$ ${Number(destaqueValor || 0).toFixed(2)}\n` +
+    `Total: R$ ${Number(total || 0).toFixed(2)}`;
+
+  if (checkoutUrl) {
+    out += `\n\n🔗 Link de pagamento:\n${checkoutUrl}`;
+  }
+
+  return out;
+}
+
+function buildPixCodeOnly(intent) {
+  return intent?.qr_code || "Código Pix indisponível no momento.";
+}
+
 async function criarCobrancaPublicacaoVaga({ supabase, user, pacoteCodigo }) {
   const plano = await getPlanoByCodigo(supabase, pacoteCodigo);
-  if (!plano) return { plano: null, payment: null, total: null };
+  if (!plano) return { plano: null, payment: null, total: null, destaqueValor: 0 };
 
   let total = Number(plano.valor);
   let destaqueValor = 0;
@@ -67,6 +89,7 @@ async function criarCobrancaPublicacaoVaga({ supabase, user, pacoteCodigo }) {
     valor: Number(total.toFixed(2)),
     metadata: {
       empresa_id: user.id,
+      contato_whatsapp: user.telefone,
       categoria_chave: user.categoria_principal,
       titulo: user.vaga_titulo_temp,
       descricao: user.vaga_descricao_temp,
@@ -89,6 +112,7 @@ async function criarCobrancaPublicacaoVaga({ supabase, user, pacoteCodigo }) {
     plano,
     payment,
     total: Number(total.toFixed(2)),
+    destaqueValor: Number(destaqueValor.toFixed(2)),
   };
 }
 
@@ -438,11 +462,12 @@ export async function handleCompanyMenu({
     if (qtdPacote === 3) pacoteCodigo = "empresa_3_vagas";
     if (qtdPacote === 10) pacoteCodigo = "empresa_10_vagas";
 
-    const { plano, payment, total } = await criarCobrancaPublicacaoVaga({
-      supabase,
-      user,
-      pacoteCodigo,
-    });
+    const { plano, payment, total, destaqueValor } =
+      await criarCobrancaPublicacaoVaga({
+        supabase,
+        user,
+        pacoteCodigo,
+      });
 
     if (!plano || !payment) {
       await sendText(phone, "Erro ao gerar cobrança da vaga.");
@@ -452,26 +477,46 @@ export async function handleCompanyMenu({
       ]);
     }
 
+    let intent = null;
+    try {
+      intent = await createMercadoPagoPixIntent(payment.id);
+    } catch (err) {
+      console.error("❌ erro ao gerar Pix da vaga:", err);
+    }
+
     await updateUser({
       etapa: "menu",
       ...limparTempVagaPayload(),
     });
 
-    const destaqueValor = user.vaga_destaque_temp ? 4.9 : 0;
+    if (!intent) {
+      await sendText(
+        phone,
+        `💳 Pedido criado com sucesso!\n\n` +
+          `Pacote: ${plano.nome}\n` +
+          `Pacote base: R$ ${Number(plano.valor).toFixed(2)}\n` +
+          `Destaque: R$ ${Number(destaqueValor).toFixed(2)}\n` +
+          `Total: R$ ${Number(total).toFixed(2)}\n` +
+          `Pedido: ${payment.id}\n\n` +
+          `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+      );
+
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_criar_vaga", title: "Criar outra vaga" },
+        { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    await sendText(phone, buildPixResumo(intent, plano, total, destaqueValor));
 
     await sendText(
       phone,
-      `💳 Pedido criado com sucesso!\n\n` +
-        `Pacote: ${plano.nome}\n` +
-        `Pacote base: R$ ${Number(plano.valor).toFixed(2)}\n` +
-        `Destaque: R$ ${destaqueValor.toFixed(2)}\n` +
-        `Total: R$ ${Number(total).toFixed(2)}\n` +
-        `Pedido: ${payment.id}\n\n` +
-        `Após o pagamento aprovado, a vaga poderá ser publicada.`
+      `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`
     );
 
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "empresa_criar_vaga", title: "Criar outra vaga" },
+    return sendActionButtons(phone, "Depois do pagamento:", [
+      { id: "payment_check_status", title: "Já paguei" },
       { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
