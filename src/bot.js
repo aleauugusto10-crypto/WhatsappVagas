@@ -91,15 +91,6 @@ async function handlePaymentCheckStatus(user, phone) {
     );
   }
 
-  // Se internamente já está pago, informa logo
-  if (payment.status === "pago") {
-    return sendText(
-      phone,
-      `✅ Seu pagamento já foi aprovado!\n\nPedido: ${payment.id}\nTipo: ${payment.referencia_tipo}`
-    );
-  }
-
-  // Se existe mp_payment_id, tenta consultar no Mercado Pago
   if (payment.mp_payment_id) {
     try {
       const mpStatus = await getMercadoPagoPayment(payment.mp_payment_id);
@@ -138,7 +129,6 @@ async function handlePaymentCheckStatus(user, phone) {
     `⏳ Seu pedido foi criado, mas ainda não encontrei confirmação de pagamento.\n\nPedido: ${payment.id}\nStatus: ${payment.status || "pendente"}`
   );
 }
-
 export async function handleMessage(msg) {
   const phone = msg?.from;
   if (!phone) return;

@@ -394,6 +394,16 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
 
   if (!mpPayment) return null;
 
+  // 🔒 só continua se o Mercado Pago disser APPROVED
+  if (mpPayment.status !== "approved") {
+    console.log("⏳ pagamento ainda não aprovado no Mercado Pago:", {
+      id: mpPayment.id,
+      status: mpPayment.status,
+      status_detail: mpPayment.status_detail,
+    });
+    return null;
+  }
+
   const internalPaymentId =
     mpPayment.external_reference ||
     mpPayment.metadata?.plataforma_payment_id ||
@@ -407,7 +417,6 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const internalPayment = await getPendingPaymentById(internalPaymentId);
   if (!internalPayment) return null;
 
-  // Se já estava pago, ainda assim garante publicação/ativação idempotente
   if (internalPayment.status === "pago") {
     await activateSubscriptionFromPayment(internalPayment);
     await publishMissionFromPayment(internalPayment);
