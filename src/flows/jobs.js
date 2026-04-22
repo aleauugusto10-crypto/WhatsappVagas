@@ -1129,17 +1129,17 @@ if (text === "confirm_jobs_buy_week_plus2") {
   }
 
   return sendList(phone, "Escolha a 1ª categoria extra:", [
-  {
-    title: "Categorias",
-    rows: (categorias || [])
-      .filter((c) => c.chave !== user.categoria_principal)
-      .slice(0, 10)
-      .map((c) => ({
-        id: `month_extra_cat1_${c.id}`,
-        title: c.nome,
-      })),
-  },
-]);
+    {
+      title: "Categorias",
+      rows: (categorias || [])
+        .filter((c) => c.chave !== user.categoria_principal)
+        .slice(0, 10)
+        .map((c) => ({
+          id: `extra_cat1_${c.id}`,
+          title: c.nome,
+        })),
+    },
+  ]);
 }
 
 if (text === "confirm_jobs_buy_week_all") {
@@ -1206,7 +1206,7 @@ if (text === "confirm_jobs_buy_month_plus2") {
         .filter((c) => c.chave !== user.categoria_principal)
         .slice(0, 10)
         .map((c) => ({
-          id: `month_extra_cat1_${c.chave}`,
+          id: `month_extra_cat1_${c.id}`,
           title: c.nome,
         })),
     },
