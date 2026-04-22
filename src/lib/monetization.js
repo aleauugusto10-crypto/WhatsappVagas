@@ -92,23 +92,32 @@ export async function createPendingPayment(
  * Mantemos esses tipos como acesso pago útil para o fluxo de vagas.
  */
 export async function hasPaidAccessForJobs(supabase, userId) {
-  const now = new Date().toISOString();
+  if (!userId) return false;
 
+  const agora = new Date();
+
+  // 1) acesso por assinatura ativa
+  const assinaturaAtiva = await hasActiveSubscription(supabase, userId, [
+    "usuario_vagas_semanal",
+    "usuario_alerta_mensal",
+  ]);
+
+  if (assinaturaAtiva) {
+    return true;
+  }
+
+  // 2) acesso avulso por pagamento aprovado
   const { data, error } = await supabase
-    .from("wallet_topups")
+    .from("pagamentos_plataforma")
     .select("*")
     .eq("usuario_id", userId)
-    .eq("status", "approved")
-    .in("referencia_tipo", [
-      "usuario_vagas_semanal",
-      "usuario_alerta_mensal",
-      "usuario_vagas_avulso"
-    ])
+    .eq("status", "pago")
+    .eq("referencia_tipo", "usuario_vagas_avulso")
     .order("created_at", { ascending: false })
     .limit(1);
 
   if (error) {
-    console.error("❌ erro ao verificar acesso:", error);
+    console.error("❌ erro ao verificar pagamento avulso de vagas:", error);
     return false;
   }
 
@@ -117,27 +126,9 @@ export async function hasPaidAccessForJobs(supabase, userId) {
   }
 
   const pagamento = data[0];
-
-  // ⏱️ valida duração manual (7 dias ou 30 dias)
   const createdAt = new Date(pagamento.created_at);
-  const agora = new Date();
-
-  let validadeDias = 0;
-
-  if (pagamento.referencia_tipo === "usuario_vagas_semanal") {
-    validadeDias = 7;
-  }
-
-  if (pagamento.referencia_tipo === "usuario_alerta_mensal") {
-    validadeDias = 30;
-  }
-
-  if (pagamento.referencia_tipo === "usuario_vagas_avulso") {
-    return true; // libera imediatamente (caso avulso)
-  }
-
   const expiraEm = new Date(createdAt);
-  expiraEm.setDate(expiraEm.getDate() + validadeDias);
+  expiraEm.setDate(expiraEm.getDate() + 1);
 
   return agora <= expiraEm;
 }
