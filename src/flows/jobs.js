@@ -519,6 +519,7 @@ export async function handleJobsMenu({
   text,
   phone,
   supabase,
+  updateUser,
   getCategorias,
 }) {
   // =====================
@@ -526,6 +527,18 @@ export async function handleJobsMenu({
   // =====================
 
   if (text === "jobs_pacotes") {
+  if (
+    user.etapa === "jobs_week_plus2_cat_1" ||
+    user.etapa === "jobs_week_plus2_cat_2" ||
+    user.etapa === "jobs_month_plus2_cat_1" ||
+    user.etapa === "jobs_month_plus2_cat_2"
+  ) {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+  }
+
   return mostrarPacotesUsuario(phone);
 }
 
@@ -629,20 +642,11 @@ if (text === "prof_pacotes") {
 }
 
 if (text === "prof_criar_perfil") {
-  const { error } = await supabase
-    .from("usuarios")
-    .update({
-      etapa: "prof_criar_perfil_servico",
-    })
-    .eq("id", user.id);
+  await updateUser({
+    etapa: "prof_criar_perfil_servico",
+  });
 
-  if (error) {
-    console.error("❌ erro ao iniciar criação do perfil profissional:", error);
-    await sendText(phone, "Erro ao iniciar seu perfil profissional.");
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
+
 
   user.etapa = "prof_criar_perfil_servico";
 
@@ -667,17 +671,32 @@ if (text === "prof_ver_perfil") {
 }
 
 if (user.etapa === "jobs_week_plus2_cat_1") {
-  if (!text.startsWith("extra_cat1_")) return false;
+  if (text === "jobs_pacotes") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return mostrarPacotesUsuario(phone);
+  }
+
+  if (text === "voltar_menu") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return sendMenuUsuario(phone);
+  }
+
+  if (!text.startsWith("extra_cat1_")) {
+    return sendText(phone, "Escolha a 1ª categoria extra na lista enviada.");
+  }
 
   const cat1 = text.replace("extra_cat1_", "");
 
-  await supabase
-    .from("usuarios")
-    .update({
-      etapa: "jobs_week_plus2_cat_2",
-      categorias_extras_temp: [cat1],
-    })
-    .eq("id", user.id);
+  await updateUser({
+    etapa: "jobs_week_plus2_cat_2",
+    categorias_extras_temp: [cat1],
+  });
 
   const { data: categorias, error } = await supabase
     .from("categorias")
@@ -708,7 +727,25 @@ if (user.etapa === "jobs_week_plus2_cat_1") {
   ]);
 }
 if (user.etapa === "jobs_week_plus2_cat_2") {
-  if (!text.startsWith("extra_cat2_")) return false;
+  if (text === "jobs_pacotes") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return mostrarPacotesUsuario(phone);
+  }
+
+  if (text === "voltar_menu") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return sendMenuUsuario(phone);
+  }
+
+  if (!text.startsWith("extra_cat2_")) {
+    return sendText(phone, "Escolha a 2ª categoria extra na lista enviada.");
+  }
 
   const cat2 = text.replace("extra_cat2_", "");
   const atuais = Array.isArray(user.categorias_extras_temp)
@@ -717,13 +754,10 @@ if (user.etapa === "jobs_week_plus2_cat_2") {
 
   const categoriasExtras = Array.from(new Set([...atuais, cat2])).slice(0, 2);
 
-  await supabase
-    .from("usuarios")
-    .update({
-      etapa: "menu",
-      categorias_extras_temp: categoriasExtras,
-    })
-    .eq("id", user.id);
+  await updateUser({
+    etapa: "menu",
+    categorias_extras_temp: categoriasExtras,
+  });
 
   return gerarPagamentoPix({
     supabase,
@@ -1043,13 +1077,10 @@ if (text === "confirm_jobs_buy_week_base") {
 }
 
 if (text === "confirm_jobs_buy_week_plus2") {
-  await supabase
-    .from("usuarios")
-    .update({
-      etapa: "jobs_week_plus2_cat_1",
-      categorias_extras_temp: [],
-    })
-    .eq("id", user.id);
+  await updateUser({
+    etapa: "jobs_week_plus2_cat_1",
+    categorias_extras_temp: [],
+  });
 
   const { data: categorias, error } = await supabase
     .from("categorias")
@@ -1117,13 +1148,10 @@ if (text === "confirm_jobs_buy_month_base") {
 }
 
 if (text === "confirm_jobs_buy_month_plus2") {
-  await supabase
-    .from("usuarios")
-    .update({
-      etapa: "jobs_month_plus2_cat_1",
-      categorias_extras_temp: [],
-    })
-    .eq("id", user.id);
+  await updateUser({
+    etapa: "jobs_month_plus2_cat_1",
+    categorias_extras_temp: [],
+  });
 
   const { data: categorias, error } = await supabase
     .from("categorias")
@@ -1155,17 +1183,32 @@ if (text === "confirm_jobs_buy_month_plus2") {
 }
 
 if (user.etapa === "jobs_month_plus2_cat_1") {
-  if (!text.startsWith("month_extra_cat1_")) return false;
+  if (text === "jobs_pacotes") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return mostrarPacotesUsuario(phone);
+  }
+
+  if (text === "voltar_menu") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return sendMenuUsuario(phone);
+  }
+
+  if (!text.startsWith("month_extra_cat1_")) {
+    return sendText(phone, "Escolha a 1ª categoria extra na lista enviada.");
+  }
 
   const cat1 = text.replace("month_extra_cat1_", "");
 
-  await supabase
-    .from("usuarios")
-    .update({
-      etapa: "jobs_month_plus2_cat_2",
-      categorias_extras_temp: [cat1],
-    })
-    .eq("id", user.id);
+  await updateUser({
+    etapa: "jobs_month_plus2_cat_2",
+    categorias_extras_temp: [cat1],
+  });
 
   const { data: categorias, error } = await supabase
     .from("categorias")
@@ -1197,7 +1240,25 @@ if (user.etapa === "jobs_month_plus2_cat_1") {
 }
 
 if (user.etapa === "jobs_month_plus2_cat_2") {
-  if (!text.startsWith("month_extra_cat2_")) return false;
+  if (text === "jobs_pacotes") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return mostrarPacotesUsuario(phone);
+  }
+
+  if (text === "voltar_menu") {
+    await updateUser({
+      etapa: "menu",
+      categorias_extras_temp: [],
+    });
+    return sendMenuUsuario(phone);
+  }
+
+  if (!text.startsWith("month_extra_cat2_")) {
+    return sendText(phone, "Escolha a 2ª categoria extra na lista enviada.");
+  }
 
   const cat2 = text.replace("month_extra_cat2_", "");
   const atuais = Array.isArray(user.categorias_extras_temp)
@@ -1206,13 +1267,10 @@ if (user.etapa === "jobs_month_plus2_cat_2") {
 
   const categoriasExtras = Array.from(new Set([...atuais, cat2])).slice(0, 2);
 
-  await supabase
-    .from("usuarios")
-    .update({
-      etapa: "menu",
-      categorias_extras_temp: categoriasExtras,
-    })
-    .eq("id", user.id);
+  await updateUser({
+    etapa: "menu",
+    categorias_extras_temp: categoriasExtras,
+  });
 
   return gerarPagamentoPix({
     supabase,

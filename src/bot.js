@@ -232,11 +232,12 @@ export async function handleMessage(msg) {
 
     if (user.tipo === "usuario") {
       const jobs = await handleJobsMenu({
-        user,
-        text,
-        phone,
-        supabase,
-      });
+  user,
+  text,
+  phone,
+  supabase,
+  updateUser,
+});
       if (jobs) return jobs;
 
       const missions = await handleMissions({
