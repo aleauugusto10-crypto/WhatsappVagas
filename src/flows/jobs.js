@@ -361,7 +361,9 @@ async function mostrarPacotesProfissionais(phone) {
   ]);
 }
 function buildProfessionalProfileResumo(user) {
-  const temPerfil = !!String(user?.descricao_perfil || "").trim();
+  const temPerfil =
+    !!String(user?.servico_principal || "").trim() ||
+    !!String(user?.descricao_perfil || "").trim();
 
   if (!temPerfil) {
     return (
@@ -373,9 +375,11 @@ function buildProfessionalProfileResumo(user) {
   return (
     "🧑‍🔧 *Seu perfil profissional*\n\n" +
     `👤 *Nome:* ${user?.nome || "-"}\n` +
-    `📍 *Cidade:* ${user?.cidade || "-"}${user?.estado ? `/${user.estado}` : ""}\n` +
+    `💼 *Serviço principal:* ${user?.servico_principal || "-"}\n` +
     `🏷️ *Área:* ${user?.area_principal || "-"}\n` +
-    `💼 *Categoria:* ${user?.categoria_principal || "-"}\n` +
+    `📂 *Categoria:* ${user?.categoria_principal || "-"}\n` +
+    `📍 *Cidade:* ${user?.cidade || "-"}${user?.estado ? `/${user.estado}` : ""}\n` +
+    `💰 *Faixa de preço:* ${user?.preco_base || "A combinar"}\n` +
     `📝 *Descrição:* ${user?.descricao_perfil || "-"}\n` +
     `📞 *WhatsApp:* ${user?.telefone || "-"}`
   );
@@ -402,7 +406,7 @@ if (text === "prof_criar_perfil") {
   const { error } = await supabase
     .from("usuarios")
     .update({
-      etapa: "prof_criar_perfil_descricao",
+      etapa: "prof_criar_perfil_servico",
     })
     .eq("id", user.id);
 
@@ -413,6 +417,18 @@ if (text === "prof_criar_perfil") {
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+
+  user.etapa = "prof_criar_perfil_servico";
+
+  await sendText(
+    phone,
+    "🧑‍🔧 *Vamos criar seu perfil profissional.*\n\nQual é o seu serviço principal?\n\nExemplo:\nVendedor externo\nEletricista residencial\nManicure\nDesigner"
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 
   user.etapa = "prof_criar_perfil_descricao";
 
@@ -439,6 +455,109 @@ if (user.etapa === "prof_criar_perfil_descricao") {
     ]);
   }
 
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      descricao_perfil: descricao,
+      etapa: "prof_criar_perfil_preco",
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("❌ erro ao salvar descrição do perfil profissional:", error);
+    await sendText(phone, "Erro ao salvar a descrição do seu perfil.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "prof_criar_perfil", title: "Tentar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  user.descricao_perfil = descricao;
+  user.etapa = "prof_criar_perfil_preco";
+
+  await sendText(
+    phone,
+    "💰 Informe sua faixa de preço ou forma de cobrança.\n\nExemplo:\nA partir de R$ 80\nDiária R$ 120\nComissão\nA combinar"
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+if (text === "prof_criar_perfil") {
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      etapa: "prof_criar_perfil_servico",
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("❌ erro ao iniciar criação do perfil profissional:", error);
+    await sendText(phone, "Erro ao iniciar seu perfil profissional.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  user.etapa = "prof_criar_perfil_servico";
+
+  await sendText(
+    phone,
+    "🧑‍🔧 *Vamos criar seu perfil profissional.*\n\nQual é o seu serviço principal?\n\nExemplo:\nVendedor externo\nEletricista residencial\nManicure\nDesigner"
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+if (user.etapa === "prof_criar_perfil_preco") {
+  const preco = String(text || "").trim();
+
+  if (!preco || preco.length < 2) {
+    await sendText(
+      phone,
+      "Informe uma faixa de preço válida.\n\nExemplo:\nA partir de R$ 80\nDiária R$ 120\nA combinar"
+    );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      preco_base: preco,
+      etapa: "menu",
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("❌ erro ao salvar faixa de preço do perfil profissional:", error);
+    await sendText(phone, "Erro ao salvar a faixa de preço do seu perfil.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "prof_criar_perfil", title: "Tentar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  user.preco_base = preco;
+  user.etapa = "menu";
+
+  await sendText(
+    phone,
+    "✅ *Perfil profissional criado com sucesso!*\n\nAgora você já pode visualizar seu perfil e contratar um pacote para divulgar seu trabalho."
+  );
+
+  await sendText(phone, buildProfessionalProfileResumo(user));
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "prof_ver_perfil", title: "Ver meu perfil" },
+    { id: "prof_pacotes", title: "Ver divulgação" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
   const { error } = await supabase
     .from("usuarios")
     .update({
