@@ -45,16 +45,7 @@ async function buscarVagasParaUsuario(supabase, user, limit = 30) {
   if (user?.estado) {
     query = query.eq("estado", user.estado);
   }
-const { data: debugVagas, error: debugError } = await supabase
-  .from("vagas")
-  .select("id,titulo,status,cidade,estado,categoria_id")
-  .limit(5);
 
-console.log("🧪 debug vagas simples:", {
-  error: debugError,
-  total: (debugVagas || []).length,
-  rows: debugVagas || [],
-});
   const { data, error } = await query;
 
   if (error) {
@@ -109,11 +100,10 @@ function buildJobsPreviewLocked(vagas = []) {
   if (restante > 0) {
     out += `\n\n📌 E ainda existem *mais ${restante} oportunidade(s)* nessa busca.`;
   }
-
 out +=
   "\n\n🔒 Você está vendo apenas as *3 primeiras vagas*." +
   "\nPara liberar a lista completa desta busca, o desbloqueio é *avulso por R$ 4,90*." +
-  "\n\n📣 Se preferir, você também pode assinar um pacote de notificações.";
+  "\n\n📣 Se preferir, você também pode contratar um pacote de oportunidades.";
   return out;
 }
 
