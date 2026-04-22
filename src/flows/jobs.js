@@ -679,30 +679,30 @@ if (user.etapa === "jobs_week_plus2_cat_1") {
     })
     .eq("id", user.id);
 
-  const { data: areas, error } = await supabase
-    .from("areas")
-    .select("*")
+  const { data: categorias, error } = await supabase
+    .from("categorias")
+    .select("id, nome, chave")
     .eq("ativo", true)
     .order("nome");
 
   if (error) {
-    console.error("❌ erro ao buscar 2ª área extra semanal:", error);
+    console.error("❌ erro ao buscar 2ª categoria extra semanal:", error);
     await sendText(phone, "Erro ao carregar a 2ª categoria extra.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "jobs_pacotes", title: "Ver notificações" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
 
-  return sendList(phone, "Escolha a 2ª área extra:", [
+  return sendList(phone, "Escolha a 2ª categoria extra:", [
     {
-      title: "Áreas",
-      rows: (areas || [])
-        .filter((a) => a.chave !== user.area_principal && a.chave !== cat1)
+      title: "Categorias",
+      rows: (categorias || [])
+        .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
         .slice(0, 10)
-        .map((a) => ({
-          id: `extra_cat2_${a.chave}`,
-          title: a.nome,
+        .map((c) => ({
+          id: `extra_cat2_${c.chave}`,
+          title: c.nome,
         })),
     },
   ]);
@@ -1051,30 +1051,30 @@ if (text === "confirm_jobs_buy_week_plus2") {
     })
     .eq("id", user.id);
 
-  const { data: areas, error } = await supabase
-    .from("areas")
-    .select("*")
+  const { data: categorias, error } = await supabase
+    .from("categorias")
+    .select("id, nome, chave")
     .eq("ativo", true)
     .order("nome");
 
   if (error) {
-    console.error("❌ erro ao buscar áreas extras semanais:", error);
+    console.error("❌ erro ao buscar categorias extras semanais:", error);
     await sendText(phone, "Erro ao carregar categorias extras.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "jobs_pacotes", title: "Ver notificações" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
 
-  return sendList(phone, "Escolha a 1ª área extra:", [
+  return sendList(phone, "Escolha a 1ª categoria extra:", [
     {
-      title: "Áreas",
-      rows: (areas || [])
-        .filter((a) => a.chave !== user.area_principal)
+      title: "Categorias",
+      rows: (categorias || [])
+        .filter((c) => c.chave !== user.categoria_principal)
         .slice(0, 10)
-        .map((a) => ({
-          id: `extra_cat1_${a.chave}`,
-          title: a.nome,
+        .map((c) => ({
+          id: `extra_cat1_${c.chave}`,
+          title: c.nome,
         })),
     },
   ]);
@@ -1125,30 +1125,30 @@ if (text === "confirm_jobs_buy_month_plus2") {
     })
     .eq("id", user.id);
 
-  const { data: areas, error } = await supabase
-    .from("areas")
-    .select("*")
+  const { data: categorias, error } = await supabase
+    .from("categorias")
+    .select("id, nome, chave")
     .eq("ativo", true)
     .order("nome");
 
   if (error) {
-    console.error("❌ erro ao buscar áreas extras mensais:", error);
+    console.error("❌ erro ao buscar categorias extras mensais:", error);
     await sendText(phone, "Erro ao carregar categorias extras.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "jobs_pacotes", title: "Ver notificações" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
 
-  return sendList(phone, "Escolha a 1ª área extra:", [
+  return sendList(phone, "Escolha a 1ª categoria extra:", [
     {
-      title: "Áreas",
-      rows: (areas || [])
-        .filter((a) => a.chave !== user.area_principal)
+      title: "Categorias",
+      rows: (categorias || [])
+        .filter((c) => c.chave !== user.categoria_principal)
         .slice(0, 10)
-        .map((a) => ({
-          id: `month_extra_cat1_${a.chave}`,
-          title: a.nome,
+        .map((c) => ({
+          id: `month_extra_cat1_${c.chave}`,
+          title: c.nome,
         })),
     },
   ]);
@@ -1167,30 +1167,30 @@ if (user.etapa === "jobs_month_plus2_cat_1") {
     })
     .eq("id", user.id);
 
-  const { data: areas, error } = await supabase
-    .from("areas")
-    .select("*")
+  const { data: categorias, error } = await supabase
+    .from("categorias")
+    .select("id, nome, chave")
     .eq("ativo", true)
     .order("nome");
 
   if (error) {
-    console.error("❌ erro ao buscar 2ª área extra mensal:", error);
+    console.error("❌ erro ao buscar 2ª categoria extra mensal:", error);
     await sendText(phone, "Erro ao carregar a 2ª categoria extra.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "jobs_pacotes", title: "Ver notificações" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
 
-  return sendList(phone, "Escolha a 2ª área extra:", [
+  return sendList(phone, "Escolha a 2ª categoria extra:", [
     {
-      title: "Áreas",
-      rows: (areas || [])
-        .filter((a) => a.chave !== user.area_principal && a.chave !== cat1)
+      title: "Categorias",
+      rows: (categorias || [])
+        .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
         .slice(0, 10)
-        .map((a) => ({
-          id: `month_extra_cat2_${a.chave}`,
-          title: a.nome,
+        .map((c) => ({
+          id: `month_extra_cat2_${c.chave}`,
+          title: c.nome,
         })),
     },
   ]);
