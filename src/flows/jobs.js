@@ -120,7 +120,122 @@ function buildPixResumo(intent, titulo, valor) {
 function buildPixCodeOnly(intent) {
   return intent?.qr_code || "Código Pix indisponível no momento.";
 }
+function getJobPackageDetails(packageId) {
+  const map = {
+    jobs_buy_single: {
+      titulo: "Desbloqueio da busca atual",
+      valor: 4.9,
+      descricao:
+        "Libera a lista completa da busca que você acabou de fazer. Ideal para ver todas as vagas disponíveis agora, sem assinatura.",
+      confirmId: "confirm_jobs_buy_single",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
 
+    jobs_buy_week_base: {
+      titulo: "Notificações semanais",
+      valor: 9.9,
+      descricao:
+        "Você recebe notificações por 7 dias sempre que surgir vaga compatível com a sua categoria atual.",
+      confirmId: "confirm_jobs_buy_week_base",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    jobs_buy_week_plus2: {
+      titulo: "Notificações semanais + 2 categorias",
+      valor: 13.8,
+      descricao:
+        "Você recebe notificações por 7 dias da sua categoria atual e também poderá ampliar para mais 2 categorias extras.",
+      confirmId: "confirm_jobs_buy_week_plus2",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    jobs_buy_week_all: {
+      titulo: "Notificações semanais totais",
+      valor: 17.8,
+      descricao:
+        "Você recebe notificações por 7 dias de vagas em todas as categorias disponíveis.",
+      confirmId: "confirm_jobs_buy_week_all",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    jobs_buy_month_base: {
+      titulo: "Notificações mensais",
+      valor: 19.9,
+      descricao:
+        "Você recebe notificações por 30 dias sempre que surgir vaga compatível com a sua categoria atual.",
+      confirmId: "confirm_jobs_buy_month_base",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    jobs_buy_month_plus2: {
+      titulo: "Notificações mensais + 2 categorias",
+      valor: 23.8,
+      descricao:
+        "Você recebe notificações por 30 dias da sua categoria atual e também poderá ampliar para mais 2 categorias extras.",
+      confirmId: "confirm_jobs_buy_month_plus2",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    jobs_buy_month_all: {
+      titulo: "Notificações mensais totais",
+      valor: 27.8,
+      descricao:
+        "Você recebe notificações por 30 dias de vagas em todas as categorias disponíveis.",
+      confirmId: "confirm_jobs_buy_month_all",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    job_service_buy_30d: {
+      titulo: "Perfil profissional por 30 dias",
+      valor: 9.9,
+      descricao:
+        "Seu perfil profissional ficará visível por 30 dias nas buscas de pessoas e empresas que procurarem profissionais da sua área.",
+      confirmId: "confirm_job_service_buy_30d",
+      backId: "prof_pacotes",
+      backTitle: "Ver divulgação",
+    },
+
+    job_service_highlight_30d: {
+      titulo: "Destaque profissional por 30 dias",
+      valor: 19.9,
+      descricao:
+        "Seu perfil profissional ficará em destaque por 30 dias, aparecendo com prioridade nas buscas da sua área.",
+      confirmId: "confirm_job_service_highlight_30d",
+      backId: "prof_pacotes",
+      backTitle: "Ver divulgação",
+    },
+  };
+
+  return map[packageId] || null;
+}
+
+async function explicarPacoteAntesDoPagamento(phone, packageId) {
+  const pkg = getJobPackageDetails(packageId);
+
+  if (!pkg) {
+    return sendText(phone, "Não encontrei os detalhes desse pacote.");
+  }
+
+  await sendText(
+    phone,
+    `📦 *${pkg.titulo}*\n\n` +
+      `💵 *Valor:* R$ ${Number(pkg.valor).toFixed(2)}\n\n` +
+      `${pkg.descricao}`
+  );
+
+  return sendActionButtons(phone, "Deseja continuar?", [
+    { id: pkg.confirmId, title: "Continuar" },
+    { id: pkg.backId, title: pkg.backTitle },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 async function gerarPagamentoPix({
   supabase,
   phone,
@@ -234,7 +349,17 @@ async function mostrarPacotesUsuario(phone) {
     },
   ]);
 }
-
+async function mostrarPacotesProfissionais(phone) {
+  return sendList(phone, "🧑‍🔧 *Divulgação profissional*", [
+    {
+      title: "Seu perfil profissional",
+      rows: [
+        { id: "job_service_buy_30d", title: "Perfil 30d R$ 9,90" },
+        { id: "job_service_highlight_30d", title: "Destaque 30d R$ 19,90" },
+      ],
+    },
+  ]);
+}
 export async function handleJobsMenu({
   user,
   text,
@@ -246,8 +371,12 @@ export async function handleJobsMenu({
   // =====================
 
   if (text === "jobs_pacotes") {
-    return mostrarPacotesUsuario(phone);
-  }
+  return mostrarPacotesUsuario(phone);
+}
+
+if (text === "prof_pacotes") {
+  return mostrarPacotesProfissionais(phone);
+}
 
   // =====================
   // VER VAGAS
@@ -290,196 +419,248 @@ export async function handleJobsMenu({
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+if (text === "confirm_jobs_buy_single") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "vaga_avulsa_usuario",
+    referenciaTipo: "usuario_vagas_avulso",
+    tituloPlano: "Desbloqueio da busca atual",
+    valorFinal: 4.9,
+    metadataExtra: {
+      modo: "desbloqueio_busca_vagas",
+      categoria_principal: user.categoria_principal,
+      notificacao_scope: "categoria_atual",
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, a lista completa desta busca ficará liberada.",
+    backActionId: "user_ver_vagas",
+    backActionTitle: "Ver vagas",
+  });
+}
+
+if (text === "confirm_jobs_buy_week_base") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "vaga_semanal_usuario",
+    referenciaTipo: "usuario_vagas_semanal",
+    tituloPlano: "Notificações semanais - categoria atual",
+    valorFinal: 9.9,
+    metadataExtra: {
+      notificacao_scope: "categoria_atual",
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, você passará a receber notificações semanais da sua categoria atual.",
+  });
+}
+
+if (text === "confirm_jobs_buy_week_plus2") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "vaga_semanal_usuario",
+    referenciaTipo: "usuario_vagas_semanal",
+    tituloPlano: "Notificações semanais - categoria atual + 2 extras",
+    valorFinal: 13.8,
+    metadataExtra: {
+      notificacao_scope: "mais_2",
+      adicional_categorias: 2,
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, suas notificações semanais ficarão liberadas para a categoria atual + 2 categorias extras.",
+  });
+}
+
+if (text === "confirm_jobs_buy_week_all") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "vaga_semanal_usuario",
+    referenciaTipo: "usuario_vagas_semanal",
+    tituloPlano: "Notificações semanais - todas as categorias",
+    valorFinal: 17.8,
+    metadataExtra: {
+      notificacao_scope: "todas",
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, você passará a receber notificações semanais de todas as categorias.",
+  });
+}
+
+if (text === "confirm_jobs_buy_month_base") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "alerta_mensal_usuario",
+    referenciaTipo: "usuario_alerta_mensal",
+    tituloPlano: "Notificações mensais - categoria atual",
+    valorFinal: 19.9,
+    metadataExtra: {
+      notificacao_scope: "categoria_atual",
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, você passará a receber notificações mensais da sua categoria atual.",
+  });
+}
+
+if (text === "confirm_jobs_buy_month_plus2") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "alerta_mensal_usuario",
+    referenciaTipo: "usuario_alerta_mensal",
+    tituloPlano: "Notificações mensais - categoria atual + 2 extras",
+    valorFinal: 23.8,
+    metadataExtra: {
+      notificacao_scope: "mais_2",
+      adicional_categorias: 2,
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, suas notificações mensais ficarão liberadas para a categoria atual + 2 categorias extras.",
+  });
+}
+
+
+if (text === "confirm_jobs_buy_month_all") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "alerta_mensal_usuario",
+    referenciaTipo: "usuario_alerta_mensal",
+    tituloPlano: "Notificações mensais - todas as categorias",
+    valorFinal: 27.8,
+    metadataExtra: {
+      notificacao_scope: "todas",
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, você passará a receber notificações mensais de todas as categorias.",
+  });
+}
+
+if (text === "confirm_job_service_buy_30d") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "profissional_anuncio_30d",
+    referenciaTipo: "profissional_anuncio",
+    tituloPlano: "Divulgação do meu serviço - 30 dias",
+    valorFinal: 9.9,
+    metadataExtra: {
+      modo: "divulgacao_trabalho",
+      categoria_chave: user.categoria_principal,
+      contato_whatsapp: user.telefone,
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, seu perfil profissional ficará visível por 30 dias nas buscas.",
+      backActionId: "prof_pacotes",
+      backActionTitle: "Ver divulgação",
+  });
+}
+
+
+if (text === "confirm_job_service_highlight_30d") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "profissional_destaque_30d",
+    referenciaTipo: "profissional_destaque",
+    tituloPlano: "Destaque do meu serviço - 30 dias",
+    valorFinal: 19.9,
+    metadataExtra: {
+      modo: "destaque_trabalho",
+      categorias_extras: [],
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, seu perfil profissional ficará em destaque nas buscas por 30 dias.",
+    backActionId: "prof_pacotes",
+    backActionTitle: "Ver divulgação",
+  });
+}
+
 
   // =====================
   // DESBLOQUEIO AVULSO DA BUSCA
   // =====================
 
   if (text === "jobs_buy_single") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "vaga_avulsa_usuario",
-      referenciaTipo: "usuario_vagas_avulso",
-      tituloPlano: "Desbloqueio da busca atual",
-      valorFinal: 4.9,
-      metadataExtra: {
-        modo: "desbloqueio_busca_vagas",
-        categoria_principal: user.categoria_principal,
-        notificacao_scope: "categoria_atual",
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, a lista completa desta busca ficará liberada.",
-      backActionId: "user_ver_vagas",
-      backActionTitle: "Ver vagas",
-    });
-  }
+  return explicarPacoteAntesDoPagamento(phone, "jobs_buy_single");
+}
 
   // =====================
   // NOTIFICAÇÕES SEMANAIS
   // =====================
+if (text === "jobs_buy_week_base") {
+  return explicarPacoteAntesDoPagamento(phone, "jobs_buy_week_base");
+}
 
-  if (text === "jobs_buy_week_base") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "vaga_semanal_usuario",
-      referenciaTipo: "usuario_vagas_semanal",
-      tituloPlano: "Notificações semanais - categoria atual",
-      valorFinal: 9.9,
-      metadataExtra: {
-        notificacao_scope: "categoria_atual",
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, você passará a receber notificações semanais da sua categoria atual.",
-    });
-  }
 
   if (text === "jobs_buy_week_plus2") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "vaga_semanal_usuario",
-      referenciaTipo: "usuario_vagas_semanal",
-      tituloPlano: "Notificações semanais - categoria atual + 2 extras",
-      valorFinal: 13.8,
-      metadataExtra: {
-        notificacao_scope: "mais_2",
-        adicional_categorias: 2,
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, suas notificações semanais ficarão liberadas para a categoria atual + 2 categorias extras.",
-    });
-  }
+  return explicarPacoteAntesDoPagamento(phone, "jobs_buy_week_plus2");
+}
 
   if (text === "jobs_buy_week_all") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "vaga_semanal_usuario",
-      referenciaTipo: "usuario_vagas_semanal",
-      tituloPlano: "Notificações semanais - todas as categorias",
-      valorFinal: 17.8,
-      metadataExtra: {
-        notificacao_scope: "todas",
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, você passará a receber notificações semanais de todas as categorias.",
-    });
-  }
+
+  return explicarPacoteAntesDoPagamento(phone, "jobs_buy_week_all");
+
+}
+
+
 
   // =====================
   // NOTIFICAÇÕES MENSAIS
   // =====================
 
   if (text === "jobs_buy_month_base") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "alerta_mensal_usuario",
-      referenciaTipo: "usuario_alerta_mensal",
-      tituloPlano: "Notificações mensais - categoria atual",
-      valorFinal: 19.9,
-      metadataExtra: {
-        notificacao_scope: "categoria_atual",
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, você passará a receber notificações mensais da sua categoria atual.",
-    });
-  }
+
+  return explicarPacoteAntesDoPagamento(phone, "jobs_buy_month_base");
+
+}
 
   if (text === "jobs_buy_month_plus2") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "alerta_mensal_usuario",
-      referenciaTipo: "usuario_alerta_mensal",
-      tituloPlano: "Notificações mensais - categoria atual + 2 extras",
-      valorFinal: 23.8,
-      metadataExtra: {
-        notificacao_scope: "mais_2",
-        adicional_categorias: 2,
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, suas notificações mensais ficarão liberadas para a categoria atual + 2 categorias extras.",
-    });
-  }
+
+  return explicarPacoteAntesDoPagamento(phone, "jobs_buy_month_plus2");
+
+}
 
   if (text === "jobs_buy_month_all") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "alerta_mensal_usuario",
-      referenciaTipo: "usuario_alerta_mensal",
-      tituloPlano: "Notificações mensais - todas as categorias",
-      valorFinal: 27.8,
-      metadataExtra: {
-        notificacao_scope: "todas",
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, você passará a receber notificações mensais de todas as categorias.",
-    });
-  }
+
+  return explicarPacoteAntesDoPagamento(phone, "jobs_buy_month_all");
+
+}
 
   // =====================
   // DIVULGAR MEU TRABALHO
   // =====================
 
   if (text === "job_service_buy_30d") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "profissional_anuncio_30d",
-      referenciaTipo: "profissional_anuncio",
-      tituloPlano: "Divulgação do meu serviço - 30 dias",
-      valorFinal: 9.9,
-      metadataExtra: {
-        modo: "divulgacao_trabalho",
-        categoria_chave: user.categoria_principal,
-        contato_whatsapp: user.telefone,
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, seu anúncio profissional poderá ser publicado por 30 dias.",
-      backActionId: "jobs_pacotes",
-      backActionTitle: "Ver pacotes",
-    });
-  }
+
+  return explicarPacoteAntesDoPagamento(phone, "job_service_buy_30d");
+
+}
 
   if (text === "job_service_highlight_30d") {
-    return gerarPagamentoPix({
-      supabase,
-      phone,
-      user,
-      planoCodigo: "profissional_destaque_30d",
-      referenciaTipo: "profissional_destaque",
-      tituloPlano: "Destaque do meu serviço - 30 dias",
-      valorFinal: 19.9,
-      metadataExtra: {
-        modo: "destaque_trabalho",
-        categorias_extras: [],
-      },
-      afterSuccessLabel:
-        "Assim que o pagamento for aprovado, seu anúncio profissional ficará em destaque por 30 dias.",
-      backActionId: "jobs_pacotes",
-      backActionTitle: "Ver pacotes",
-    });
-  }
+
+  return explicarPacoteAntesDoPagamento(phone, "job_service_highlight_30d");
+
+}
 
   return false;
 }

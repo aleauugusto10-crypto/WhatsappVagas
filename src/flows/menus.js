@@ -15,11 +15,19 @@ export function sendRootMenu(phone) {
 export function sendMenuUsuario(phone) {
   return sendList(phone, "💼 Menu do trabalhador:", [
     {
-      title: "Oportunidades",
+      title: "Buscar oportunidades",
       rows: [
         { id: "user_ver_vagas", title: "Ver vagas" },
         { id: "user_ver_missoes", title: "Ver bicos / missões" },
-        { id: "jobs_pacotes", title: "Pacotes" },
+        { id: "jobs_pacotes", title: "Pacotes de vagas" },
+      ],
+    },
+    {
+      title: "Perfil profissional",
+      rows: [
+        { id: "prof_criar_perfil", title: "Criar perfil" },
+        { id: "prof_ver_perfil", title: "Ver meu perfil" },
+        { id: "prof_pacotes", title: "Pacotes de divulgação" },
       ],
     },
     {
