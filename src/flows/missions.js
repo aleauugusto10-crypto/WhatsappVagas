@@ -402,74 +402,7 @@ async function gerarPagamentoPlanoTotal({ supabase, phone, user }) {
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
-async function gerarPagamentoMissaoAvulso({ supabase, phone, user }) {
-  const payment = await createPendingPayment(supabase, {
-    usuarioId: user.id,
-    referenciaTipo: "usuario_missoes_avulso",
-    planoCodigo: "missao_avulsa_usuario",
-    valor: 4.9,
-    metadata: {
-      modo: "desbloqueio_lista_missoes",
-      cidade: user.cidade,
-      estado: user.estado,
-      categoria_principal: user.categoria_principal || null,
-    },
-  });
 
-  if (!payment) {
-    await sendText(phone, "Erro ao gerar cobrança das missões.");
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "user_ver_missoes", title: "Ver missões" },
-      { id: "jobs_pacotes", title: "Ver pacotes" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
-
-  let intent = null;
-  try {
-    intent = await createMercadoPagoPixIntent(payment.id);
-  } catch (err) {
-    console.error("❌ erro ao gerar Pix das missões:", err);
-  }
-
-  if (!intent) {
-    await sendText(
-      phone,
-      `💳 *Pedido criado com sucesso!*\n\n` +
-        `📦 *Plano:* Desbloqueio de missões\n` +
-        `💵 *Valor:* R$ 4.90\n` +
-        `🆔 *Pedido:* ${payment.id}\n\n` +
-        `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
-    );
-
-    return sendActionButtons(phone, "Depois do pagamento:", [
-      { id: "payment_check_status", title: "Já paguei" },
-      { id: "user_ver_missoes", title: "Ver missões" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
-
-  await sendText(
-    phone,
-    `💳 *Pagamento gerado com sucesso!*\n\n` +
-      `📦 *Plano:* Desbloqueio de missões\n` +
-      `💵 *Valor:* R$ 4.90` +
-      (intent?.checkout_url ? `\n\n🔗 *Link de pagamento:*\n${intent.checkout_url}` : "")
-  );
-
-  await sendText(phone, intent?.qr_code || "Código Pix indisponível no momento.");
-
-  await sendText(
-    phone,
-    "✅ Assim que o pagamento for aprovado, a lista completa das missões ficará liberada."
-  );
-
-  return sendActionButtons(phone, "Depois do pagamento:", [
-    { id: "payment_check_status", title: "Já paguei" },
-    { id: "user_ver_missoes", title: "Ver missões" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
-}
 
 async function enviarMissaoParaDono(phone, missao, interessado) {
   return sendActionButtons(
@@ -495,13 +428,16 @@ export async function handleMissions({
   // =====================
 
   if (text === "user_ver_missoes") {
-    if (text === "missoes_buy_single") {
-  return gerarPagamentoMissaoAvulso({
+    
+
+if (text === "jobs_total_buy_month") {
+  return gerarPagamentoPlanoTotal({
     supabase,
     phone,
     user,
   });
 }
+  const paidAccess = await hasPaidAccessForMissions(supabase, user.id);
 if (text === "missoes_buy_single") {
   return gerarPagamentoMissaoAvulso({
     supabase,
@@ -533,8 +469,6 @@ if (text === "jobs_total_buy_month") {
     user,
   });
 }
-  const paidAccess = await hasPaidAccessForMissions(supabase, user.id);
-
   const { data: missoes, error } = await supabase
     .from("missoes")
     .select(`
