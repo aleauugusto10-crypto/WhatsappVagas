@@ -93,7 +93,7 @@ function buildJobsPreviewLocked(vagas = []) {
     return "Sem vagas no momento para seu perfil.";
   }
 
-  const preview = vagas.slice(0, 5);
+  const preview = vagas.slice(0, 3);
   const restante = Math.max(0, vagas.length - preview.length);
 
   let out = "🔎 *Encontramos vagas para o seu perfil:*\n";
@@ -110,10 +110,10 @@ function buildJobsPreviewLocked(vagas = []) {
     out += `\n\n📌 E ainda existem *mais ${restante} oportunidade(s)* nessa busca.`;
   }
 
-  out +=
-    "\n\n🔒 Para liberar a lista completa desta busca, o desbloqueio é *avulso por R$ 4,90*." +
-    "\n\n📣 Se preferir, você também pode assinar um pacote de notificações.";
-
+out +=
+  "\n\n🔒 Você está vendo apenas as *3 primeiras vagas*." +
+  "\nPara liberar a lista completa desta busca, o desbloqueio é *avulso por R$ 4,90*." +
+  "\n\n📣 Se preferir, você também pode assinar um pacote de notificações.";
   return out;
 }
 
@@ -136,7 +136,40 @@ function buildJobsFull(vagas = []) {
 
   return out;
 }
+function buildJobsDetailsMessage(vaga) {
+  if (!vaga) {
+    return "Vaga não encontrada.";
+  }
 
+  return (
+    `💼 *${vaga.titulo || "Vaga"}*\n\n` +
+    `🏢 *Empresa:* ${vaga.nome_empresa || "Empresa não informada"}\n` +
+    `📍 *Local:* ${vaga.cidade || "-"}${vaga.estado ? `/${vaga.estado}` : ""}\n` +
+    `💰 *Salário:* ${vaga.salario || "A combinar"}\n` +
+    `📌 *Contratação:* ${formatTipoContratacao(vaga.tipo_contratacao)}\n` +
+    `👥 *Vagas:* ${vaga.quantidade_vagas || 1}\n` +
+    `🕒 *Jornada:* ${vaga.jornada || "Não informada"}\n` +
+    `✅ *Requisitos:* ${vaga.requisitos || "Não informados"}\n\n` +
+    `📝 *Descrição:*\n${vaga.descricao || "Sem descrição."}`
+  );
+}
+
+async function sendJobsUnlockedList(phone, vagas = []) {
+  if (!vagas.length) {
+    return sendText(phone, "Sem vagas no momento para seu perfil.");
+  }
+
+  return sendList(phone, "💼 Escolha uma vaga para ver os detalhes:", [
+    {
+      title: "Vagas disponíveis",
+      rows: vagas.slice(0, 10).map((vaga) => ({
+        id: `vaga_ver_${vaga.id}`,
+        title: String(vaga.titulo || "Vaga").slice(0, 24),
+        description: `${vaga.nome_empresa || "Empresa"} • ${vaga.cidade || "-"}`.slice(0, 72),
+      })),
+    },
+  ]);
+}
 function buildPixResumo(intent, titulo, valor) {
   const checkoutUrl = intent?.checkout_url || null;
 
@@ -435,7 +468,73 @@ export async function handleJobsMenu({
   if (text === "jobs_pacotes") {
   return mostrarPacotesUsuario(phone);
 }
+if (text.startsWith("vaga_ver_")) {
+  const vagaId = text.replace("vaga_ver_", "");
 
+  const { data: vaga, error } = await supabase
+    .from("vagas")
+    .select("*")
+    .eq("id", vagaId)
+    .eq("status", "ativa")
+    .maybeSingle();
+
+  if (error || !vaga) {
+    await sendText(phone, "Não consegui carregar essa vaga.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "user_ver_vagas", title: "Ver vagas" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  await sendText(phone, buildJobsDetailsMessage(vaga));
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: `vaga_candidatar_${vaga.id}`, title: "Candidatar-se" },
+    { id: "user_ver_vagas", title: "Voltar às vagas" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+if (text.startsWith("vaga_candidatar_")) {
+  const vagaId = text.replace("vaga_candidatar_", "");
+
+  const { data: vaga, error } = await supabase
+    .from("vagas")
+    .select("*")
+    .eq("id", vagaId)
+    .eq("status", "ativa")
+    .maybeSingle();
+
+  if (error || !vaga) {
+    await sendText(phone, "Não consegui localizar o contato dessa vaga.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "user_ver_vagas", title: "Ver vagas" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  const numero = String(vaga.contato_whatsapp || "").replace(/\D/g, "");
+  const linkWhatsapp = numero ? `https://wa.me/${numero}` : null;
+
+  let msg =
+    `📩 *Candidatura à vaga*\n\n` +
+    `💼 *Vaga:* ${vaga.titulo || "-"}\n` +
+    `🏢 *Empresa:* ${vaga.nome_empresa || "Empresa não informada"}\n\n` +
+    `Envie seu currículo para o contato da vaga.`;
+
+  if (linkWhatsapp) {
+    msg += `\n\n🔗 *WhatsApp da empresa:*\n${linkWhatsapp}`;
+  } else {
+    msg += `\n\n⚠️ O contato de WhatsApp dessa vaga não foi encontrado.`;
+  }
+
+  await sendText(phone, msg);
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "user_ver_vagas", title: "Ver outras vagas" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 if (text === "prof_pacotes") {
   const temPerfil =
     !!String(user?.servico_principal || "").trim() &&
@@ -735,14 +834,14 @@ if (user.etapa === "prof_criar_perfil_preco") {
     }
 
     if (paidAccess) {
-      await sendText(phone, buildJobsFull(vagas));
+  await sendText(
+    phone,
+    `✅ *Seu acesso está liberado.*\n\n` +
+      `Encontramos *${vagas.length}* vaga(s) para o seu perfil.`
+  );
 
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "user_ver_vagas", title: "Atualizar vagas" },
-        { id: "jobs_pacotes", title: "Ver pacotes" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
+  return sendJobsUnlockedList(phone, vagas);
+}
 
     await sendText(phone, buildJobsPreviewLocked(vagas));
 
