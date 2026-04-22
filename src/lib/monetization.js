@@ -91,11 +91,55 @@ export async function createPendingPayment(
  * agora o acesso recorrente faz sentido por NOTIFICAÇÕES.
  * Mantemos esses tipos como acesso pago útil para o fluxo de vagas.
  */
-export async function hasPaidAccessForJobs(supabase, usuarioId) {
-  return hasActiveSubscription(supabase, usuarioId, [
-    "usuario_vagas_semanal",
-    "usuario_alerta_mensal",
-  ]);
+export async function hasPaidAccessForJobs(supabase, userId) {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("wallet_topups")
+    .select("*")
+    .eq("usuario_id", userId)
+    .eq("status", "approved")
+    .in("referencia_tipo", [
+      "usuario_vagas_semanal",
+      "usuario_alerta_mensal",
+      "usuario_vagas_avulso"
+    ])
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("❌ erro ao verificar acesso:", error);
+    return false;
+  }
+
+  if (!data || data.length === 0) {
+    return false;
+  }
+
+  const pagamento = data[0];
+
+  // ⏱️ valida duração manual (7 dias ou 30 dias)
+  const createdAt = new Date(pagamento.created_at);
+  const agora = new Date();
+
+  let validadeDias = 0;
+
+  if (pagamento.referencia_tipo === "usuario_vagas_semanal") {
+    validadeDias = 7;
+  }
+
+  if (pagamento.referencia_tipo === "usuario_alerta_mensal") {
+    validadeDias = 30;
+  }
+
+  if (pagamento.referencia_tipo === "usuario_vagas_avulso") {
+    return true; // libera imediatamente (caso avulso)
+  }
+
+  const expiraEm = new Date(createdAt);
+  expiraEm.setDate(expiraEm.getDate() + validadeDias);
+
+  return agora <= expiraEm;
 }
 
 /**
