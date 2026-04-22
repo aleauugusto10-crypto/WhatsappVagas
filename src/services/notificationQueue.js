@@ -1,5 +1,6 @@
 import { supabase } from "../supabase.js";
-import { sendText, sendActionButtons } from "./whatsapp.js";
+import { sendText } from "./whatsapp.js";
+import { sendActionButtons } from "../flows/menus.js";
 
 function buildVagaMensagem(item) {
   const p = item.payload || {};
@@ -32,6 +33,7 @@ async function marcarComoEnviado(id) {
     .update({
       status: "enviado",
       enviado_em: new Date().toISOString(),
+      erro: null,
     })
     .eq("id", id);
 
@@ -81,28 +83,24 @@ export async function processNotificationQueue(limit = 20) {
 
       if (item.tipo === "vaga") {
         await sendText(item.telefone, buildVagaMensagem(item));
-        await sendActionButtons(
-          item.telefone,
-          "O que deseja fazer agora?",
-          [
-            { id: "user_ver_vagas", title: "Ver vagas" },
-            { id: "jobs_pacotes", title: "Pacotes" },
-            { id: "voltar_menu", title: "Menu" },
-          ]
-        );
+        await sendActionButtons(item.telefone, "O que deseja fazer agora?", [
+          { id: "user_ver_vagas", title: "Ver vagas" },
+          { id: "jobs_pacotes", title: "Pacotes" },
+          { id: "voltar_menu", title: "Menu" },
+        ]);
       } else if (item.tipo === "missao") {
         await sendText(item.telefone, buildMissaoMensagem(item));
-        await sendActionButtons(
-          item.telefone,
-          "O que deseja fazer agora?",
-          [
-            { id: "user_ver_missoes", title: "Ver missões" },
-            { id: "jobs_pacotes", title: "Pacotes" },
-            { id: "voltar_menu", title: "Menu" },
-          ]
-        );
+        await sendActionButtons(item.telefone, "O que deseja fazer agora?", [
+          { id: "user_ver_missoes", title: "Ver missões" },
+          { id: "jobs_pacotes", title: "Pacotes" },
+          { id: "voltar_menu", title: "Menu" },
+        ]);
       } else {
-        await marcarComoErro(item.id, item.tentativas, `tipo inválido: ${item.tipo}`);
+        await marcarComoErro(
+          item.id,
+          item.tentativas,
+          `tipo inválido: ${item.tipo}`
+        );
         continue;
       }
 
@@ -114,7 +112,11 @@ export async function processNotificationQueue(limit = 20) {
         err,
       });
 
-      await marcarComoErro(item.id, item.tentativas, err?.message || String(err));
+      await marcarComoErro(
+        item.id,
+        item.tentativas,
+        err?.message || String(err)
+      );
     }
   }
 }
