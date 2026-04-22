@@ -1,63 +1,40 @@
 import { supabase } from "../supabase.js";
 import { sendText } from "./whatsapp.js";
-import { sendActionButtons } from "../flows/menus.js";
 
-function buildVagaMensagem(item) {
-  const p = item.payload || {};
-
+/**
+ * 📩 Monta mensagem de vaga
+ */
+function buildJobMessage(payload) {
   return (
     `📢 *Nova vaga para você!*\n\n` +
-    `🏢 *Empresa:* ${p.nome_empresa || "Empresa não informada"}\n` +
-    `💼 *Vaga:* ${p.titulo || "-"}\n` +
-    `📍 *Local:* ${p.cidade || "-"}${p.estado ? `/${p.estado}` : ""}\n\n` +
-    `Entre no menu para ver mais detalhes.`
+    `🏢 ${payload.nome_empresa || "Empresa"}\n` +
+    `💼 ${payload.titulo || "Vaga"}\n` +
+    `📍 ${payload.cidade || "-"}${payload.estado ? `/${payload.estado}` : ""}\n` +
+    `💰 ${payload.salario || "A combinar"}\n\n` +
+    `👉 Entre no menu e veja mais detalhes.`
   );
 }
 
-function buildMissaoMensagem(item) {
-  const p = item.payload || {};
-
+/**
+ * 📩 Monta mensagem de missão
+ */
+function buildMissionMessage(payload) {
   return (
-    `🛠️ *Nova missão disponível!*\n\n` +
-    `📌 *Título:* ${p.titulo || "-"}\n` +
-    `📝 *Descrição:* ${p.descricao || "-"}\n` +
-    `💰 *Valor:* R$ ${Number(p.valor || 0).toFixed(2)}\n` +
-    `📍 *Local:* ${p.cidade || "-"}${p.estado ? `/${p.estado}` : ""}\n\n` +
-    `Entre no menu para ver mais detalhes.`
+    `🔥 *Nova missão disponível!*\n\n` +
+    `📌 ${payload.titulo}\n` +
+    `📝 ${payload.descricao}\n` +
+    `💰 R$ ${payload.valor}\n` +
+    `📍 ${payload.cidade || "-"}${payload.estado ? `/${payload.estado}` : ""}\n\n` +
+    `👉 Entre no menu para visualizar.`
   );
 }
 
-async function marcarComoEnviado(id) {
-  const { error } = await supabase
-    .from("fila_notificacoes")
-    .update({
-      status: "enviado",
-      enviado_em: new Date().toISOString(),
-      erro: null,
-    })
-    .eq("id", id);
-
-  if (error) {
-    console.error("❌ erro ao marcar notificação como enviada:", error);
-  }
-}
-
-async function marcarComoErro(id, tentativas = 0, erro = "erro desconhecido") {
-  const { error } = await supabase
-    .from("fila_notificacoes")
-    .update({
-      status: "erro",
-      tentativas: Number(tentativas || 0) + 1,
-      erro: String(erro).slice(0, 500),
-    })
-    .eq("id", id);
-
-  if (error) {
-    console.error("❌ erro ao marcar notificação como erro:", error);
-  }
-}
-
+/**
+ * 🚀 PROCESSA FILA DE NOTIFICAÇÕES
+ */
 export async function processNotificationQueue(limit = 20) {
+  console.log("🟡 [QUEUE] Iniciando processamento...");
+
   const { data: fila, error } = await supabase
     .from("fila_notificacoes")
     .select("*")
@@ -66,57 +43,64 @@ export async function processNotificationQueue(limit = 20) {
     .limit(limit);
 
   if (error) {
-    console.error("❌ erro ao buscar fila_notificacoes:", error);
+    console.error("❌ erro ao buscar fila:", error);
     return;
   }
 
-  if (!fila?.length) {
+  console.log("🟡 [QUEUE] itens encontrados:", fila?.length || 0);
+
+  if (!fila || fila.length === 0) {
+    console.log("🟡 [QUEUE] nada para processar");
     return;
   }
 
   for (const item of fila) {
+    console.log("📦 processando item:", item.id);
+
     try {
-      if (!item.telefone) {
-        await marcarComoErro(item.id, item.tentativas, "telefone ausente");
-        continue;
-      }
+      let message = "";
 
       if (item.tipo === "vaga") {
-        await sendText(item.telefone, buildVagaMensagem(item));
-        await sendActionButtons(item.telefone, "O que deseja fazer agora?", [
-          { id: "user_ver_vagas", title: "Ver vagas" },
-          { id: "jobs_pacotes", title: "Pacotes" },
-          { id: "voltar_menu", title: "Menu" },
-        ]);
-      } else if (item.tipo === "missao") {
-        await sendText(item.telefone, buildMissaoMensagem(item));
-        await sendActionButtons(item.telefone, "O que deseja fazer agora?", [
-          { id: "user_ver_missoes", title: "Ver missões" },
-          { id: "jobs_pacotes", title: "Pacotes" },
-          { id: "voltar_menu", title: "Menu" },
-        ]);
-      } else {
-        await marcarComoErro(
-          item.id,
-          item.tentativas,
-          `tipo inválido: ${item.tipo}`
-        );
+        message = buildJobMessage(item.payload || {});
+      }
+
+      if (item.tipo === "missao") {
+        message = buildMissionMessage(item.payload || {});
+      }
+
+      if (!message) {
+        console.log("⚠️ tipo desconhecido:", item.tipo);
         continue;
       }
 
-      await marcarComoEnviado(item.id);
-    } catch (err) {
-      console.error("❌ erro ao processar fila_notificacoes:", {
-        id: item.id,
-        tipo: item.tipo,
-        err,
-      });
+      // 🚀 ENVIO WHATSAPP
+      await sendText(item.telefone, message);
 
-      await marcarComoErro(
-        item.id,
-        item.tentativas,
-        err?.message || String(err)
-      );
+      console.log("✅ enviado para:", item.telefone);
+
+      // ✅ MARCAR COMO ENVIADO
+      await supabase
+        .from("fila_notificacoes")
+        .update({
+          status: "enviado",
+          enviado_em: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+
+    } catch (err) {
+      console.error("❌ erro ao enviar notificação:", err);
+
+      // ❌ MARCAR ERRO
+      await supabase
+        .from("fila_notificacoes")
+        .update({
+          status: "erro",
+          erro: err.message,
+          tentativas: (item.tentativas || 0) + 1,
+        })
+        .eq("id", item.id);
     }
   }
+
+  console.log("🟢 [QUEUE] processamento finalizado");
 }
