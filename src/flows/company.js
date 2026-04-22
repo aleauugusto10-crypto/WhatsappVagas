@@ -83,7 +83,7 @@ function resumoVaga(user) {
     `📌 *Tipo de contratação:* ${formatTipoContratacao(user.vaga_tipo_contratacao_temp)}\n` +
     `💰 *Salário:* ${user.vaga_salario_temp || "-"}\n` +
     `🕒 *Jornada:* ${user.vaga_jornada_temp || "-"}\n` +
-    `👥 *Quantidade de posições:* ${qtd}\n` +
+    `👥 *Quantidade de vagas disponíveis:* ${qtd}\n` +
     `⭐ *Destaque:* ${user.vaga_destaque_temp ? "Sim" : "Não"}`
   );
 }
@@ -623,11 +623,11 @@ export async function handleCompanyMenu({
       {
         title: "Quantidade",
         rows: [
-          { id: "vaga_qtd_1", title: "1 posição" },
-          { id: "vaga_qtd_2", title: "2 posições" },
-          { id: "vaga_qtd_3", title: "3 posições" },
-          { id: "vaga_qtd_5", title: "5 posições" },
-          { id: "vaga_qtd_10", title: "10 posições" },
+          { id: "vaga_qtd_1", title: "1 vaga" },
+          { id: "vaga_qtd_2", title: "2 vagas" },
+          { id: "vaga_qtd_3", title: "3 vagas" },
+          { id: "vaga_qtd_5", title: "5 vagas" },
+          { id: "vaga_qtd_10", title: "10 vagas" },
         ],
       },
     ]);

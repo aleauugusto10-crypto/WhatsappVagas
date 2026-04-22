@@ -389,6 +389,7 @@ export async function handleJobsMenu({
   text,
   phone,
   supabase,
+  getCategorias,
 }) {
   // =====================
   // MENU DE PACOTES
@@ -399,6 +400,22 @@ export async function handleJobsMenu({
 }
 
 if (text === "prof_pacotes") {
+  const temPerfil =
+    !!String(user?.servico_principal || "").trim() &&
+    !!String(user?.descricao_perfil || "").trim();
+
+  if (!temPerfil) {
+    await sendText(
+      phone,
+      "Antes de contratar divulgação, você precisa criar seu perfil profissional."
+    );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "prof_criar_perfil", title: "Criar perfil" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
   return mostrarPacotesProfissionais(phone);
 }
 
@@ -430,17 +447,131 @@ if (text === "prof_criar_perfil") {
   ]);
 }
 
+if (text === "prof_ver_perfil") {
+  await sendText(phone, buildProfessionalProfileResumo(user));
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "prof_criar_perfil", title: "Editar perfil" },
+    { id: "prof_pacotes", title: "Ver divulgação" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+if (user.etapa === "jobs_week_plus2_cat_1") {
+  if (!text.startsWith("extra_cat1_")) return false;
+
+  const cat1 = text.replace("extra_cat1_", "");
+
+  await supabase
+    .from("usuarios")
+    .update({
+      etapa: "jobs_week_plus2_cat_2",
+      categorias_extras_temp: [cat1],
+    })
+    .eq("id", user.id);
+
+  const { data: areas } = await supabase
+    .from("categorias")
+    .select("*")
+    .eq("contexto", "geral")
+    .eq("ativo", true)
+    .order("nome");
+
+  return sendList(phone, "Escolha a 2ª categoria extra:", [
+    {
+      title: "Categorias",
+      rows: (areas || [])
+        .filter((a) => a.chave !== user.area_principal && a.chave !== cat1)
+        .slice(0, 10)
+        .map((a) => ({
+          id: `extra_cat2_${a.chave}`,
+          title: a.nome,
+        })),
+    },
+  ]);
+}
+if (user.etapa === "jobs_week_plus2_cat_2") {
+  if (!text.startsWith("extra_cat2_")) return false;
+
+  const cat2 = text.replace("extra_cat2_", "");
+  const atuais = Array.isArray(user.categorias_extras_temp)
+    ? user.categorias_extras_temp
+    : [];
+
+  const categoriasExtras = Array.from(new Set([...atuais, cat2])).slice(0, 2);
+
+  await supabase
+    .from("usuarios")
+    .update({
+      etapa: "menu",
+      categorias_extras_temp: categoriasExtras,
+    })
+    .eq("id", user.id);
+
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user: {
+      ...user,
+      categorias_extras_temp: categoriasExtras,
+    },
+    planoCodigo: "vaga_semanal_usuario",
+    referenciaTipo: "usuario_vagas_semanal",
+    tituloPlano: "Notificações semanais - categoria atual + 2 extras",
+    valorFinal: 13.8,
+    metadataExtra: {
+      notificacao_scope: "mais_2",
+      adicional_categorias: 2,
+      categorias_extras: categoriasExtras,
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, suas notificações semanais ficarão liberadas para a categoria atual + 2 categorias extras.",
+  });
+}
+if (user.etapa === "prof_criar_perfil_servico") {
+  const servico = String(text || "").trim();
+
+  if (!servico || servico.length < 3) {
+    await sendText(
+      phone,
+      "Digite um serviço principal válido com pelo menos 3 caracteres.\n\nExemplo:\nVendedor externo"
+    );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      servico_principal: servico,
+      etapa: "prof_criar_perfil_descricao",
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("❌ erro ao salvar serviço principal:", error);
+    await sendText(phone, "Erro ao salvar seu serviço principal.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "prof_criar_perfil", title: "Tentar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  user.servico_principal = servico;
   user.etapa = "prof_criar_perfil_descricao";
 
   await sendText(
     phone,
-    "🧑‍🔧 Vamos criar seu perfil profissional.\n\nDescreva de forma curta e clara o que você faz.\n\nExemplo:\nFaço vendas presenciais e online, atendimento ao cliente e fechamento de pedidos."
+    "📝 Agora descreva seu trabalho de forma curta e clara.\n\nExemplo:\nAtuo com vendas presenciais e online, atendimento ao cliente e fechamento de pedidos."
   );
 
   return sendActionButtons(phone, "O que deseja fazer agora?", [
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
+
 if (user.etapa === "prof_criar_perfil_descricao") {
   const descricao = String(text || "").trim();
 
@@ -484,33 +615,8 @@ if (user.etapa === "prof_criar_perfil_descricao") {
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
-if (text === "prof_criar_perfil") {
-  const { error } = await supabase
-    .from("usuarios")
-    .update({
-      etapa: "prof_criar_perfil_servico",
-    })
-    .eq("id", user.id);
 
-  if (error) {
-    console.error("❌ erro ao iniciar criação do perfil profissional:", error);
-    await sendText(phone, "Erro ao iniciar seu perfil profissional.");
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
 
-  user.etapa = "prof_criar_perfil_servico";
-
-  await sendText(
-    phone,
-    "🧑‍🔧 *Vamos criar seu perfil profissional.*\n\nQual é o seu serviço principal?\n\nExemplo:\nVendedor externo\nEletricista residencial\nManicure\nDesigner"
-  );
-
-  return sendActionButtons(phone, "O que deseja fazer agora?", [
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
-}
 if (user.etapa === "prof_criar_perfil_preco") {
   const preco = String(text || "").trim();
 
@@ -554,52 +660,12 @@ if (user.etapa === "prof_criar_perfil_preco") {
 
   return sendActionButtons(phone, "O que deseja fazer agora?", [
     { id: "prof_ver_perfil", title: "Ver meu perfil" },
+
     { id: "prof_pacotes", title: "Ver divulgação" },
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
-  const { error } = await supabase
-    .from("usuarios")
-    .update({
-      descricao_perfil: descricao,
-      etapa: "menu",
-    })
-    .eq("id", user.id);
 
-  if (error) {
-    console.error("❌ erro ao salvar descrição do perfil profissional:", error);
-    await sendText(phone, "Erro ao salvar seu perfil profissional.");
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "prof_criar_perfil", title: "Tentar novamente" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
-
-  user.descricao_perfil = descricao;
-  user.etapa = "menu";
-
-  await sendText(
-    phone,
-    "✅ *Perfil profissional criado com sucesso!*\n\nAgora você já pode visualizar seu perfil e contratar um pacote para divulgar seu trabalho."
-  );
-
-  await sendText(phone, buildProfessionalProfileResumo(user));
-
-  return sendActionButtons(phone, "O que deseja fazer agora?", [
-    { id: "prof_ver_perfil", title: "Ver meu perfil" },
-    { id: "prof_pacotes", title: "Ver divulgação" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
-}
-if (text === "prof_ver_perfil") {
-  await sendText(phone, buildProfessionalProfileResumo(user));
-
-  return sendActionButtons(phone, "O que deseja fazer agora?", [
-    { id: "prof_criar_perfil", title: "Editar perfil" },
-    { id: "prof_pacotes", title: "Ver divulgação" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
-} 
   // =====================
   // VER VAGAS
   // =====================
@@ -682,22 +748,35 @@ if (text === "confirm_jobs_buy_week_base") {
 }
 
 if (text === "confirm_jobs_buy_week_plus2") {
-  return gerarPagamentoPix({
-    supabase,
-    phone,
-    user,
-    planoCodigo: "vaga_semanal_usuario",
-    referenciaTipo: "usuario_vagas_semanal",
-    tituloPlano: "Notificações semanais - categoria atual + 2 extras",
-    valorFinal: 13.8,
-    metadataExtra: {
-      notificacao_scope: "mais_2",
-      adicional_categorias: 2,
-      categorias_extras: [],
+
+  await supabase
+    .from("usuarios")
+    .update({
+      etapa: "jobs_week_plus2_cat_1",
+      categorias_extras_temp: [],
+    })
+    .eq("id", user.id);
+
+  // 🔥 COLOCA AQUI
+  const { data: areas } = await supabase
+    .from("categorias")
+    .select("*")
+    .eq("contexto", "geral")
+    .eq("ativo", true)
+    .order("nome");
+
+  return sendList(phone, "Escolha a 1ª categoria extra:", [
+    {
+      title: "Categorias",
+      rows: (areas || [])
+        .filter((a) => a.chave !== user.categoria_principal)
+        .slice(0, 10)
+        .map((a) => ({
+          id: `extra_cat1_${a.chave}`,
+          title: a.nome,
+        })),
     },
-    afterSuccessLabel:
-      "Assim que o pagamento for aprovado, suas notificações semanais ficarão liberadas para a categoria atual + 2 categorias extras.",
-  });
+  ]);
 }
 
 if (text === "confirm_jobs_buy_week_all") {
@@ -833,8 +912,7 @@ if (text === "jobs_buy_week_base") {
   return explicarPacoteAntesDoPagamento(phone, "jobs_buy_week_base");
 }
 
-
-  if (text === "jobs_buy_week_plus2") {
+if (text === "jobs_buy_week_plus2") {
   return explicarPacoteAntesDoPagamento(phone, "jobs_buy_week_plus2");
 }
 
