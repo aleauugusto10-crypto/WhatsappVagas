@@ -428,36 +428,53 @@ async function gerarPagamentoPix({
 async function mostrarPacotesUsuario(phone) {
   return sendList(phone, "💼 *Pacotes do trabalhador*", [
     {
-      title: "Desbloqueios avulsos",
+      title: "Categorias de pacotes",
+      rows: [
+        { id: "pacotes_vagas", title: "Pacotes de vagas" },
+        { id: "pacotes_missoes", title: "Pacotes de missões" },
+        { id: "pacotes_combinados", title: "Planos combinados" },
+        { id: "prof_pacotes", title: "Divulgação profissional" },
+      ],
+    },
+  ]);
+}
+
+async function mostrarPacotesVagas(phone) {
+  return sendList(phone, "💼 *Pacotes de vagas*", [
+    {
+      title: "Vagas",
       rows: [
         { id: "jobs_buy_single", title: "Vagas avulso R$ 4,90" },
-        { id: "missoes_buy_single", title: "Missões avulso R$ 4,90" },
-      ],
-    },
-    {
-      title: "Notificações e acesso",
-      rows: [
         { id: "jobs_buy_week_base", title: "Vagas semanal R$ 9,90" },
-        { id: "jobs_buy_week_plus2", title: "Vagas semanal +2 cat. R$ 13,80" },
-        { id: "jobs_buy_week_all", title: "Vagas semanal total R$ 17,80" },
+        { id: "jobs_buy_week_plus2", title: "Semanal +2 cat. R$ 13,80" },
+        { id: "jobs_buy_week_all", title: "Semanal total R$ 17,80" },
         { id: "jobs_buy_month_base", title: "Vagas mensal R$ 19,90" },
-        { id: "jobs_buy_month_plus2", title: "Vagas mensal +2 cat. R$ 23,80" },
-        { id: "jobs_buy_month_all", title: "Vagas mensal total R$ 27,80" },
+        { id: "jobs_buy_month_plus2", title: "Mensal +2 cat. R$ 23,80" },
+        { id: "jobs_buy_month_all", title: "Mensal total R$ 27,80" },
       ],
     },
+  ]);
+}
+
+async function mostrarPacotesMissoes(phone) {
+  return sendList(phone, "🛠️ *Pacotes de missões*", [
     {
-      title: "Planos combinados",
+      title: "Missões",
       rows: [
+        { id: "missoes_buy_single", title: "Missões avulso R$ 4,90" },
         { id: "missoes_buy_month", title: "Missões mensal R$ 19,90" },
+      ],
+    },
+  ]);
+}
+
+async function mostrarPacotesCombinados(phone) {
+  return sendList(phone, "🚀 *Planos combinados*", [
+    {
+      title: "Combos",
+      rows: [
         { id: "jobs_missions_buy_month", title: "Vagas + Missões R$ 29,90" },
         { id: "jobs_total_buy_month", title: "Completo mensal R$ 39,90" },
-      ],
-    },
-    {
-      title: "Divulgar trabalho",
-      rows: [
-        { id: "job_service_buy_30d", title: "Anunciar 30d R$ 9,90" },
-        { id: "job_service_highlight_30d", title: "Destaque 30d R$ 19,90" },
       ],
     },
   ]);
@@ -510,6 +527,19 @@ export async function handleJobsMenu({
 
   if (text === "jobs_pacotes") {
   return mostrarPacotesUsuario(phone);
+}
+
+
+if (text === "pacotes_vagas") {
+  return mostrarPacotesVagas(phone);
+}
+
+if (text === "pacotes_missoes") {
+  return mostrarPacotesMissoes(phone);
+}
+
+if (text === "pacotes_combinados") {
+  return mostrarPacotesCombinados(phone);
 }
 if (text.startsWith("vaga_ver_")) {
   const vagaId = text.replace("vaga_ver_", "");
