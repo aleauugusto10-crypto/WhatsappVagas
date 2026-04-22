@@ -55,6 +55,8 @@ export async function createPendingPayment(
     metadata,
   };
 
+  console.log("📦 createPendingPayment payload:", JSON.stringify(payload, null, 2));
+
   const { data, error } = await supabase
     .from("pagamentos_plataforma")
     .insert(payload)
@@ -62,7 +64,12 @@ export async function createPendingPayment(
     .single();
 
   if (error) {
-    console.error("❌ erro ao criar pagamento pendente:", error);
+    console.error("❌ erro ao criar pagamento pendente:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
     return null;
   }
 

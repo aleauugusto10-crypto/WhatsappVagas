@@ -102,7 +102,9 @@ function buildPixCodeOnly(intent) {
 
 async function criarCobrancaPublicacaoVaga({ supabase, user }) {
   const plano = await getPlanoByCodigo(supabase, "empresa_1_vaga");
+
   if (!plano) {
+    console.error("❌ plano empresa_1_vaga não encontrado");
     return { plano: null, payment: null, total: null, destaqueValor: 0 };
   }
 
@@ -111,13 +113,16 @@ async function criarCobrancaPublicacaoVaga({ supabase, user }) {
 
   if (user.vaga_destaque_temp) {
     const destaquePlano = await getPlanoByCodigo(supabase, "empresa_destaque_vaga");
-    if (destaquePlano) {
+
+    if (!destaquePlano) {
+      console.error("❌ plano empresa_destaque_vaga não encontrado");
+    } else {
       destaqueValor = Number(destaquePlano.valor);
       total += destaqueValor;
     }
   }
 
-  const payment = await createPendingPayment(supabase, {
+  const payload = {
     usuarioId: user.id,
     referenciaTipo: "empresa_publicar_vaga",
     planoCodigo: plano.codigo,
@@ -142,7 +147,15 @@ async function criarCobrancaPublicacaoVaga({ supabase, user }) {
       pacote_valor: Number(plano.valor),
       destaque_valor: Number(destaqueValor.toFixed(2)),
     },
-  });
+  };
+
+  console.log("📦 payload cobrança vaga:", JSON.stringify(payload, null, 2));
+
+  const payment = await createPendingPayment(supabase, payload);
+
+  if (!payment) {
+    console.error("❌ createPendingPayment retornou null para vaga");
+  }
 
   return {
     plano,
@@ -504,14 +517,23 @@ export async function handleCompanyMenu({
         user,
       });
 
-    if (!plano || !payment) {
-      console.error("❌ erro ao criar cobrança da vaga");
-      await sendText(phone, "Erro ao gerar cobrança da vaga.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "empresa_criar_vaga", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
+    if (!plano) {
+  console.error("❌ plano não encontrado para publicação da vaga");
+  await sendText(phone, "Erro ao gerar cobrança: plano de publicação não encontrado.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "empresa_criar_vaga", title: "Tentar novamente" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+if (!payment) {
+  console.error("❌ createPendingPayment retornou null para vaga");
+  await sendText(phone, "Erro ao gerar cobrança da vaga. Verifique os logs do servidor.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "empresa_criar_vaga", title: "Tentar novamente" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 
     let intent = null;
     try {
