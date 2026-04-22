@@ -217,19 +217,19 @@ async function mostrarPacotesUsuario(phone) {
     {
       title: "Buscar emprego",
       rows: [
-        { id: "jobs_buy_week_base", title: "Semanal categoria atual - R$ 9,90" },
-        { id: "jobs_buy_week_plus2", title: "Semanal + 2 categorias - R$ 13,80" },
-        { id: "jobs_buy_week_all", title: "Semanal todas categorias - R$ 17,80" },
-        { id: "jobs_buy_month_base", title: "Mensal categoria atual - R$ 19,90" },
-        { id: "jobs_buy_month_plus2", title: "Mensal + 2 categorias - R$ 23,80" },
-        { id: "jobs_buy_month_all", title: "Mensal todas categorias - R$ 27,80" },
+        { id: "jobs_buy_week_base", title: "Semanal R$ 9,90" },
+        { id: "jobs_buy_week_plus2", title: "Semanal +2 cat. R$ 13,80" },
+        { id: "jobs_buy_week_all", title: "Semanal total R$ 17,80" },
+        { id: "jobs_buy_month_base", title: "Mensal R$ 19,90" },
+        { id: "jobs_buy_month_plus2", title: "Mensal +2 cat. R$ 23,80" },
+        { id: "jobs_buy_month_all", title: "Mensal total R$ 27,80" },
       ],
     },
     {
-      title: "Divulgar meu trabalho",
+      title: "Divulgar trabalho",
       rows: [
-        { id: "job_service_buy_30d", title: "Anunciar meu serviço 30 dias - R$ 9,90" },
-        { id: "job_service_highlight_30d", title: "Destaque profissional 30 dias - R$ 19,90" },
+        { id: "job_service_buy_30d", title: "Anunciar 30d R$ 9,90" },
+        { id: "job_service_highlight_30d", title: "Destaque 30d R$ 19,90" },
       ],
     },
   ]);
