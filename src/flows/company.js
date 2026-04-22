@@ -93,6 +93,8 @@ function buildPixResumo(intent, plano, total, destaqueValor) {
     out += `\n\n🔗 *Link de pagamento:*\n${checkoutUrl}`;
   }
 
+  out += `\n\n📌 *PIX copia e cola:*`;
+
   return out;
 }
 
@@ -567,7 +569,7 @@ if (!payment) {
     }
 
     await sendText(phone, buildPixResumo(intent, plano, total, destaqueValor));
-    await sendText(phone, `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`);
+await sendText(phone, buildPixCodeOnly(intent));
 
     return sendActionButtons(phone, "Depois do pagamento:", [
       { id: "payment_check_status", title: "Já paguei" },

@@ -338,26 +338,54 @@ export async function publishJobFromPayment(payment) {
 
   const md = payment.metadata || {};
 
+  // idempotência: se essa cobrança já publicou uma vaga, não publica de novo
+  const { data: existing, error: existingError } = await supabase
+    .from("vagas")
+    .select("*")
+    .eq("empresa_id", payment.usuario_id)
+    .eq("titulo", md.titulo || "")
+    .eq("cidade", md.cidade || "")
+    .eq("estado", md.estado || "")
+    .eq("categoria_chave", md.categoria_chave || "")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error("❌ erro ao verificar vaga já publicada:", existingError);
+    return null;
+  }
+
+  // Se quiser ficar ainda mais seguro, só reutiliza quando a cobrança já estiver marcada como paga
+  if (existing) {
+    console.log("ℹ️ vaga já publicada para esse pagamento/contexto:", existing.id);
+    return existing;
+  }
+
+  const payload = {
+    empresa_id: payment.usuario_id,
+    nome_empresa: md.nome_empresa || null,
+    titulo: md.titulo || null,
+    descricao: md.descricao || null,
+    requisitos: md.requisitos || null,
+    tipo_contratacao: md.tipo_contratacao || null,
+    salario: md.salario || null,
+    jornada: md.jornada || null,
+    quantidade_vagas: md.quantidade_vagas || 1,
+    categoria_chave: md.categoria_chave || null,
+    cidade: md.cidade || null,
+    estado: md.estado || null,
+    destaque: !!md.destaque,
+    status: "ativa",
+    publicada_em: new Date().toISOString(),
+    contato_whatsapp: md.contato_whatsapp || null,
+  };
+
+  console.log("📦 publicando vaga a partir do pagamento:", JSON.stringify(payload, null, 2));
+
   const { data, error } = await supabase
     .from("vagas")
-    .insert({
-      empresa_id: payment.usuario_id,
-      nome_empresa: md.nome_empresa || null,
-      titulo: md.titulo,
-      descricao: md.descricao,
-      requisitos: md.requisitos,
-      tipo_contratacao: md.tipo_contratacao,
-      salario: md.salario,
-      jornada: md.jornada,
-      quantidade_vagas: md.quantidade_vagas || 1,
-      categoria_chave: md.categoria_chave,
-      cidade: md.cidade,
-      estado: md.estado,
-      destaque: !!md.destaque,
-      status: "aberta",
-      publicada_em: new Date().toISOString(),
-      contato_whatsapp: md.contato_whatsapp || null,
-    })
+    .insert(payload)
     .select()
     .single();
 
@@ -387,7 +415,11 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const internalPayment = await getPendingPaymentById(internalPaymentId);
   if (!internalPayment) return null;
 
+  // Se já estava pago, ainda assim garante publicação/ativação idempotente
   if (internalPayment.status === "pago") {
+    await activateSubscriptionFromPayment(internalPayment);
+    await publishMissionFromPayment(internalPayment);
+    await publishJobFromPayment(internalPayment);
     return internalPayment;
   }
 
