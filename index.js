@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { handleMessage } from "./src/bot.js";
 import paymentsRouter from "./src/routes/payments.js";
+import { processNotificationQueue } from "./src/services/notificationQueue.js";
 
 dotenv.config();
 
@@ -18,19 +19,19 @@ app.use("/payments", paymentsRouter);
  * 🔐 VERIFICAÇÃO DO WEBHOOK (META)
  */
 app.get("/webhook", (req, res) => {
-  const verify_token = process.env.VERIFY_TOKEN;
+  const verifyToken = process.env.VERIFY_TOKEN;
 
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode === "subscribe" && token === verify_token) {
+  if (mode === "subscribe" && token === verifyToken) {
     console.log("✅ Webhook verificado");
     return res.status(200).send(challenge);
-  } else {
-    console.log("❌ Falha na verificação");
-    return res.sendStatus(403);
   }
+
+  console.log("❌ Falha na verificação");
+  return res.sendStatus(403);
 });
 
 /**
@@ -40,33 +41,32 @@ app.post("/webhook", async (req, res) => {
   try {
     console.log("📩 webhook recebido");
 
-    const entry = req.body.entry?.[0];
+    const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0];
     const value = change?.value;
 
-    // 🚨 1. IGNORAR EVENTOS SEM MENSAGEM
-    if (!value || !value.messages) {
+    // 🚨 IGNORAR EVENTOS SEM MENSAGEM
+    if (!value || !value.messages || !value.messages.length) {
       console.log("⛔ ignorado: sem messages (status/evento)");
       return res.sendStatus(200);
     }
 
     const msg = value.messages[0];
 
-    // 🚨 2. VALIDAR MENSAGEM
-    if (!msg || !msg.from || !msg.id) {
+    // 🚨 VALIDAR MENSAGEM
+    if (!msg?.from || !msg?.id) {
       console.log("⛔ mensagem inválida");
       return res.sendStatus(200);
     }
 
-    // 🚨 3. IGNORAR TIPOS NÃO SUPORTADOS
+    // 🚨 IGNORAR TIPOS NÃO SUPORTADOS
     const allowedTypes = ["text", "interactive"];
-
     if (!allowedTypes.includes(msg.type)) {
       console.log("⛔ tipo ignorado:", msg.type);
       return res.sendStatus(200);
     }
 
-    // 🔥 4. ANTI DUPLICAÇÃO
+    // 🔥 ANTI DUPLICAÇÃO
     if (processedMessages.has(msg.id)) {
       console.log("🔁 duplicado ignorado:", msg.id);
       return res.sendStatus(200);
@@ -83,7 +83,7 @@ app.post("/webhook", async (req, res) => {
     console.log("📱 de:", msg.from);
     console.log("💬 tipo:", msg.type);
 
-    if (msg.text) {
+    if (msg.text?.body) {
       console.log("📝 texto:", msg.text.body);
     }
 
@@ -118,4 +118,16 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
+
+  // roda uma vez ao subir
+  processNotificationQueue(20).catch((err) => {
+    console.error("❌ erro inicial no worker de notificações:", err);
+  });
+
+  // roda continuamente
+  setInterval(() => {
+    processNotificationQueue(20).catch((err) => {
+      console.error("❌ erro no worker de notificações:", err);
+    });
+  }, 60000);
 });
