@@ -9,7 +9,7 @@ import {
   getActiveCompanyJobCredits,
   consumeCompanyJobCredit,
 } from "../services/payments.js";
-
+import { notifyUsersAboutNewJob } from "../services/jobNotifier.js";
 const areaGroupsMap = {
   construcao: ["construcao"],
   saude: ["saude"],
@@ -141,7 +141,7 @@ async function gerarPagamentoPacoteEmpresa({
   phone,
   user,
   planoCodigo,
-  referenciaTipo = "empresa_publicar_vaga",
+  referenciaTipo = "empresa_pacote_vagas",
 }) {
   const plano = await getPlanoByCodigo(supabase, planoCodigo);
 
@@ -236,11 +236,18 @@ async function cobrarDestaqueSeparado({ supabase, phone, user }) {
     return null;
   }
 
-  const intent = await createMercadoPagoPixIntent(payment.id);
-  if (!intent) {
-    await sendText(phone, "Não consegui gerar o Pix do destaque agora.");
-    return payment;
-  }
+  let intent = null;
+
+try {
+  intent = await createMercadoPagoPixIntent(payment.id);
+} catch (err) {
+  console.error("❌ erro ao gerar Pix do destaque:", err);
+}
+
+if (!intent) {
+  await sendText(phone, "Não consegui gerar o Pix do destaque agora.");
+  return payment;
+}
 
   await sendText(phone, buildPixResumo(intent, plano, plano.valor, 0));
   await sendText(phone, buildPixCodeOnly(intent));
@@ -359,10 +366,17 @@ export async function handleCompanyMenu({
     const grupos = areaGroupsMap[area] || [area];
     const categorias = await getCategoriasPorGrupos("servico", grupos);
 
-    await updateUser({ etapa: "empresa_buscar_categoria" });
+    await updateUser({
+  area_principal: area,
+  etapa: "empresa_buscar_categoria",
+});
 
     if (!categorias.length) {
-      await updateUser({ etapa: "empresa_buscar_area" });
+      await updateUser({
+  etapa: "empresa_buscar_area",
+  area_principal: null,
+  categoria_principal: null,
+});
       await sendText(phone, "Não encontrei categorias nessa área.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
@@ -693,6 +707,7 @@ export async function handleCompanyMenu({
     const publicado = await publicarVagaComCredito({ supabase, user });
 
     if (!publicado?.vaga) {
+      
       await sendText(phone, "Erro ao publicar vaga com seu crédito.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "empresa_criar_vaga", title: "Tentar novamente" },
@@ -700,7 +715,12 @@ export async function handleCompanyMenu({
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
-
+try {
+  const notifyResult = await notifyUsersAboutNewJob(publicado.vaga);
+  console.log("📣 resultado notificação vaga:", notifyResult);
+} catch (err) {
+  console.error("❌ erro ao notificar usuários sobre nova vaga:", err);
+}
     const restantesDepois =
       Number(publicado.credito.total_creditos || 0) -
       Number(publicado.credito.creditos_usados || 0);

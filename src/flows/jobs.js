@@ -307,6 +307,8 @@ export async function handleJobsMenu({
       metadataExtra: {
         modo: "desbloqueio_busca_vagas",
         categoria_principal: user.categoria_principal,
+        notificacao_scope: "categoria_atual",
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, a lista completa desta busca ficará liberada.",
@@ -330,6 +332,7 @@ export async function handleJobsMenu({
       valorFinal: 9.9,
       metadataExtra: {
         notificacao_scope: "categoria_atual",
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, você passará a receber notificações semanais da sua categoria atual.",
@@ -348,6 +351,7 @@ export async function handleJobsMenu({
       metadataExtra: {
         notificacao_scope: "mais_2",
         adicional_categorias: 2,
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, suas notificações semanais ficarão liberadas para a categoria atual + 2 categorias extras.",
@@ -365,6 +369,7 @@ export async function handleJobsMenu({
       valorFinal: 17.8,
       metadataExtra: {
         notificacao_scope: "todas",
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, você passará a receber notificações semanais de todas as categorias.",
@@ -386,6 +391,7 @@ export async function handleJobsMenu({
       valorFinal: 19.9,
       metadataExtra: {
         notificacao_scope: "categoria_atual",
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, você passará a receber notificações mensais da sua categoria atual.",
@@ -404,6 +410,7 @@ export async function handleJobsMenu({
       metadataExtra: {
         notificacao_scope: "mais_2",
         adicional_categorias: 2,
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, suas notificações mensais ficarão liberadas para a categoria atual + 2 categorias extras.",
@@ -421,6 +428,7 @@ export async function handleJobsMenu({
       valorFinal: 27.8,
       metadataExtra: {
         notificacao_scope: "todas",
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, você passará a receber notificações mensais de todas as categorias.",
@@ -444,6 +452,7 @@ export async function handleJobsMenu({
         modo: "divulgacao_trabalho",
         categoria_chave: user.categoria_principal,
         contato_whatsapp: user.telefone,
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, seu anúncio profissional poderá ser publicado por 30 dias.",
@@ -463,6 +472,7 @@ export async function handleJobsMenu({
       valorFinal: 19.9,
       metadataExtra: {
         modo: "destaque_trabalho",
+        categorias_extras: [],
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, seu anúncio profissional ficará em destaque por 30 dias.",

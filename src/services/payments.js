@@ -247,6 +247,7 @@ export async function activateSubscriptionFromPayment(payment) {
 
   const now = new Date();
   const fim = new Date(now);
+  const md = payment.metadata || {};
 
   let tipo = null;
   let dias = 0;
@@ -265,6 +266,11 @@ export async function activateSubscriptionFromPayment(payment) {
 
   fim.setDate(fim.getDate() + dias);
 
+  const notificacaoScope = md.notificacao_scope || "categoria_atual";
+  const categoriasExtras = Array.isArray(md.categorias_extras)
+    ? md.categorias_extras
+    : [];
+
   const { data, error } = await supabase
     .from("assinaturas_usuario")
     .insert({
@@ -273,6 +279,8 @@ export async function activateSubscriptionFromPayment(payment) {
       status: "ativa",
       inicio_em: now.toISOString(),
       fim_em: fim.toISOString(),
+      notificacao_scope: notificacaoScope,
+      categorias_extras: categoriasExtras,
     })
     .select()
     .single();
@@ -292,7 +300,7 @@ export async function activateCompanyJobCreditsFromPayment(payment) {
   if (!payment?.usuario_id) return null;
 
   let totalCreditos = 0;
-  let dias = 30;
+  const dias = 30;
 
   if (payment.plano_codigo === "empresa_1_vaga") totalCreditos = 1;
   if (payment.plano_codigo === "empresa_3_vagas") totalCreditos = 3;
@@ -604,13 +612,8 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const internalPayment = await getPendingPaymentById(internalPaymentId);
   if (!internalPayment) return null;
 
+  // Se já está pago internamente, não reaplica efeitos
   if (internalPayment.status === "pago") {
-    await activateSubscriptionFromPayment(internalPayment);
-    await activateCompanyJobCreditsFromPayment(internalPayment);
-    await publishMissionFromPayment(internalPayment);
-    await publishJobFromPayment(internalPayment);
-    await publishProfessionalServiceFromPayment(internalPayment);
-    await applyProfessionalHighlightFromPayment(internalPayment);
     return internalPayment;
   }
 
