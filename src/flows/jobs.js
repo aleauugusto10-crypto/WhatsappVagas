@@ -691,13 +691,28 @@ if (user.etapa === "jobs_week_plus2_cat_1") {
     return sendText(phone, "Escolha a 1ª categoria extra na lista enviada.");
   }
 
-  const cat1 = text.replace("extra_cat1_", "");
+  const categoriaId1 = text.replace("extra_cat1_", "");
 
-  await updateUser({
-    etapa: "jobs_week_plus2_cat_2",
-    categorias_extras_temp: [cat1],
-  });
+const { data: categoria1, error: categoria1Error } = await supabase
+  .from("categorias")
+  .select("id, chave")
+  .eq("id", categoriaId1)
+  .maybeSingle();
 
+if (categoria1Error || !categoria1?.chave) {
+  await sendText(phone, "Não consegui identificar a categoria escolhida.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "jobs_pacotes", title: "Ver pacotes" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+const cat1 = categoria1.chave;
+
+await updateUser({
+  etapa: "jobs_week_plus2_cat_2",
+  categorias_extras_temp: [cat1],
+});
   const { data: categorias, error } = await supabase
     .from("categorias")
     .select("id, nome, chave")
@@ -714,17 +729,17 @@ if (user.etapa === "jobs_week_plus2_cat_1") {
   }
 
   return sendList(phone, "Escolha a 2ª categoria extra:", [
-    {
-      title: "Categorias",
-      rows: (categorias || [])
-        .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
-        .slice(0, 10)
-        .map((c) => ({
-          id: `extra_cat2_${c.chave}`,
-          title: c.nome,
-        })),
-    },
-  ]);
+  {
+    title: "Categorias",
+    rows: (categorias || [])
+      .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
+      .slice(0, 10)
+      .map((c) => ({
+        id: `extra_cat2_${c.id}`,
+        title: c.nome,
+      })),
+  },
+]);
 }
 if (user.etapa === "jobs_week_plus2_cat_2") {
   if (text === "jobs_pacotes") {
@@ -747,10 +762,26 @@ if (user.etapa === "jobs_week_plus2_cat_2") {
     return sendText(phone, "Escolha a 2ª categoria extra na lista enviada.");
   }
 
-  const cat2 = text.replace("extra_cat2_", "");
-  const atuais = Array.isArray(user.categorias_extras_temp)
-    ? user.categorias_extras_temp
-    : [];
+  const categoriaId2 = text.replace("extra_cat2_", "");
+
+const { data: categoria2, error: categoria2Error } = await supabase
+  .from("categorias")
+  .select("id, chave")
+  .eq("id", categoriaId2)
+  .maybeSingle();
+
+if (categoria2Error || !categoria2?.chave) {
+  await sendText(phone, "Não consegui identificar a categoria escolhida.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "jobs_pacotes", title: "Ver pacotes" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+const cat2 = categoria2.chave;
+const atuais = Array.isArray(user.categorias_extras_temp)
+  ? user.categorias_extras_temp
+  : [];
 
   const categoriasExtras = Array.from(new Set([...atuais, cat2])).slice(0, 2);
 
@@ -1098,17 +1129,17 @@ if (text === "confirm_jobs_buy_week_plus2") {
   }
 
   return sendList(phone, "Escolha a 1ª categoria extra:", [
-    {
-      title: "Categorias",
-      rows: (categorias || [])
-        .filter((c) => c.chave !== user.categoria_principal)
-        .slice(0, 10)
-        .map((c) => ({
-          id: `extra_cat1_${c.chave}`,
-          title: c.nome,
-        })),
-    },
-  ]);
+  {
+    title: "Categorias",
+    rows: (categorias || [])
+      .filter((c) => c.chave !== user.categoria_principal)
+      .slice(0, 10)
+      .map((c) => ({
+        id: `month_extra_cat1_${c.id}`,
+        title: c.nome,
+      })),
+  },
+]);
 }
 
 if (text === "confirm_jobs_buy_week_all") {
@@ -1203,12 +1234,28 @@ if (user.etapa === "jobs_month_plus2_cat_1") {
     return sendText(phone, "Escolha a 1ª categoria extra na lista enviada.");
   }
 
-  const cat1 = text.replace("month_extra_cat1_", "");
+  const categoriaId1 = text.replace("month_extra_cat1_", "");
 
-  await updateUser({
-    etapa: "jobs_month_plus2_cat_2",
-    categorias_extras_temp: [cat1],
-  });
+const { data: categoria1, error: categoria1Error } = await supabase
+  .from("categorias")
+  .select("id, chave")
+  .eq("id", categoriaId1)
+  .maybeSingle();
+
+if (categoria1Error || !categoria1?.chave) {
+  await sendText(phone, "Não consegui identificar a categoria escolhida.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "jobs_pacotes", title: "Ver pacotes" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+const cat1 = categoria1.chave;
+
+await updateUser({
+  etapa: "jobs_month_plus2_cat_2",
+  categorias_extras_temp: [cat1],
+});
 
   const { data: categorias, error } = await supabase
     .from("categorias")
@@ -1226,17 +1273,17 @@ if (user.etapa === "jobs_month_plus2_cat_1") {
   }
 
   return sendList(phone, "Escolha a 2ª categoria extra:", [
-    {
-      title: "Categorias",
-      rows: (categorias || [])
-        .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
-        .slice(0, 10)
-        .map((c) => ({
-          id: `month_extra_cat2_${c.chave}`,
-          title: c.nome,
-        })),
-    },
-  ]);
+  {
+    title: "Categorias",
+    rows: (categorias || [])
+      .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
+      .slice(0, 10)
+      .map((c) => ({
+        id: `month_extra_cat2_${c.id}`,
+        title: c.nome,
+      })),
+  },
+]);
 }
 
 if (user.etapa === "jobs_month_plus2_cat_2") {
@@ -1260,10 +1307,26 @@ if (user.etapa === "jobs_month_plus2_cat_2") {
     return sendText(phone, "Escolha a 2ª categoria extra na lista enviada.");
   }
 
-  const cat2 = text.replace("month_extra_cat2_", "");
-  const atuais = Array.isArray(user.categorias_extras_temp)
-    ? user.categorias_extras_temp
-    : [];
+  const categoriaId2 = text.replace("month_extra_cat2_", "");
+
+const { data: categoria2, error: categoria2Error } = await supabase
+  .from("categorias")
+  .select("id, chave")
+  .eq("id", categoriaId2)
+  .maybeSingle();
+
+if (categoria2Error || !categoria2?.chave) {
+  await sendText(phone, "Não consegui identificar a categoria escolhida.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "jobs_pacotes", title: "Ver pacotes" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+const cat2 = categoria2.chave;
+const atuais = Array.isArray(user.categorias_extras_temp)
+  ? user.categorias_extras_temp
+  : [];
 
   const categoriasExtras = Array.from(new Set([...atuais, cat2])).slice(0, 2);
 
