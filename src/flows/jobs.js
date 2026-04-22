@@ -8,6 +8,23 @@ import {
 import { createMercadoPagoPixIntent } from "../services/payments.js";
 
 async function buscarVagasParaUsuario(supabase, user, limit = 30) {
+  let categoriaId = user?.categoria_id || null;
+
+  if (!categoriaId && user?.id) {
+    const { data: freshUser, error: userError } = await supabase
+      .from("usuarios")
+      .select("categoria_id, categoria_principal, cidade, estado")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (userError) {
+      console.error("❌ erro ao recarregar usuário para buscar vagas:", userError);
+    } else if (freshUser) {
+      categoriaId = freshUser.categoria_id || null;
+      user = { ...user, ...freshUser };
+    }
+  }
+
   let query = supabase
     .from("vagas")
     .select("*")
@@ -15,17 +32,17 @@ async function buscarVagasParaUsuario(supabase, user, limit = 30) {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (user.categoria_id) {
-    query = query.eq("categoria_id", user.categoria_id);
-  } else if (user.categoria_principal) {
+  if (categoriaId) {
+    query = query.eq("categoria_id", categoriaId);
+  } else if (user?.categoria_principal) {
     query = query.eq("categoria_chave", user.categoria_principal);
   }
 
-  if (user.cidade) {
+  if (user?.cidade) {
     query = query.ilike("cidade", user.cidade);
   }
 
-  if (user.estado) {
+  if (user?.estado) {
     query = query.eq("estado", user.estado);
   }
 
@@ -35,6 +52,15 @@ async function buscarVagasParaUsuario(supabase, user, limit = 30) {
     console.error("❌ erro ao buscar vagas:", error);
     return { vagas: [], error };
   }
+
+  console.log("📦 buscarVagasParaUsuario resultado:", {
+    userId: user?.id,
+    categoria_id: categoriaId,
+    categoria_principal: user?.categoria_principal,
+    cidade: user?.cidade,
+    estado: user?.estado,
+    total: (data || []).length,
+  });
 
   return { vagas: data || [], error: null };
 }
