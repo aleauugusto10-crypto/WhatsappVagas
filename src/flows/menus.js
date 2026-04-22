@@ -38,6 +38,7 @@ export function sendMenuContratante(phone) {
       rows: [
         { id: "contratar_buscar_profissionais", title: "Buscar profissionais" },
         { id: "contratar_criar_missao", title: "Criar missão" },
+        { id: "contratar_minhas_missoes", title: "Ver minhas missões" },
       ],
     },
     {
