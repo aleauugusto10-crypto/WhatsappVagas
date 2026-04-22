@@ -30,19 +30,52 @@ function limparTempVagaPayload() {
   };
 }
 
+function formatTipoContratacao(tipo = "") {
+  const map = {
+    clt: "CLT",
+    diaria: "Diária",
+    freelance: "Freelance",
+    mei: "MEI",
+    meio_periodo: "Meio período",
+    comissao: "Comissão",
+    a_combinar: "A combinar",
+  };
+
+  return map[tipo] || tipo || "-";
+}
+
+function formatCategoria(chave = "") {
+  const map = {
+    auxiliar_limpeza: "Auxiliar de Limpeza",
+    auxiliar_administrativo: "Auxiliar Administrativo",
+    recepcionista: "Recepcionista",
+    atendente: "Atendente",
+    caixa: "Caixa",
+    vendedor: "Vendedor",
+    cozinheira: "Cozinheira",
+    garcom: "Garçom",
+    motoboy: "Motoboy",
+    motorista: "Motorista",
+  };
+
+  return map[chave] || chave || "-";
+}
+
 function resumoVaga(user) {
   const qtd = Number(user.vaga_quantidade_temp || 1);
+
   return (
-    `📋 Resumo da vaga:\n\n` +
-    `Função: ${user.categoria_principal || "-"}\n` +
-    `Título: ${user.vaga_titulo_temp || "-"}\n` +
-    `Descrição: ${user.vaga_descricao_temp || "-"}\n` +
-    `Requisitos: ${user.vaga_requisitos_temp || "-"}\n` +
-    `Tipo de contratação: ${user.vaga_tipo_contratacao_temp || "-"}\n` +
-    `Salário: ${user.vaga_salario_temp || "-"}\n` +
-    `Jornada: ${user.vaga_jornada_temp || "-"}\n` +
-    `Quantidade: ${qtd}\n` +
-    `Destaque: ${user.vaga_destaque_temp ? "Sim" : "Não"}`
+    `📋 *Resumo da vaga*\n\n` +
+    `🏢 *Empresa:* ${user.nome_empresa || "Não informada"}\n` +
+    `💼 *Função:* ${formatCategoria(user.categoria_principal)}\n` +
+    `📝 *Título:* ${user.vaga_titulo_temp || "-"}\n` +
+    `📄 *Descrição:* ${user.vaga_descricao_temp || "-"}\n` +
+    `✅ *Requisitos:* ${user.vaga_requisitos_temp || "-"}\n` +
+    `📌 *Tipo de contratação:* ${formatTipoContratacao(user.vaga_tipo_contratacao_temp)}\n` +
+    `💰 *Salário:* ${user.vaga_salario_temp || "-"}\n` +
+    `🕒 *Jornada:* ${user.vaga_jornada_temp || "-"}\n` +
+    `👥 *Quantidade de posições:* ${qtd}\n` +
+    `⭐ *Destaque:* ${user.vaga_destaque_temp ? "Sim" : "Não"}`
   );
 }
 
@@ -50,14 +83,14 @@ function buildPixResumo(intent, plano, total, destaqueValor) {
   const checkoutUrl = intent?.checkout_url || null;
 
   let out =
-    `💳 Pagamento da vaga gerado com sucesso!\n\n` +
-    `Pacote: ${plano.nome}\n` +
-    `Pacote base: R$ ${Number(plano.valor).toFixed(2)}\n` +
-    `Destaque: R$ ${Number(destaqueValor || 0).toFixed(2)}\n` +
-    `Total: R$ ${Number(total || 0).toFixed(2)}`;
+    `💳 *Pagamento da vaga gerado com sucesso*\n\n` +
+    `📢 *Anúncio:* ${plano.nome}\n` +
+    `💵 *Valor base:* R$ ${Number(plano.valor).toFixed(2)}\n` +
+    `⭐ *Destaque:* R$ ${Number(destaqueValor || 0).toFixed(2)}\n` +
+    `🧾 *Total:* R$ ${Number(total || 0).toFixed(2)}`;
 
   if (checkoutUrl) {
-    out += `\n\n🔗 Link de pagamento:\n${checkoutUrl}`;
+    out += `\n\n🔗 *Link de pagamento:*\n${checkoutUrl}`;
   }
 
   return out;
@@ -67,9 +100,11 @@ function buildPixCodeOnly(intent) {
   return intent?.qr_code || "Código Pix indisponível no momento.";
 }
 
-async function criarCobrancaPublicacaoVaga({ supabase, user, pacoteCodigo }) {
-  const plano = await getPlanoByCodigo(supabase, pacoteCodigo);
-  if (!plano) return { plano: null, payment: null, total: null, destaqueValor: 0 };
+async function criarCobrancaPublicacaoVaga({ supabase, user }) {
+  const plano = await getPlanoByCodigo(supabase, "empresa_1_vaga");
+  if (!plano) {
+    return { plano: null, payment: null, total: null, destaqueValor: 0 };
+  }
 
   let total = Number(plano.valor);
   let destaqueValor = 0;
@@ -89,6 +124,7 @@ async function criarCobrancaPublicacaoVaga({ supabase, user, pacoteCodigo }) {
     valor: Number(total.toFixed(2)),
     metadata: {
       empresa_id: user.id,
+      nome_empresa: user.nome_empresa || null,
       contato_whatsapp: user.telefone,
       categoria_chave: user.categoria_principal,
       titulo: user.vaga_titulo_temp,
@@ -138,7 +174,7 @@ export async function handleCompanyMenu({
     const areas = await getCategorias("geral");
     await updateUser({ etapa: "empresa_buscar_area" });
 
-    return sendList(phone, "Em qual área você quer buscar profissionais?", [
+    return sendList(phone, "🧑‍🔧 Em qual área você quer buscar profissionais?", [
       {
         title: "Áreas",
         rows: areas
@@ -209,11 +245,11 @@ export async function handleCompanyMenu({
       ]);
     }
 
-    let out = "🧑‍🔧 Prévia de profissionais:\n";
+    let out = "🧑‍🔧 *Prévia de profissionais:*\n";
     for (const s of servicos) {
       out += `\n• ${s.titulo} - ${s.cidade || "Sem cidade"}`;
     }
-    out += "\n\n🔒 Para desbloquear a busca completa, use o menu de planos.";
+    out += "\n\n🔒 Para desbloquear a busca completa, use o plano de busca.";
 
     await sendText(phone, out);
     return sendActionButtons(phone, "O que deseja fazer agora?", [
@@ -233,7 +269,7 @@ export async function handleCompanyMenu({
       ...limparTempVagaPayload(),
     });
 
-    return sendList(phone, "Escolha a área da vaga:", [
+    return sendList(phone, "🏢 Escolha a área da vaga:", [
       {
         title: "Áreas",
         rows: areas
@@ -263,7 +299,7 @@ export async function handleCompanyMenu({
       ]);
     }
 
-    return sendList(phone, "Escolha a função da vaga:", [
+    return sendList(phone, "💼 Escolha a função da vaga:", [
       {
         title: "Funções",
         rows: categorias.map((c) => ({
@@ -286,7 +322,7 @@ export async function handleCompanyMenu({
 
     return sendText(
       phone,
-      "Qual o título da vaga?\nEx: Vendedor interno, Auxiliar administrativo"
+      "📝 Qual o título da vaga?\nEx: Vendedor interno, Auxiliar administrativo"
     );
   }
 
@@ -302,7 +338,7 @@ export async function handleCompanyMenu({
 
     return sendText(
       phone,
-      "Descreva a vaga em poucas palavras.\nEx: Atendimento ao cliente, organização da loja e fechamento de vendas."
+      "📄 Descreva a vaga em poucas palavras.\nEx: Atendimento ao cliente, organização da loja e fechamento de vendas."
     );
   }
 
@@ -318,7 +354,7 @@ export async function handleCompanyMenu({
 
     return sendText(
       phone,
-      "Quais os requisitos básicos?\nEx: ensino médio completo, boa comunicação, experiência com vendas."
+      "✅ Quais os requisitos básicos?\nEx: ensino médio completo, boa comunicação, experiência com vendas."
     );
   }
 
@@ -332,7 +368,7 @@ export async function handleCompanyMenu({
       etapa: "empresa_vaga_tipo_contratacao",
     });
 
-    return sendList(phone, "Escolha o tipo de contratação:", [
+    return sendList(phone, "📌 Escolha o tipo de contratação:", [
       {
         title: "Contratação",
         rows: [
@@ -360,7 +396,7 @@ export async function handleCompanyMenu({
 
     return sendText(
       phone,
-      "Qual o salário ou faixa salarial?\nEx: 1600, 1800 + comissão, a combinar"
+      "💰 Qual o salário ou faixa salarial?\nEx: 1600, 1800 + comissão, a combinar"
     );
   }
 
@@ -376,7 +412,7 @@ export async function handleCompanyMenu({
 
     return sendText(
       phone,
-      "Qual a jornada ou horário?\nEx: segunda a sábado, horário comercial"
+      "🕒 Qual a jornada ou horário?\nEx: segunda a sábado, horário comercial"
     );
   }
 
@@ -390,15 +426,15 @@ export async function handleCompanyMenu({
       etapa: "empresa_vaga_quantidade",
     });
 
-    return sendList(phone, "Quantas vagas deseja publicar?", [
+    return sendList(phone, "👥 Quantas posições essa vaga possui?", [
       {
         title: "Quantidade",
         rows: [
-          { id: "vaga_qtd_1", title: "1 vaga" },
-          { id: "vaga_qtd_2", title: "2 vagas" },
-          { id: "vaga_qtd_3", title: "3 vagas" },
-          { id: "vaga_qtd_5", title: "5 vagas" },
-          { id: "vaga_qtd_10", title: "10 vagas" },
+          { id: "vaga_qtd_1", title: "1 posição" },
+          { id: "vaga_qtd_2", title: "2 posições" },
+          { id: "vaga_qtd_3", title: "3 posições" },
+          { id: "vaga_qtd_5", title: "5 posições" },
+          { id: "vaga_qtd_10", title: "10 posições" },
         ],
       },
     ]);
@@ -419,7 +455,7 @@ export async function handleCompanyMenu({
 
     return sendActionButtons(
       phone,
-      "Quer colocar essa vaga em destaque por +R$ 4,90?",
+      "⭐ Quer colocar esse anúncio em destaque por +R$ 4,90?",
       [
         { id: "vaga_destaque_sim", title: "Com destaque" },
         { id: "vaga_destaque_nao", title: "Sem destaque" },
@@ -436,40 +472,40 @@ export async function handleCompanyMenu({
 
     await updateUser({
       vaga_destaque_temp: destaque,
-      etapa: "empresa_vaga_pacote",
+      etapa: "empresa_vaga_confirmar_cobranca",
     });
 
-    await sendText(phone, resumoVaga({ ...user, vaga_destaque_temp: destaque }));
+    const fakeUser = { ...user, vaga_destaque_temp: destaque };
+    await sendText(phone, resumoVaga(fakeUser));
 
-    return sendList(phone, "Escolha o pacote de publicação:", [
-      {
-        title: "Pacotes",
-        rows: [
-          { id: "vaga_pacote_1", title: "1 vaga - R$ 9,90" },
-          { id: "vaga_pacote_3", title: "3 vagas - R$ 24,90" },
-          { id: "vaga_pacote_10", title: "10 vagas - R$ 79,90" },
-        ],
-      },
-    ]);
+    const valorBase = 9.9;
+    const valorDestaque = destaque ? 4.9 : 0;
+    const total = valorBase + valorDestaque;
+
+    return sendActionButtons(
+      phone,
+      `💳 *Publicação deste anúncio*\n\n📢 *Anúncio:* R$ ${valorBase.toFixed(
+        2
+      )}\n⭐ *Destaque:* R$ ${valorDestaque.toFixed(
+        2
+      )}\n🧾 *Total:* R$ ${total.toFixed(2)}\n\nDeseja gerar o pagamento agora?`,
+      [
+        { id: "vaga_confirmar_pagamento", title: "Gerar pagamento" },
+        { id: "empresa_criar_vaga", title: "Refazer vaga" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]
+    );
   }
 
-  if (user.etapa === "empresa_vaga_pacote") {
-    if (!text.startsWith("vaga_pacote_")) return false;
-
-    const qtdPacote = Number(text.replace("vaga_pacote_", ""));
-    let pacoteCodigo = "empresa_1_vaga";
-
-    if (qtdPacote === 3) pacoteCodigo = "empresa_3_vagas";
-    if (qtdPacote === 10) pacoteCodigo = "empresa_10_vagas";
-
+  if (text === "vaga_confirmar_pagamento") {
     const { plano, payment, total, destaqueValor } =
       await criarCobrancaPublicacaoVaga({
         supabase,
         user,
-        pacoteCodigo,
       });
 
     if (!plano || !payment) {
+      console.error("❌ erro ao criar cobrança da vaga");
       await sendText(phone, "Erro ao gerar cobrança da vaga.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "empresa_criar_vaga", title: "Tentar novamente" },
@@ -492,12 +528,12 @@ export async function handleCompanyMenu({
     if (!intent) {
       await sendText(
         phone,
-        `💳 Pedido criado com sucesso!\n\n` +
-          `Pacote: ${plano.nome}\n` +
-          `Pacote base: R$ ${Number(plano.valor).toFixed(2)}\n` +
-          `Destaque: R$ ${Number(destaqueValor).toFixed(2)}\n` +
-          `Total: R$ ${Number(total).toFixed(2)}\n` +
-          `Pedido: ${payment.id}\n\n` +
+        `💳 *Pedido criado com sucesso!*\n\n` +
+          `📢 *Anúncio:* ${plano.nome}\n` +
+          `💵 *Valor base:* R$ ${Number(plano.valor).toFixed(2)}\n` +
+          `⭐ *Destaque:* R$ ${Number(destaqueValor).toFixed(2)}\n` +
+          `🧾 *Total:* R$ ${Number(total).toFixed(2)}\n` +
+          `🆔 *Pedido:* ${payment.id}\n\n` +
           `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
       );
 
@@ -509,11 +545,7 @@ export async function handleCompanyMenu({
     }
 
     await sendText(phone, buildPixResumo(intent, plano, total, destaqueValor));
-
-    await sendText(
-      phone,
-      `\n\n${buildPixCodeOnly(intent)}`
-    );
+    await sendText(phone, `📌 PIX copia e cola:\n\n${buildPixCodeOnly(intent)}`);
 
     return sendActionButtons(phone, "Depois do pagamento:", [
       { id: "payment_check_status", title: "Já paguei" },
@@ -552,7 +584,7 @@ export async function handleCompanyMenu({
       ]);
     }
 
-    let out = "📋 Suas vagas:\n";
+    let out = "📋 *Suas vagas:*\n";
     for (const v of vagas) {
       out += `\n• ${v.titulo} - ${v.status}`;
     }

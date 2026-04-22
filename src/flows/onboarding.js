@@ -10,6 +10,52 @@ function isValidEmail(value = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim().toLowerCase());
 }
 
+function cleanCPF(cpf = "") {
+  return String(cpf).replace(/\D/g, "");
+}
+
+function isValidCPF(cpf = "") {
+  cpf = cleanCPF(cpf);
+
+  if (!cpf || cpf.length !== 11) return false;
+
+  // bloqueia sequências repetidas tipo 11111111111
+  if (/^(\d)\1+$/.test(cpf)) return false;
+
+  // primeiro dígito verificador
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += Number(cpf[i]) * (10 - i);
+  }
+
+  let firstDigit = (sum * 10) % 11;
+  if (firstDigit === 10) firstDigit = 0;
+
+  if (firstDigit !== Number(cpf[9])) return false;
+
+  // segundo dígito verificador
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += Number(cpf[i]) * (11 - i);
+  }
+
+  let secondDigit = (sum * 10) % 11;
+  if (secondDigit === 10) secondDigit = 0;
+
+  return secondDigit === Number(cpf[10]);
+}
+
+const gruposMap = {
+  construcao: "construcao",
+  saude: "saude",
+  logistica: "transporte",
+  vendas: "comercio",
+  administrativo: "administracao",
+  servicos_gerais: "limpeza",
+  tecnologia: "tecnologia",
+  outros: "tarefas",
+};
+
 export async function handleOnboarding({
   user,
   text,
@@ -18,6 +64,10 @@ export async function handleOnboarding({
   getCategorias,
   getCategoriasPorGrupo,
 }) {
+  // =====================
+  // ESCOLHA DO TIPO
+  // =====================
+
   if (user.etapa === "tipo") {
     if (!["tipo_usuario", "tipo_contratante", "tipo_empresa"].includes(text)) {
       return false;
@@ -36,6 +86,10 @@ export async function handleOnboarding({
     return sendText(phone, "Qual seu nome e sobrenome?");
   }
 
+  // =====================
+  // NOME
+  // =====================
+
   if (user.etapa === "nome") {
     if (!text || text.length < 3) {
       return sendText(phone, "Digite seu nome e sobrenome:");
@@ -51,6 +105,10 @@ export async function handleOnboarding({
       "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana\n• Itabaiana - SE"
     );
   }
+
+  // =====================
+  // CIDADE
+  // =====================
 
   if (user.etapa === "cidade") {
     const { cidade, estado } = parseCidadeEstado(text);
@@ -82,6 +140,10 @@ export async function handleOnboarding({
     ]);
   }
 
+  // =====================
+  // ESTADO
+  // =====================
+
   if (user.etapa === "estado") {
     if (!text.startsWith("estado_")) {
       return sendText(phone, "Escolha o estado pela lista.");
@@ -97,6 +159,10 @@ export async function handleOnboarding({
     return sendText(phone, "Qual seu e-mail?");
   }
 
+  // =====================
+  // EMAIL
+  // =====================
+
   if (user.etapa === "email") {
     if (!isValidEmail(text)) {
       return sendText(phone, "Digite um e-mail válido.\nEx: nome@email.com");
@@ -104,29 +170,56 @@ export async function handleOnboarding({
 
     await updateUser({
       email: text.trim().toLowerCase(),
+      etapa: "cpf",
     });
 
-    if (user.tipo === "empresa") {
-      await updateUser({
-        etapa: "menu",
-        onboarding_finalizado: true,
-      });
-      return sendMenuEmpresa(phone);
+    return sendText(phone, "Digite seu CPF (apenas números):");
+  }
+
+  // =====================
+  // CPF
+  // =====================
+
+  if (user.etapa === "cpf") {
+    const cpfLimpo = cleanCPF(text);
+
+    if (!isValidCPF(cpfLimpo)) {
+      return sendText(
+        phone,
+        "CPF inválido. Digite um CPF válido.\nEx: 12345678909"
+      );
     }
 
+    await updateUser({
+      cpf: cpfLimpo,
+    });
+
+    // EMPRESA
+    if (user.tipo === "empresa") {
+      await updateUser({
+        etapa: "nome_empresa",
+      });
+
+      return sendText(phone, "Qual o nome da empresa?");
+    }
+
+    // CONTRATANTE
     if (user.tipo === "contratante") {
       await updateUser({
         etapa: "menu",
         onboarding_finalizado: true,
       });
+
       return sendMenuContratante(phone);
     }
 
+    // USUÁRIO COMUM
     await updateUser({
       etapa: "area",
     });
 
     const areas = await getCategorias("geral");
+
     return sendList(phone, "Escolha sua área de interesse:", [
       {
         title: "Áreas",
@@ -140,6 +233,28 @@ export async function handleOnboarding({
     ]);
   }
 
+  // =====================
+  // NOME DA EMPRESA
+  // =====================
+
+  if (user.etapa === "nome_empresa") {
+    if (!text || text.length < 2) {
+      return sendText(phone, "Digite o nome da empresa:");
+    }
+
+    await updateUser({
+      nome_empresa: text,
+      etapa: "menu",
+      onboarding_finalizado: true,
+    });
+
+    return sendMenuEmpresa(phone);
+  }
+
+  // =====================
+  // ÁREA
+  // =====================
+
   if (user.etapa === "area") {
     if (!text.startsWith("area_")) return false;
 
@@ -149,17 +264,6 @@ export async function handleOnboarding({
       area_principal: area,
       etapa: "categoria",
     });
-
-    const gruposMap = {
-      construcao: "construcao",
-      saude: "saude",
-      logistica: "transporte",
-      vendas: "comercio",
-      administrativo: "administracao",
-      servicos_gerais: "limpeza",
-      tecnologia: "tecnologia",
-      outros: "tarefas",
-    };
 
     const grupo = gruposMap[area] || area;
     let categorias = await getCategoriasPorGrupo("vaga", grupo);
@@ -186,6 +290,10 @@ export async function handleOnboarding({
     ]);
   }
 
+  // =====================
+  // CATEGORIA
+  // =====================
+
   if (user.etapa === "categoria") {
     if (!text.startsWith("cat_")) return false;
 
@@ -206,6 +314,10 @@ export async function handleOnboarding({
       },
     ]);
   }
+
+  // =====================
+  // RAIO
+  // =====================
 
   if (user.etapa === "raio") {
     if (!text.startsWith("raio_")) return false;
