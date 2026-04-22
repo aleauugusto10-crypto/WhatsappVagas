@@ -7,15 +7,15 @@ import {
 import { createMercadoPagoPixIntent } from "../services/payments.js";
 import { getSubcategoriasByCategoria } from "../lib/subcategories.js";
 
-const gruposMap = {
-  construcao: "construcao",
-  saude: "saude",
-  logistica: "logistica",
-  vendas: "vendas",
-  administrativo: "administrativo",
-  servicos_gerais: "servicos_gerais",
-  tecnologia: "tecnologia",
-  outros: "outros",
+const areaGroupsMap = {
+  construcao: ["construcao"],
+  saude: ["saude"],
+  logistica: ["transporte"],
+  vendas: ["comercio"],
+  administrativo: ["administracao"],
+  servicos_gerais: ["limpeza", "cozinha"],
+  tecnologia: ["tecnologia"],
+  outros: ["tarefas", "outros"],
 };
 
 function buildPixResumo(intent, plano) {
@@ -69,17 +69,6 @@ function buildProfessionalsPreview(servicos = [], locked = true) {
   return out;
 }
 
-function buildProfessionalCard(servico) {
-  return (
-    `🧑‍🔧 *Profissional encontrado*\n\n` +
-    `💼 *Serviço:* ${servico.titulo || "-"}\n` +
-    `📍 *Cidade:* ${servico.cidade || "-"}${servico.estado ? `/${servico.estado}` : ""}\n` +
-    `📝 *Descrição:* ${servico.descricao || "-"}\n` +
-    `🧩 *Especialidades:* ${formatEspecialidades(servico.especialidades || [])}\n` +
-    `🎯 *Compatibilidade:* ${servico.match_count || 0}`
-  );
-}
-
 async function gerarPagamentoPixBuscaProfissional({
   supabase,
   phone,
@@ -102,7 +91,7 @@ async function gerarPagamentoPixBuscaProfissional({
     usuarioId: user.id,
     referenciaTipo,
     planoCodigo: plano.codigo,
-    valor: plano.valor,
+    valor: 4.9,
     metadata: {
       telefone: user.telefone,
       cidade: user.cidade,
@@ -133,8 +122,8 @@ async function gerarPagamentoPixBuscaProfissional({
     await sendText(
       phone,
       `💳 *Pedido criado com sucesso!*\n\n` +
-        `📦 *Plano:* ${plano.nome}\n` +
-        `💵 *Valor:* R$ ${Number(plano.valor).toFixed(2)}\n` +
+        `📦 *Plano:* Busca avulsa de profissionais\n` +
+        `💵 *Valor:* R$ 4,90\n` +
         `🆔 *Pedido:* ${payment.id}\n\n` +
         `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
     );
@@ -148,7 +137,10 @@ async function gerarPagamentoPixBuscaProfissional({
     ]);
   }
 
-  await sendText(phone, buildPixResumo(intent, plano));
+  await sendText(
+    phone,
+    buildPixResumo(intent, { nome: "Busca avulsa de profissionais", valor: 4.9 })
+  );
   await sendText(phone, buildPixCodeOnly(intent));
   await sendText(phone, afterSuccessLabel);
 
@@ -173,13 +165,22 @@ async function buscarProfissionaisPorCategoriaESubcategorias({
     return { servicos: [], error: null };
   }
 
-  const { data: servicos, error } = await supabase
+  let query = supabase
     .from("servicos")
     .select("*")
     .eq("ativo", true)
     .eq("categoria_chave", categoria)
-    .ilike("cidade", user.cidade || "")
     .limit(50);
+
+  if (user.cidade) {
+    query = query.ilike("cidade", user.cidade);
+  }
+
+  if (user.estado) {
+    query = query.eq("estado", user.estado);
+  }
+
+  const { data: servicos, error } = await query;
 
   if (error) {
     console.error("❌ erro ao buscar serviços base:", error);
@@ -210,6 +211,7 @@ async function buscarProfissionaisPorCategoriaESubcategorias({
   }
 
   const subcategoriasMap = new Map();
+
   for (const row of subRows || []) {
     if (!subcategoriasMap.has(row.usuario_id)) {
       subcategoriasMap.set(row.usuario_id, []);
@@ -243,6 +245,7 @@ async function buscarProfissionaisPorCategoriaESubcategorias({
 
       const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
       return dateB - dateA;
     })
     .slice(0, limit);
@@ -284,7 +287,7 @@ export async function handleServicesMenu({
   supabase,
   updateUser,
   getCategorias,
-  getCategoriasPorGrupo,
+  getCategoriasPorGrupos,
 }) {
   // =====================
   // BUSCAR PROFISSIONAIS
@@ -317,8 +320,8 @@ export async function handleServicesMenu({
     if (!text.startsWith("contratar_area_")) return false;
 
     const area = text.replace("contratar_area_", "");
-    const grupo = gruposMap[area] || area;
-    const categorias = await getCategoriasPorGrupo("servico", grupo);
+    const grupos = areaGroupsMap[area] || [area];
+    const categorias = await getCategoriasPorGrupos("servico", grupos);
 
     await updateUser({
       area_principal: area,
@@ -327,7 +330,7 @@ export async function handleServicesMenu({
     });
 
     if (!categorias.length) {
-      await updateUser({ etapa: "menu" });
+      await updateUser({ etapa: "contratar_area" });
       await sendText(phone, "Não encontrei categorias nessa área.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
@@ -338,7 +341,7 @@ export async function handleServicesMenu({
     return sendList(phone, "Escolha a categoria do profissional:", [
       {
         title: "Categorias",
-        rows: categorias.map((c) => ({
+        rows: categorias.slice(0, 10).map((c) => ({
           id: `contratar_cat_${c.chave}`,
           title: c.nome,
         })),
@@ -541,11 +544,12 @@ export async function handleServicesMenu({
       etapa: "menu",
     });
 
-    const { servicos, error } = await buscarProfissionaisPorCategoriaESubcategorias({
-      supabase,
-      user: { ...user, subcategorias_temp: atuais },
-      limit: 5,
-    });
+    const { servicos, error } =
+      await buscarProfissionaisPorCategoriaESubcategorias({
+        supabase,
+        user: { ...user, subcategorias_temp: atuais },
+        limit: 5,
+      });
 
     if (error) {
       await sendText(phone, "Erro ao buscar profissionais.");

@@ -59,6 +59,7 @@ async function getCategoriasPorGrupos(contexto, grupos = []) {
 
   return data || [];
 }
+
 function getMenuByTipo(tipo, phone) {
   if (tipo === "empresa") return sendMenuEmpresa(phone);
   if (tipo === "contratante") return sendMenuContratante(phone);
@@ -100,9 +101,7 @@ async function handlePaymentCheckStatus(user, phone) {
 
         return sendText(
           phone,
-          `✅ Pagamento confirmado!\n\nPedido: ${
-            updated?.id || payment.id
-          }`
+          `✅ Pagamento confirmado!\n\nPedido: ${updated?.id || payment.id}`
         );
       }
 
@@ -183,7 +182,7 @@ export async function handleMessage(msg) {
     // COMANDOS GLOBAIS
     // =====================
 
-    if (["oi", "menu", "inicio"].includes(text)) {
+    if (["oi", "menu", "inicio", "início"].includes(text)) {
       if (user.onboarding_finalizado) {
         return getMenuByTipo(user.tipo, phone);
       }
@@ -219,7 +218,7 @@ export async function handleMessage(msg) {
       user,
       text,
       phone,
-      supabase, // 🔥 CORREÇÃO CRÍTICA
+      supabase,
       updateUser,
       getCategorias,
       getCategoriasPorGrupos,

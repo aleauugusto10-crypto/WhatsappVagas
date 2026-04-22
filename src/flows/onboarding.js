@@ -45,15 +45,15 @@ function isValidCPF(cpf = "") {
   return secondDigit === Number(cpf[10]);
 }
 
-const gruposMap = {
-  construcao: "construcao",
-  saude: "saude",
-  logistica: "logistica",
-  vendas: "vendas",
-  administrativo: "administrativo",
-  servicos_gerais: "servicos_gerais",
-  tecnologia: "tecnologia",
-  outros: "outros",
+const areaGroupsMap = {
+  construcao: ["construcao"],
+  saude: ["saude"],
+  logistica: ["transporte"],
+  vendas: ["comercio"],
+  administrativo: ["administracao"],
+  servicos_gerais: ["limpeza", "cozinha"],
+  tecnologia: ["tecnologia"],
+  outros: ["tarefas", "outros"],
 };
 
 function buildRaioList(phone) {
@@ -75,7 +75,7 @@ export async function handleOnboarding({
   supabase,
   updateUser,
   getCategorias,
-  getCategoriasPorGrupo,
+  getCategoriasPorGrupos,
 }) {
   // =====================
   // ESCOLHA DO TIPO
@@ -269,31 +269,31 @@ export async function handleOnboarding({
     if (!text.startsWith("area_")) return false;
 
     const area = text.replace("area_", "");
+    const grupos = areaGroupsMap[area] || [area];
 
     await updateUser({
       area_principal: area,
       etapa: "categoria",
     });
 
-    const grupo = gruposMap[area] || area;
-
-    let categorias = await getCategoriasPorGrupo("vaga", grupo);
+    let categorias = await getCategoriasPorGrupos("vaga", grupos);
 
     if (!categorias.length) {
-      categorias = await getCategoriasPorGrupo("servico", grupo);
+      categorias = await getCategoriasPorGrupos("servico", grupos);
     }
 
     if (!categorias.length) {
+      await updateUser({ etapa: "area" });
       return sendText(
         phone,
-        "Ainda não encontrei categorias para essa área. Envie 'menu' para recomeçar."
+        "Ainda não encontrei categorias para essa área. Escolha outra área ou envie 'menu' para recomeçar."
       );
     }
 
     return sendList(phone, "Escolha a categoria que mais combina com você:", [
       {
         title: "Categorias",
-        rows: categorias.map((c) => ({
+        rows: categorias.slice(0, 10).map((c) => ({
           id: `cat_${c.chave}`,
           title: c.nome,
         })),

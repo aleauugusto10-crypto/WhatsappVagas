@@ -10,15 +10,15 @@ import {
   consumeCompanyJobCredit,
 } from "../services/payments.js";
 
-const gruposMap = {
-  construcao: "construcao",
-  saude: "saude",
-  logistica: "transporte",
-  vendas: "comercio",
-  administrativo: "administracao",
-  servicos_gerais: "limpeza",
-  tecnologia: "tecnologia",
-  outros: "tarefas",
+const areaGroupsMap = {
+  construcao: ["construcao"],
+  saude: ["saude"],
+  logistica: ["transporte"],
+  vendas: ["comercio"],
+  administrativo: ["administracao"],
+  servicos_gerais: ["limpeza", "cozinha"],
+  tecnologia: ["tecnologia"],
+  outros: ["tarefas", "outros"],
 };
 
 function limparTempVagaPayload() {
@@ -59,6 +59,13 @@ function formatCategoria(chave = "") {
     garcom: "Garçom",
     motoboy: "Motoboy",
     motorista: "Motorista",
+    faxineira: "Faxineira / Diarista",
+    pedreiro: "Pedreiro",
+    pintor: "Pintor",
+    eletricista: "Eletricista",
+    encanador: "Encanador",
+    cuidador: "Cuidador",
+    frete: "Frete / Mudança",
   };
   return map[chave] || chave || "-";
 }
@@ -230,6 +237,11 @@ async function cobrarDestaqueSeparado({ supabase, phone, user }) {
   }
 
   const intent = await createMercadoPagoPixIntent(payment.id);
+  if (!intent) {
+    await sendText(phone, "Não consegui gerar o Pix do destaque agora.");
+    return payment;
+  }
+
   await sendText(phone, buildPixResumo(intent, plano, plano.valor, 0));
   await sendText(phone, buildPixCodeOnly(intent));
 
@@ -280,7 +292,7 @@ export async function handleCompanyMenu({
   supabase,
   updateUser,
   getCategorias,
-  getCategoriasPorGrupo,
+  getCategoriasPorGrupos,
 }) {
   if (text === "voltar_menu") {
     await updateUser({ etapa: "menu" });
@@ -319,6 +331,10 @@ export async function handleCompanyMenu({
     });
   }
 
+  // =====================
+  // BUSCAR PROFISSIONAIS
+  // =====================
+
   if (text === "empresa_buscar_profissionais") {
     const areas = await getCategorias("geral");
     await updateUser({ etapa: "empresa_buscar_area" });
@@ -340,15 +356,16 @@ export async function handleCompanyMenu({
     if (!text.startsWith("empresa_area_")) return false;
 
     const area = text.replace("empresa_area_", "");
-    const grupo = gruposMap[area] || area;
-    const categorias = await getCategoriasPorGrupo("servico", grupo);
+    const grupos = areaGroupsMap[area] || [area];
+    const categorias = await getCategoriasPorGrupos("servico", grupos);
 
     await updateUser({ etapa: "empresa_buscar_categoria" });
 
     if (!categorias.length) {
-      await updateUser({ etapa: "menu" });
+      await updateUser({ etapa: "empresa_buscar_area" });
       await sendText(phone, "Não encontrei categorias nessa área.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
@@ -356,7 +373,7 @@ export async function handleCompanyMenu({
     return sendList(phone, "Escolha a categoria do profissional:", [
       {
         title: "Categorias",
-        rows: categorias.map((c) => ({
+        rows: categorias.slice(0, 10).map((c) => ({
           id: `empresa_buscar_cat_${c.chave}`,
           title: c.nome,
         })),
@@ -369,13 +386,22 @@ export async function handleCompanyMenu({
 
     const categoria = text.replace("empresa_buscar_cat_", "");
 
-    const { data: servicos, error } = await supabase
+    let query = supabase
       .from("servicos")
       .select("*")
       .eq("ativo", true)
       .eq("categoria_chave", categoria)
-      .ilike("cidade", user.cidade || "")
       .limit(3);
+
+    if (user.cidade) {
+      query = query.ilike("cidade", user.cidade);
+    }
+
+    if (user.estado) {
+      query = query.eq("estado", user.estado);
+    }
+
+    const { data: servicos, error } = await query;
 
     await updateUser({ etapa: "menu" });
 
@@ -383,6 +409,7 @@ export async function handleCompanyMenu({
       console.error("❌ erro ao buscar profissionais para empresa:", error);
       await sendText(phone, "Erro ao buscar profissionais.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
@@ -390,21 +417,27 @@ export async function handleCompanyMenu({
     if (!servicos?.length) {
       await sendText(phone, "Nenhum profissional encontrado no momento.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
 
     let out = "🧑‍🔧 *Prévia de profissionais:*\n";
     for (const s of servicos) {
-      out += `\n• ${s.titulo} - ${s.cidade || "Sem cidade"}`;
+      out += `\n• ${s.titulo || "Profissional"} - ${s.cidade || "Sem cidade"}`;
     }
-    out += "\n\n🔒 Para desbloquear a busca completa, use o plano de busca.";
+    out += "\n\n🔒 A busca da empresa ainda está em modo prévia.";
 
     await sendText(phone, out);
     return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+
+  // =====================
+  // CRIAR VAGA
+  // =====================
 
   if (text === "empresa_criar_vaga") {
     const areas = await getCategorias("geral");
@@ -431,15 +464,16 @@ export async function handleCompanyMenu({
     if (!text.startsWith("vaga_area_")) return false;
 
     const area = text.replace("vaga_area_", "");
-    const grupo = gruposMap[area] || area;
-    const categorias = await getCategoriasPorGrupo("vaga", grupo);
+    const grupos = areaGroupsMap[area] || [area];
+    const categorias = await getCategoriasPorGrupos("vaga", grupos);
 
     await updateUser({ etapa: "empresa_vaga_categoria" });
 
     if (!categorias.length) {
-      await updateUser({ etapa: "menu" });
+      await updateUser({ etapa: "empresa_vaga_area" });
       await sendText(phone, "Não encontrei categorias de vaga nessa área.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_criar_vaga", title: "Tentar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
@@ -447,7 +481,7 @@ export async function handleCompanyMenu({
     return sendList(phone, "💼 Escolha a função da vaga:", [
       {
         title: "Funções",
-        rows: categorias.map((c) => ({
+        rows: categorias.slice(0, 10).map((c) => ({
           id: `vaga_cat_${c.chave}`,
           title: c.nome,
         })),
@@ -715,6 +749,10 @@ export async function handleCompanyMenu({
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+
+  // =====================
+  // MINHAS VAGAS
+  // =====================
 
   if (text === "empresa_minhas_vagas") {
     const { data: vagas, error } = await supabase
