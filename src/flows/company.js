@@ -4,7 +4,11 @@ import {
   createPendingPayment,
   getPlanoByCodigo,
 } from "../lib/monetization.js";
-import { createMercadoPagoPixIntent } from "../services/payments.js";
+import {
+  createMercadoPagoPixIntent,
+  getActiveCompanyJobCredits,
+  consumeCompanyJobCredit,
+} from "../services/payments.js";
 
 const gruposMap = {
   construcao: "construcao",
@@ -40,7 +44,6 @@ function formatTipoContratacao(tipo = "") {
     comissao: "Comissão",
     a_combinar: "A combinar",
   };
-
   return map[tipo] || tipo || "-";
 }
 
@@ -57,7 +60,6 @@ function formatCategoria(chave = "") {
     motoboy: "Motoboy",
     motorista: "Motorista",
   };
-
   return map[chave] || chave || "-";
 }
 
@@ -79,12 +81,12 @@ function resumoVaga(user) {
   );
 }
 
-function buildPixResumo(intent, plano, total, destaqueValor) {
+function buildPixResumo(intent, plano, total, destaqueValor = 0) {
   const checkoutUrl = intent?.checkout_url || null;
 
   let out =
-    `💳 *Pagamento da vaga gerado com sucesso*\n\n` +
-    `📢 *Anúncio:* ${plano.nome}\n` +
+    `💳 *Pagamento gerado com sucesso!*\n\n` +
+    `📦 *Plano:* ${plano.nome}\n` +
     `💵 *Valor base:* R$ ${Number(plano.valor).toFixed(2)}\n` +
     `⭐ *Destaque:* R$ ${Number(destaqueValor || 0).toFixed(2)}\n` +
     `🧾 *Total:* R$ ${Number(total || 0).toFixed(2)}`;
@@ -94,7 +96,6 @@ function buildPixResumo(intent, plano, total, destaqueValor) {
   }
 
   out += `\n\n📌 *PIX copia e cola:*`;
-
   return out;
 }
 
@@ -102,69 +103,174 @@ function buildPixCodeOnly(intent) {
   return intent?.qr_code || "Código Pix indisponível no momento.";
 }
 
-async function criarCobrancaPublicacaoVaga({ supabase, user }) {
-  const plano = await getPlanoByCodigo(supabase, "empresa_1_vaga");
+async function mostrarPacotesEmpresa(phone, supabase, user) {
+  const credits = await getActiveCompanyJobCredits(user.id);
+  const total = credits.reduce((acc, c) => acc + Number(c.total_creditos || 0), 0);
+  const usados = credits.reduce((acc, c) => acc + Number(c.creditos_usados || 0), 0);
+  const restantes = Math.max(0, total - usados);
+
+  await sendText(
+    phone,
+    `📦 *Pacotes da empresa*\n\n` +
+      `🎟️ *Créditos ativos:* ${restantes}\n` +
+      `📊 *Total comprado:* ${total}\n` +
+      `✅ *Usados:* ${usados}`
+  );
+
+  return sendList(phone, "Escolha um pacote:", [
+    {
+      title: "Pacotes de vagas",
+      rows: [
+        { id: "empresa_buy_1_vaga", title: "1 vaga - R$ 9,90" },
+        { id: "empresa_buy_3_vagas", title: "3 vagas - R$ 24,90" },
+        { id: "empresa_buy_10_vagas", title: "10 vagas - R$ 79,90" },
+      ],
+    },
+  ]);
+}
+
+async function gerarPagamentoPacoteEmpresa({
+  supabase,
+  phone,
+  user,
+  planoCodigo,
+  referenciaTipo = "empresa_publicar_vaga",
+}) {
+  const plano = await getPlanoByCodigo(supabase, planoCodigo);
 
   if (!plano) {
-    console.error("❌ plano empresa_1_vaga não encontrado");
-    return { plano: null, payment: null, total: null, destaqueValor: 0 };
+    await sendText(phone, "Plano indisponível no momento.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
   }
 
-  let total = Number(plano.valor);
-  let destaqueValor = 0;
-
-  if (user.vaga_destaque_temp) {
-    const destaquePlano = await getPlanoByCodigo(supabase, "empresa_destaque_vaga");
-
-    if (!destaquePlano) {
-      console.error("❌ plano empresa_destaque_vaga não encontrado");
-    } else {
-      destaqueValor = Number(destaquePlano.valor);
-      total += destaqueValor;
-    }
-  }
-
-  const payload = {
+  const payment = await createPendingPayment(supabase, {
     usuarioId: user.id,
-    referenciaTipo: "empresa_publicar_vaga",
+    referenciaTipo,
     planoCodigo: plano.codigo,
-    valor: Number(total.toFixed(2)),
+    valor: plano.valor,
     metadata: {
       empresa_id: user.id,
       nome_empresa: user.nome_empresa || null,
-      contato_whatsapp: user.telefone,
-      categoria_chave: user.categoria_principal,
-      titulo: user.vaga_titulo_temp,
-      descricao: user.vaga_descricao_temp,
-      requisitos: user.vaga_requisitos_temp,
-      tipo_contratacao: user.vaga_tipo_contratacao_temp,
-      salario: user.vaga_salario_temp,
-      jornada: user.vaga_jornada_temp,
-      quantidade_vagas: Number(user.vaga_quantidade_temp || 1),
-      destaque: !!user.vaga_destaque_temp,
+      telefone: user.telefone,
       cidade: user.cidade,
       estado: user.estado,
-      pacote_codigo: plano.codigo,
-      pacote_nome: plano.nome,
-      pacote_valor: Number(plano.valor),
-      destaque_valor: Number(destaqueValor.toFixed(2)),
+      modo: "pacote_vagas_empresa",
     },
-  };
-
-  console.log("📦 payload cobrança vaga:", JSON.stringify(payload, null, 2));
-
-  const payment = await createPendingPayment(supabase, payload);
+  });
 
   if (!payment) {
-    console.error("❌ createPendingPayment retornou null para vaga");
+    await sendText(phone, "Erro ao gerar cobrança do pacote.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
   }
 
-  return {
-    plano,
-    payment,
-    total: Number(total.toFixed(2)),
-    destaqueValor: Number(destaqueValor.toFixed(2)),
+  let intent = null;
+  try {
+    intent = await createMercadoPagoPixIntent(payment.id);
+  } catch (err) {
+    console.error("❌ erro ao gerar Pix do pacote da empresa:", err);
+  }
+
+  if (!intent) {
+    await sendText(
+      phone,
+      `💳 *Pedido criado com sucesso!*\n\n` +
+        `📦 *Plano:* ${plano.nome}\n` +
+        `💵 *Valor:* R$ ${Number(plano.valor).toFixed(2)}\n` +
+        `🆔 *Pedido:* ${payment.id}\n\n` +
+        `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+    );
+
+    return sendActionButtons(phone, "Depois do pagamento:", [
+      { id: "payment_check_status", title: "Já paguei" },
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  await sendText(phone, buildPixResumo(intent, plano, plano.valor, 0));
+  await sendText(phone, buildPixCodeOnly(intent));
+
+  return sendActionButtons(phone, "Depois do pagamento:", [
+    { id: "payment_check_status", title: "Já paguei" },
+    { id: "empresa_pacotes", title: "Ver pacotes" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+async function cobrarDestaqueSeparado({ supabase, phone, user }) {
+  const plano = await getPlanoByCodigo(supabase, "empresa_destaque_vaga");
+
+  if (!plano) {
+    await sendText(phone, "Plano de destaque indisponível no momento.");
+    return null;
+  }
+
+  const payment = await createPendingPayment(supabase, {
+    usuarioId: user.id,
+    referenciaTipo: "empresa_destaque_vaga",
+    planoCodigo: plano.codigo,
+    valor: plano.valor,
+    metadata: {
+      empresa_id: user.id,
+      nome_empresa: user.nome_empresa || null,
+      titulo: user.vaga_titulo_temp,
+      destaque: true,
+    },
+  });
+
+  if (!payment) {
+    await sendText(phone, "Erro ao gerar cobrança do destaque.");
+    return null;
+  }
+
+  const intent = await createMercadoPagoPixIntent(payment.id);
+  await sendText(phone, buildPixResumo(intent, plano, plano.valor, 0));
+  await sendText(phone, buildPixCodeOnly(intent));
+
+  return payment;
+}
+
+async function publicarVagaComCredito({ supabase, user }) {
+  const consumed = await consumeCompanyJobCredit(user.id);
+  if (!consumed) return null;
+
+  const payload = {
+    empresa_id: user.id,
+    nome_empresa: user.nome_empresa || null,
+    titulo: user.vaga_titulo_temp,
+    descricao: user.vaga_descricao_temp,
+    requisitos: user.vaga_requisitos_temp,
+    tipo_contratacao: user.vaga_tipo_contratacao_temp,
+    salario: user.vaga_salario_temp,
+    jornada: user.vaga_jornada_temp,
+    quantidade_vagas: Number(user.vaga_quantidade_temp || 1),
+    categoria_chave: user.categoria_principal,
+    cidade: user.cidade,
+    estado: user.estado,
+    destaque: !!user.vaga_destaque_temp,
+    status: "ativa",
+    publicada_em: new Date().toISOString(),
+    contato_whatsapp: user.telefone || null,
   };
+
+  const { data, error } = await supabase
+    .from("vagas")
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("❌ erro ao publicar vaga com crédito:", error);
+    return null;
+  }
+
+  return { vaga: data, credito: consumed };
 }
 
 export async function handleCompanyMenu({
@@ -181,9 +287,37 @@ export async function handleCompanyMenu({
     return sendMenuEmpresa(phone);
   }
 
-  // =====================
-  // BUSCAR PROFISSIONAIS
-  // =====================
+  if (text === "empresa_pacotes") {
+    await updateUser({ etapa: "menu" });
+    return mostrarPacotesEmpresa(phone, supabase, user);
+  }
+
+  if (text === "empresa_buy_1_vaga") {
+    return gerarPagamentoPacoteEmpresa({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "empresa_1_vaga",
+    });
+  }
+
+  if (text === "empresa_buy_3_vagas") {
+    return gerarPagamentoPacoteEmpresa({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "empresa_3_vagas",
+    });
+  }
+
+  if (text === "empresa_buy_10_vagas") {
+    return gerarPagamentoPacoteEmpresa({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "empresa_10_vagas",
+    });
+  }
 
   if (text === "empresa_buscar_profissionais") {
     const areas = await getCategorias("geral");
@@ -271,10 +405,6 @@ export async function handleCompanyMenu({
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
-
-  // =====================
-  // CRIAR VAGA
-  // =====================
 
   if (text === "empresa_criar_vaga") {
     const areas = await getCategorias("geral");
@@ -487,100 +617,104 @@ export async function handleCompanyMenu({
 
     await updateUser({
       vaga_destaque_temp: destaque,
-      etapa: "empresa_vaga_confirmar_cobranca",
+      etapa: "empresa_vaga_confirmar_publicacao",
     });
 
     const fakeUser = { ...user, vaga_destaque_temp: destaque };
     await sendText(phone, resumoVaga(fakeUser));
 
-    const valorBase = 9.9;
-    const valorDestaque = destaque ? 4.9 : 0;
-    const total = valorBase + valorDestaque;
+    const credits = await getActiveCompanyJobCredits(user.id);
+    const total = credits.reduce((acc, c) => acc + Number(c.total_creditos || 0), 0);
+    const usados = credits.reduce((acc, c) => acc + Number(c.creditos_usados || 0), 0);
+    const restantes = Math.max(0, total - usados);
 
     return sendActionButtons(
       phone,
-      `💳 *Publicação deste anúncio*\n\n📢 *Anúncio:* R$ ${valorBase.toFixed(
-        2
-      )}\n⭐ *Destaque:* R$ ${valorDestaque.toFixed(
-        2
-      )}\n🧾 *Total:* R$ ${total.toFixed(2)}\n\nDeseja gerar o pagamento agora?`,
+      `🎟️ *Créditos disponíveis:* ${restantes}\n\nDeseja publicar essa vaga agora?`,
       [
-        { id: "vaga_confirmar_pagamento", title: "Gerar pagamento" },
-        { id: "empresa_criar_vaga", title: "Refazer vaga" },
+        { id: "empresa_publicar_vaga_confirmada", title: "Publicar agora" },
+        { id: "empresa_pacotes", title: "Ver pacotes" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]
     );
   }
 
-  if (text === "vaga_confirmar_pagamento") {
-    const { plano, payment, total, destaqueValor } =
-      await criarCobrancaPublicacaoVaga({
-        supabase,
-        user,
-      });
+  if (text === "empresa_publicar_vaga_confirmada") {
+    const credits = await getActiveCompanyJobCredits(user.id);
+    const total = credits.reduce((acc, c) => acc + Number(c.total_creditos || 0), 0);
+    const usados = credits.reduce((acc, c) => acc + Number(c.creditos_usados || 0), 0);
+    const restantes = Math.max(0, total - usados);
 
-    if (!plano) {
-  console.error("❌ plano não encontrado para publicação da vaga");
-  await sendText(phone, "Erro ao gerar cobrança: plano de publicação não encontrado.");
-  return sendActionButtons(phone, "O que deseja fazer agora?", [
-    { id: "empresa_criar_vaga", title: "Tentar novamente" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
-}
-
-if (!payment) {
-  console.error("❌ createPendingPayment retornou null para vaga");
-  await sendText(phone, "Erro ao gerar cobrança da vaga. Verifique os logs do servidor.");
-  return sendActionButtons(phone, "O que deseja fazer agora?", [
-    { id: "empresa_criar_vaga", title: "Tentar novamente" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
-}
-
-    let intent = null;
-    try {
-      intent = await createMercadoPagoPixIntent(payment.id);
-    } catch (err) {
-      console.error("❌ erro ao gerar Pix da vaga:", err);
+    if (restantes <= 0) {
+      await sendText(
+        phone,
+        "Você não tem créditos de vaga disponíveis no momento. Compre um pacote para publicar."
+      );
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_pacotes", title: "Ver pacotes" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
     }
+
+    const publicado = await publicarVagaComCredito({ supabase, user });
+
+    if (!publicado?.vaga) {
+      await sendText(phone, "Erro ao publicar vaga com seu crédito.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_criar_vaga", title: "Tentar novamente" },
+        { id: "empresa_pacotes", title: "Ver pacotes" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    const restantesDepois =
+      Number(publicado.credito.total_creditos || 0) -
+      Number(publicado.credito.creditos_usados || 0);
 
     await updateUser({
       etapa: "menu",
       ...limparTempVagaPayload(),
     });
 
-    if (!intent) {
+    if (user.vaga_destaque_temp) {
       await sendText(
         phone,
-        `💳 *Pedido criado com sucesso!*\n\n` +
-          `📢 *Anúncio:* ${plano.nome}\n` +
-          `💵 *Valor base:* R$ ${Number(plano.valor).toFixed(2)}\n` +
-          `⭐ *Destaque:* R$ ${Number(destaqueValor).toFixed(2)}\n` +
-          `🧾 *Total:* R$ ${Number(total).toFixed(2)}\n` +
-          `🆔 *Pedido:* ${payment.id}\n\n` +
-          `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+        `✅ *Vaga publicada com sucesso usando 1 crédito!*\n\n` +
+          `📌 *Título:* ${publicado.vaga.titulo}\n` +
+          `🎟️ *Créditos restantes neste pacote:* ${Math.max(0, restantesDepois)}\n\n` +
+          `Como você marcou destaque, o sistema vai gerar a cobrança separada desse adicional.`
       );
 
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "empresa_criar_vaga", title: "Criar outra vaga" },
+      const payment = await cobrarDestaqueSeparado({ supabase, phone, user });
+
+      if (!payment) {
+        return sendActionButtons(phone, "O que deseja fazer agora?", [
+          { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+          { id: "empresa_pacotes", title: "Ver pacotes" },
+          { id: "voltar_menu", title: "Voltar ao menu" },
+        ]);
+      }
+
+      return sendActionButtons(phone, "Depois do pagamento do destaque:", [
+        { id: "payment_check_status", title: "Já paguei" },
         { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
 
-    await sendText(phone, buildPixResumo(intent, plano, total, destaqueValor));
-await sendText(phone, buildPixCodeOnly(intent));
+    await sendText(
+      phone,
+      `✅ *Vaga publicada com sucesso!*\n\n` +
+        `📌 *Título:* ${publicado.vaga.titulo}\n` +
+        `🎟️ *Créditos restantes neste pacote:* ${Math.max(0, restantesDepois)}`
+    );
 
-    return sendActionButtons(phone, "Depois do pagamento:", [
-      { id: "payment_check_status", title: "Já paguei" },
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_criar_vaga", title: "Criar outra vaga" },
       { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
-
-  // =====================
-  // MINHAS VAGAS
-  // =====================
 
   if (text === "empresa_minhas_vagas") {
     const { data: vagas, error } = await supabase
@@ -604,28 +738,29 @@ await sendText(phone, buildPixCodeOnly(intent));
       await sendText(phone, "Você ainda não criou nenhuma vaga.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "empresa_criar_vaga", title: "Criar vaga" },
+        { id: "empresa_pacotes", title: "Ver pacotes" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
 
     let out = "📋 *Suas vagas:*\n";
     for (const v of vagas) {
-      let out = "📋 *Suas vagas:*\n";
+      const statusLabel =
+        v.status === "ativa"
+          ? "✅ Ativa"
+          : v.status === "encerrada"
+          ? "⛔ Encerrada"
+          : v.status === "aberta"
+          ? "✅ Ativa"
+          : v.status;
 
-for (const v of vagas) {
-  let statusLabel = "🟡 Desconhecido";
-
-  if (v.status === "ativa") statusLabel = "🟢 Ativa";
-  if (v.status === "encerrada") statusLabel = "🔴 Encerrada";
-  if (v.status === "aberta") statusLabel = "🟢 Ativa"; // fallback legado
-
-  out += `\n• ${v.titulo} - ${statusLabel}`;
-}
+      out += `\n• ${v.titulo} - ${statusLabel}`;
     }
 
     await sendText(phone, out);
     return sendActionButtons(phone, "O que deseja fazer agora?", [
       { id: "empresa_remover_vaga", title: "Remover vaga" },
+      { id: "empresa_pacotes", title: "Ver pacotes" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
@@ -692,6 +827,7 @@ for (const v of vagas) {
     await sendText(phone, "🗑️ Vaga removida com sucesso.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
       { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+      { id: "empresa_pacotes", title: "Ver pacotes" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
