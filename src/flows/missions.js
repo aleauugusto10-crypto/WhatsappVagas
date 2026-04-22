@@ -446,7 +446,7 @@ export async function handleMissions({
     }
 
     await sendText(phone, buildPixResumo(intent, resumo));
-    await sendText(phone, `:\n\n${buildPixCodeOnly(intent)}`);
+    await sendText(phone, `\n\n${buildPixCodeOnly(intent)}`);
 
     return sendActionButtons(phone, "Depois do pagamento:", [
       { id: "payment_check_status", title: "Já paguei" },
