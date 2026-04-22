@@ -816,10 +816,94 @@ if (text === "confirm_jobs_buy_month_base") {
 }
 
 if (text === "confirm_jobs_buy_month_plus2") {
+  await supabase
+    .from("usuarios")
+    .update({
+      etapa: "jobs_month_plus2_cat_1",
+      categorias_extras_temp: [],
+    })
+    .eq("id", user.id);
+
+  const { data: areas } = await supabase
+    .from("categorias")
+    .select("*")
+    .eq("contexto", "geral")
+    .eq("ativo", true)
+    .order("nome");
+
+  return sendList(phone, "Escolha a 1ª categoria extra:", [
+    {
+      title: "Categorias",
+      rows: (areas || [])
+        .filter((a) => a.chave !== user.area_principal)
+        .slice(0, 10)
+        .map((a) => ({
+          id: `month_extra_cat1_${a.chave}`,
+          title: a.nome,
+        })),
+    },
+  ]);
+}
+
+if (user.etapa === "jobs_month_plus2_cat_1") {
+  if (!text.startsWith("month_extra_cat1_")) return false;
+
+  const cat1 = text.replace("month_extra_cat1_", "");
+
+  await supabase
+    .from("usuarios")
+    .update({
+      etapa: "jobs_month_plus2_cat_2",
+      categorias_extras_temp: [cat1],
+    })
+    .eq("id", user.id);
+
+  const { data: areas } = await supabase
+    .from("categorias")
+    .select("*")
+    .eq("contexto", "geral")
+    .eq("ativo", true)
+    .order("nome");
+
+  return sendList(phone, "Escolha a 2ª categoria extra:", [
+    {
+      title: "Categorias",
+      rows: (areas || [])
+        .filter((a) => a.chave !== user.area_principal && a.chave !== cat1)
+        .slice(0, 10)
+        .map((a) => ({
+          id: `month_extra_cat2_${a.chave}`,
+          title: a.nome,
+        })),
+    },
+  ]);
+}
+
+if (user.etapa === "jobs_month_plus2_cat_2") {
+  if (!text.startsWith("month_extra_cat2_")) return false;
+
+  const cat2 = text.replace("month_extra_cat2_", "");
+  const atuais = Array.isArray(user.categorias_extras_temp)
+    ? user.categorias_extras_temp
+    : [];
+
+  const categoriasExtras = Array.from(new Set([...atuais, cat2])).slice(0, 2);
+
+  await supabase
+    .from("usuarios")
+    .update({
+      etapa: "menu",
+      categorias_extras_temp: categoriasExtras,
+    })
+    .eq("id", user.id);
+
   return gerarPagamentoPix({
     supabase,
     phone,
-    user,
+    user: {
+      ...user,
+      categorias_extras_temp: categoriasExtras,
+    },
     planoCodigo: "alerta_mensal_usuario",
     referenciaTipo: "usuario_alerta_mensal",
     tituloPlano: "Notificações mensais - categoria atual + 2 extras",
@@ -827,14 +911,12 @@ if (text === "confirm_jobs_buy_month_plus2") {
     metadataExtra: {
       notificacao_scope: "mais_2",
       adicional_categorias: 2,
-      categorias_extras: [],
+      categorias_extras: categoriasExtras,
     },
     afterSuccessLabel:
       "Assim que o pagamento for aprovado, suas notificações mensais ficarão liberadas para a categoria atual + 2 categorias extras.",
   });
 }
-
-
 if (text === "confirm_jobs_buy_month_all") {
   return gerarPagamentoPix({
     supabase,
