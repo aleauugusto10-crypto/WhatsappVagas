@@ -45,7 +45,16 @@ async function buscarVagasParaUsuario(supabase, user, limit = 30) {
   if (user?.estado) {
     query = query.eq("estado", user.estado);
   }
+const { data: debugVagas, error: debugError } = await supabase
+  .from("vagas")
+  .select("id,titulo,status,cidade,estado,categoria_id")
+  .limit(5);
 
+console.log("🧪 debug vagas simples:", {
+  error: debugError,
+  total: (debugVagas || []).length,
+  rows: debugVagas || [],
+});
   const { data, error } = await query;
 
   if (error) {
@@ -498,16 +507,24 @@ if (user.etapa === "jobs_week_plus2_cat_1") {
     })
     .eq("id", user.id);
 
- const { data: categorias, error } = await supabase
-  .from("categorias_novas")
-  .select("*")
-  .eq("area_id", areaId)
-  .eq("ativo", true)
-  .order("nome");
+  const { data: areas, error } = await supabase
+    .from("areas")
+    .select("*")
+    .eq("ativo", true)
+    .order("nome");
 
-  return sendList(phone, "Escolha a 2ª categoria extra:", [
+  if (error) {
+    console.error("❌ erro ao buscar 2ª área extra semanal:", error);
+    await sendText(phone, "Erro ao carregar a 2ª categoria extra.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  return sendList(phone, "Escolha a 2ª área extra:", [
     {
-      title: "Categorias",
+      title: "Áreas",
       rows: (areas || [])
         .filter((a) => a.chave !== user.area_principal && a.chave !== cat1)
         .slice(0, 10)
@@ -776,7 +793,6 @@ if (text === "confirm_jobs_buy_week_base") {
 }
 
 if (text === "confirm_jobs_buy_week_plus2") {
-
   await supabase
     .from("usuarios")
     .update({
@@ -785,19 +801,26 @@ if (text === "confirm_jobs_buy_week_plus2") {
     })
     .eq("id", user.id);
 
-  // 🔥 COLOCA AQUI
- const { data: categorias, error } = await supabase
-  .from("categorias_novas")
-  .select("*")
-  .eq("area_id", areaId)
-  .eq("ativo", true)
-  .order("nome");
+  const { data: areas, error } = await supabase
+    .from("areas")
+    .select("*")
+    .eq("ativo", true)
+    .order("nome");
 
-  return sendList(phone, "Escolha a 1ª categoria extra:", [
+  if (error) {
+    console.error("❌ erro ao buscar áreas extras semanais:", error);
+    await sendText(phone, "Erro ao carregar categorias extras.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  return sendList(phone, "Escolha a 1ª área extra:", [
     {
-      title: "Categorias",
+      title: "Áreas",
       rows: (areas || [])
-        .filter((a) => a.chave !== user.categoria_principal)
+        .filter((a) => a.chave !== user.area_principal)
         .slice(0, 10)
         .map((a) => ({
           id: `extra_cat1_${a.chave}`,
@@ -852,16 +875,24 @@ if (text === "confirm_jobs_buy_month_plus2") {
     })
     .eq("id", user.id);
 
- const { data: categorias, error } = await supabase
-  .from("categorias_novas")
-  .select("*")
-  .eq("area_id", areaId)
-  .eq("ativo", true)
-  .order("nome");
+  const { data: areas, error } = await supabase
+    .from("areas")
+    .select("*")
+    .eq("ativo", true)
+    .order("nome");
 
-  return sendList(phone, "Escolha a 1ª categoria extra:", [
+  if (error) {
+    console.error("❌ erro ao buscar áreas extras mensais:", error);
+    await sendText(phone, "Erro ao carregar categorias extras.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  return sendList(phone, "Escolha a 1ª área extra:", [
     {
-      title: "Categorias",
+      title: "Áreas",
       rows: (areas || [])
         .filter((a) => a.chave !== user.area_principal)
         .slice(0, 10)
@@ -886,16 +917,24 @@ if (user.etapa === "jobs_month_plus2_cat_1") {
     })
     .eq("id", user.id);
 
- const { data: categorias, error } = await supabase
-  .from("categorias_novas")
-  .select("*")
-  .eq("area_id", areaId)
-  .eq("ativo", true)
-  .order("nome");
+  const { data: areas, error } = await supabase
+    .from("areas")
+    .select("*")
+    .eq("ativo", true)
+    .order("nome");
 
-  return sendList(phone, "Escolha a 2ª categoria extra:", [
+  if (error) {
+    console.error("❌ erro ao buscar 2ª área extra mensal:", error);
+    await sendText(phone, "Erro ao carregar a 2ª categoria extra.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "jobs_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  return sendList(phone, "Escolha a 2ª área extra:", [
     {
-      title: "Categorias",
+      title: "Áreas",
       rows: (areas || [])
         .filter((a) => a.chave !== user.area_principal && a.chave !== cat1)
         .slice(0, 10)
