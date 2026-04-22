@@ -360,6 +360,26 @@ async function mostrarPacotesProfissionais(phone) {
     },
   ]);
 }
+function buildProfessionalProfileResumo(user) {
+  const temPerfil = !!String(user?.descricao_perfil || "").trim();
+
+  if (!temPerfil) {
+    return (
+      "🧑‍🔧 *Perfil profissional ainda não criado.*\n\n" +
+      "Crie seu perfil para depois poder divulgar seu trabalho e aparecer nas buscas por profissionais."
+    );
+  }
+
+  return (
+    "🧑‍🔧 *Seu perfil profissional*\n\n" +
+    `👤 *Nome:* ${user?.nome || "-"}\n` +
+    `📍 *Cidade:* ${user?.cidade || "-"}${user?.estado ? `/${user.estado}` : ""}\n` +
+    `🏷️ *Área:* ${user?.area_principal || "-"}\n` +
+    `💼 *Categoria:* ${user?.categoria_principal || "-"}\n` +
+    `📝 *Descrição:* ${user?.descricao_perfil || "-"}\n` +
+    `📞 *WhatsApp:* ${user?.telefone || "-"}`
+  );
+}
 export async function handleJobsMenu({
   user,
   text,
@@ -378,6 +398,89 @@ if (text === "prof_pacotes") {
   return mostrarPacotesProfissionais(phone);
 }
 
+if (text === "prof_criar_perfil") {
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      etapa: "prof_criar_perfil_descricao",
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("❌ erro ao iniciar criação do perfil profissional:", error);
+    await sendText(phone, "Erro ao iniciar seu perfil profissional.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  user.etapa = "prof_criar_perfil_descricao";
+
+  await sendText(
+    phone,
+    "🧑‍🔧 Vamos criar seu perfil profissional.\n\nDescreva de forma curta e clara o que você faz.\n\nExemplo:\nFaço vendas presenciais e online, atendimento ao cliente e fechamento de pedidos."
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+if (user.etapa === "prof_criar_perfil_descricao") {
+  const descricao = String(text || "").trim();
+
+  if (!descricao || descricao.length < 10) {
+    await sendText(
+      phone,
+      "Descreva melhor seu trabalho em pelo menos 10 caracteres.\n\nExemplo:\nAtuo com vendas, atendimento ao cliente e fechamento de pedidos."
+    );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      descricao_perfil: descricao,
+      etapa: "menu",
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("❌ erro ao salvar descrição do perfil profissional:", error);
+    await sendText(phone, "Erro ao salvar seu perfil profissional.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "prof_criar_perfil", title: "Tentar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  user.descricao_perfil = descricao;
+  user.etapa = "menu";
+
+  await sendText(
+    phone,
+    "✅ *Perfil profissional criado com sucesso!*\n\nAgora você já pode visualizar seu perfil e contratar um pacote para divulgar seu trabalho."
+  );
+
+  await sendText(phone, buildProfessionalProfileResumo(user));
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "prof_ver_perfil", title: "Ver meu perfil" },
+    { id: "prof_pacotes", title: "Ver divulgação" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+if (text === "prof_ver_perfil") {
+  await sendText(phone, buildProfessionalProfileResumo(user));
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "prof_criar_perfil", title: "Editar perfil" },
+    { id: "prof_pacotes", title: "Ver divulgação" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+} 
   // =====================
   // VER VAGAS
   // =====================
