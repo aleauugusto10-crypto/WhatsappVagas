@@ -1,443 +1,840 @@
-import crypto from "crypto";
-import { supabase } from "../supabase.js";
+import { sendList, sendText } from "../services/whatsapp.js";
+import { sendMenuEmpresa, sendActionButtons } from "./menus.js";
+import {
+  createPendingPayment,
+  getPlanoByCodigo,
+} from "../lib/monetization.js";
+import {
+  createMercadoPagoPixIntent,
+  getActiveCompanyJobCredits,
+  consumeCompanyJobCredit,
+} from "../services/payments.js";
 
-const MP_BASE_URL = "https://api.mercadopago.com";
-const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-const MP_WEBHOOK_SECRET = process.env.MERCADO_PAGO_WEBHOOK_SECRET || "";
-const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || "";
+const gruposMap = {
+  construcao: "construcao",
+  saude: "saude",
+  logistica: "transporte",
+  vendas: "comercio",
+  administrativo: "administracao",
+  servicos_gerais: "limpeza",
+  tecnologia: "tecnologia",
+  outros: "tarefas",
+};
 
-function ensureMpToken() {
-  if (!MP_TOKEN) {
-    throw new Error("MERCADO_PAGO_ACCESS_TOKEN não configurado.");
-  }
-}
-
-function buildIdempotencyKey(prefix, id) {
-  return `${prefix}_${id}`;
-}
-
-async function mpFetch(path, options = {}) {
-  ensureMpToken();
-
-  const headers = {
-    Authorization: `Bearer ${MP_TOKEN}`,
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
+function limparTempVagaPayload() {
+  return {
+    vaga_titulo_temp: null,
+    vaga_descricao_temp: null,
+    vaga_requisitos_temp: null,
+    vaga_tipo_contratacao_temp: null,
+    vaga_salario_temp: null,
+    vaga_jornada_temp: null,
+    vaga_quantidade_temp: null,
+    vaga_destaque_temp: false,
   };
+}
 
-  const res = await fetch(`${MP_BASE_URL}${path}`, {
-    ...options,
-    headers,
+function formatTipoContratacao(tipo = "") {
+  const map = {
+    clt: "CLT",
+    diaria: "Diária",
+    freelance: "Freelance",
+    mei: "MEI",
+    meio_periodo: "Meio período",
+    comissao: "Comissão",
+    a_combinar: "A combinar",
+  };
+  return map[tipo] || tipo || "-";
+}
+
+function formatCategoria(chave = "") {
+  const map = {
+    auxiliar_limpeza: "Auxiliar de Limpeza",
+    auxiliar_administrativo: "Auxiliar Administrativo",
+    recepcionista: "Recepcionista",
+    atendente: "Atendente",
+    caixa: "Caixa",
+    vendedor: "Vendedor",
+    cozinheira: "Cozinheira",
+    garcom: "Garçom",
+    motoboy: "Motoboy",
+    motorista: "Motorista",
+  };
+  return map[chave] || chave || "-";
+}
+
+function resumoVaga(user) {
+  const qtd = Number(user.vaga_quantidade_temp || 1);
+
+  return (
+    `📋 *Resumo da vaga*\n\n` +
+    `🏢 *Empresa:* ${user.nome_empresa || "Não informada"}\n` +
+    `💼 *Função:* ${formatCategoria(user.categoria_principal)}\n` +
+    `📝 *Título:* ${user.vaga_titulo_temp || "-"}\n` +
+    `📄 *Descrição:* ${user.vaga_descricao_temp || "-"}\n` +
+    `✅ *Requisitos:* ${user.vaga_requisitos_temp || "-"}\n` +
+    `📌 *Tipo de contratação:* ${formatTipoContratacao(user.vaga_tipo_contratacao_temp)}\n` +
+    `💰 *Salário:* ${user.vaga_salario_temp || "-"}\n` +
+    `🕒 *Jornada:* ${user.vaga_jornada_temp || "-"}\n` +
+    `👥 *Quantidade de posições:* ${qtd}\n` +
+    `⭐ *Destaque:* ${user.vaga_destaque_temp ? "Sim" : "Não"}`
+  );
+}
+
+function buildPixResumo(intent, plano, total, destaqueValor = 0) {
+  const checkoutUrl = intent?.checkout_url || null;
+
+  let out =
+    `💳 *Pagamento gerado com sucesso!*\n\n` +
+    `📦 *Plano:* ${plano.nome}\n` +
+    `💵 *Valor base:* R$ ${Number(plano.valor).toFixed(2)}\n` +
+    `⭐ *Destaque:* R$ ${Number(destaqueValor || 0).toFixed(2)}\n` +
+    `🧾 *Total:* R$ ${Number(total || 0).toFixed(2)}`;
+
+  if (checkoutUrl) {
+    out += `\n\n🔗 *Link de pagamento:*\n${checkoutUrl}`;
+  }
+
+  out += `\n\n📌 *PIX copia e cola:*`;
+  return out;
+}
+
+function buildPixCodeOnly(intent) {
+  return intent?.qr_code || "Código Pix indisponível no momento.";
+}
+
+async function mostrarPacotesEmpresa(phone, supabase, user) {
+  const credits = await getActiveCompanyJobCredits(user.id);
+  const total = credits.reduce((acc, c) => acc + Number(c.total_creditos || 0), 0);
+  const usados = credits.reduce((acc, c) => acc + Number(c.creditos_usados || 0), 0);
+  const restantes = Math.max(0, total - usados);
+
+  await sendText(
+    phone,
+    `📦 *Pacotes da empresa*\n\n` +
+      `🎟️ *Créditos ativos:* ${restantes}\n` +
+      `📊 *Total comprado:* ${total}\n` +
+      `✅ *Usados:* ${usados}`
+  );
+
+  return sendList(phone, "Escolha um pacote:", [
+    {
+      title: "Pacotes de vagas",
+      rows: [
+        { id: "empresa_buy_1_vaga", title: "1 vaga - R$ 9,90" },
+        { id: "empresa_buy_3_vagas", title: "3 vagas - R$ 24,90" },
+        { id: "empresa_buy_10_vagas", title: "10 vagas - R$ 79,90" },
+      ],
+    },
+  ]);
+}
+
+async function gerarPagamentoPacoteEmpresa({
+  supabase,
+  phone,
+  user,
+  planoCodigo,
+  referenciaTipo = "empresa_publicar_vaga",
+}) {
+  const plano = await getPlanoByCodigo(supabase, planoCodigo);
+
+  if (!plano) {
+    await sendText(phone, "Plano indisponível no momento.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  const payment = await createPendingPayment(supabase, {
+    usuarioId: user.id,
+    referenciaTipo,
+    planoCodigo: plano.codigo,
+    valor: plano.valor,
+    metadata: {
+      empresa_id: user.id,
+      nome_empresa: user.nome_empresa || null,
+      telefone: user.telefone,
+      cidade: user.cidade,
+      estado: user.estado,
+      modo: "pacote_vagas_empresa",
+    },
   });
-
-  const text = await res.text();
-  let data = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = { raw: text };
-  }
-
-  if (!res.ok) {
-    console.error("❌ Mercado Pago error:", res.status, data);
-    throw new Error(`Mercado Pago ${res.status}`);
-  }
-
-  return data;
-}
-
-export async function getPendingPaymentById(paymentId) {
-  const { data, error } = await supabase
-    .from("pagamentos_plataforma")
-    .select("*")
-    .eq("id", paymentId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("❌ erro ao buscar pagamento:", error);
-    return null;
-  }
-
-  return data || null;
-}
-
-export async function updatePayment(paymentId, data) {
-  const { data: updated, error } = await supabase
-    .from("pagamentos_plataforma")
-    .update(data)
-    .eq("id", paymentId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error("❌ erro ao atualizar pagamento:", error);
-    return null;
-  }
-
-  return updated;
-}
-
-export async function markPaymentAsPaid(paymentId, extra = {}) {
-  return updatePayment(paymentId, {
-    status: "pago",
-    pago_em: new Date().toISOString(),
-    ...extra,
-  });
-}
-
-export async function markPaymentAsCancelled(paymentId, extra = {}) {
-  return updatePayment(paymentId, {
-    status: "cancelado",
-    ...extra,
-  });
-}
-
-function buildNotificationUrl() {
-  if (!PUBLIC_BASE_URL) {
-    throw new Error("PUBLIC_BASE_URL não configurado.");
-  }
-
-  return `${PUBLIC_BASE_URL.replace(/\/+$/, "")}/payments/webhook`;
-}
-
-function buildPixDescription(payment) {
-  const md = payment.metadata || {};
-
-  if (md.titulo) return md.titulo;
-  if (payment.plano_codigo) return `Pagamento ${payment.plano_codigo}`;
-  return `Pagamento plataforma ${payment.id}`;
-}
-
-async function buildPayerEmail(payment) {
-  const { data: usuario, error } = await supabase
-    .from("usuarios")
-    .select("email")
-    .eq("id", payment.usuario_id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("❌ erro ao buscar email do usuário:", error);
-  }
-
-  const email = usuario?.email;
-
-  if (
-    email &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim().toLowerCase())
-  ) {
-    return String(email).trim().toLowerCase();
-  }
-
-  const safeUserId = String(payment.usuario_id || "guest")
-    .replace(/[^a-zA-Z0-9_-]/g, "")
-    .slice(0, 40);
-
-  return `${safeUserId}@example.com`;
-}
-
-export async function createMercadoPagoPixIntent(paymentId) {
-  const payment = await getPendingPaymentById(paymentId);
 
   if (!payment) {
+    await sendText(phone, "Erro ao gerar cobrança do pacote.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  let intent = null;
+  try {
+    intent = await createMercadoPagoPixIntent(payment.id);
+  } catch (err) {
+    console.error("❌ erro ao gerar Pix do pacote da empresa:", err);
+  }
+
+  if (!intent) {
+    await sendText(
+      phone,
+      `💳 *Pedido criado com sucesso!*\n\n` +
+        `📦 *Plano:* ${plano.nome}\n` +
+        `💵 *Valor:* R$ ${Number(plano.valor).toFixed(2)}\n` +
+        `🆔 *Pedido:* ${payment.id}\n\n` +
+        `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+    );
+
+    return sendActionButtons(phone, "Depois do pagamento:", [
+      { id: "payment_check_status", title: "Já paguei" },
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  await sendText(phone, buildPixResumo(intent, plano, plano.valor, 0));
+  await sendText(phone, buildPixCodeOnly(intent));
+
+  return sendActionButtons(phone, "Depois do pagamento:", [
+    { id: "payment_check_status", title: "Já paguei" },
+    { id: "empresa_pacotes", title: "Ver pacotes" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+async function cobrarDestaqueSeparado({ supabase, phone, user }) {
+  const plano = await getPlanoByCodigo(supabase, "empresa_destaque_vaga");
+
+  if (!plano) {
+    await sendText(phone, "Plano de destaque indisponível no momento.");
     return null;
   }
 
-  if (payment.status !== "pendente") {
-    return payment;
-  }
-
-  if (payment.mp_payment_id && payment.qr_code) {
-    return payment;
-  }
-
-  const body = {
-    transaction_amount: Number(payment.valor),
-    description: buildPixDescription(payment),
-    payment_method_id: "pix",
-    notification_url: buildNotificationUrl(),
-    external_reference: payment.id,
-    payer: {
-      email: await buildPayerEmail(payment),
-    },
+  const payment = await createPendingPayment(supabase, {
+    usuarioId: user.id,
+    referenciaTipo: "empresa_destaque_vaga",
+    planoCodigo: plano.codigo,
+    valor: plano.valor,
     metadata: {
-      plataforma_payment_id: payment.id,
-      referencia_tipo: payment.referencia_tipo,
-      usuario_id: payment.usuario_id,
-      ...(payment.metadata || {}),
+      empresa_id: user.id,
+      nome_empresa: user.nome_empresa || null,
+      titulo: user.vaga_titulo_temp,
+      destaque: true,
     },
+  });
+
+  if (!payment) {
+    await sendText(phone, "Erro ao gerar cobrança do destaque.");
+    return null;
+  }
+
+  const intent = await createMercadoPagoPixIntent(payment.id);
+  await sendText(phone, buildPixResumo(intent, plano, plano.valor, 0));
+  await sendText(phone, buildPixCodeOnly(intent));
+
+  return payment;
+}
+
+async function publicarVagaComCredito({ supabase, user }) {
+  const consumed = await consumeCompanyJobCredit(user.id);
+  if (!consumed) return null;
+
+  const payload = {
+    empresa_id: user.id,
+    nome_empresa: user.nome_empresa || null,
+    titulo: user.vaga_titulo_temp,
+    descricao: user.vaga_descricao_temp,
+    requisitos: user.vaga_requisitos_temp,
+    tipo_contratacao: user.vaga_tipo_contratacao_temp,
+    salario: user.vaga_salario_temp,
+    jornada: user.vaga_jornada_temp,
+    quantidade_vagas: Number(user.vaga_quantidade_temp || 1),
+    categoria_chave: user.categoria_principal,
+    cidade: user.cidade,
+    estado: user.estado,
+    destaque: !!user.vaga_destaque_temp,
+    status: "ativa",
+    publicada_em: new Date().toISOString(),
+    contato_whatsapp: user.telefone || null,
   };
 
-  const mpData = await mpFetch("/v1/payments", {
-    method: "POST",
-    headers: {
-      "X-Idempotency-Key": buildIdempotencyKey("pix", payment.id),
-    },
-    body: JSON.stringify(body),
-  });
-
-  const qrData = mpData?.point_of_interaction?.transaction_data || {};
-
-  const updated = await updatePayment(payment.id, {
-    mp_payment_id: String(mpData.id),
-    status: mpData.status || "pendente",
-    qr_code: qrData.qr_code || null,
-    qr_code_base64: qrData.qr_code_base64 || null,
-    checkout_url: qrData.ticket_url || null,
-    metadata: {
-      ...(payment.metadata || {}),
-      mercado_pago_status: mpData.status || null,
-      mercado_pago_status_detail: mpData.status_detail || null,
-    },
-  });
-
-  return updated;
-}
-
-export async function getMercadoPagoPayment(mpPaymentId) {
-  if (!mpPaymentId) return null;
-
-  return mpFetch(`/v1/payments/${mpPaymentId}`, {
-    method: "GET",
-  });
-}
-
-export function verifyMercadoPagoWebhookSignature(req) {
-  if (!MP_WEBHOOK_SECRET) {
-    return true;
-  }
-
-  const signature = req.headers["x-signature"];
-  const requestId = req.headers["x-request-id"] || "";
-  const dataId = req.query["data.id"] || req.body?.data?.id || "";
-
-  if (!signature || !dataId) {
-    return false;
-  }
-
-  const parts = String(signature)
-    .split(",")
-    .map((p) => p.trim());
-
-  const tsPart = parts.find((p) => p.startsWith("ts="));
-  const v1Part = parts.find((p) => p.startsWith("v1="));
-
-  if (!tsPart || !v1Part) {
-    return false;
-  }
-
-  const ts = tsPart.replace("ts=", "");
-  const v1 = v1Part.replace("v1=", "");
-
-  const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
-
-  const expected = crypto
-    .createHmac("sha256", MP_WEBHOOK_SECRET)
-    .update(manifest)
-    .digest("hex");
-
-  return expected === v1;
-}
-
-export async function activateSubscriptionFromPayment(payment) {
-  if (!payment?.usuario_id) return null;
-
-  const now = new Date();
-  const fim = new Date(now);
-
-  let tipo = null;
-  let dias = 0;
-
-  if (payment.referencia_tipo === "usuario_vagas_semanal") {
-    tipo = "usuario_vagas_semanal";
-    dias = 7;
-  }
-
-  if (payment.referencia_tipo === "usuario_alerta_mensal") {
-    tipo = "usuario_alerta_mensal";
-    dias = 30;
-  }
-
-  if (payment.referencia_tipo === "contratante_busca_prof_semanal") {
-    tipo = "contratante_busca_prof_semanal";
-    dias = 7;
-  }
-
-  if (payment.referencia_tipo === "contratante_busca_prof_mensal") {
-    tipo = "contratante_busca_prof_mensal";
-    dias = 30;
-  }
-
-  if (payment.referencia_tipo === "empresa_busca_prof_semanal") {
-    tipo = "empresa_busca_prof_semanal";
-    dias = 7;
-  }
-
-  if (payment.referencia_tipo === "empresa_busca_prof_mensal") {
-    tipo = "empresa_busca_prof_mensal";
-    dias = 30;
-  }
-
-  if (!tipo || !dias) return null;
-
-  fim.setDate(fim.getDate() + dias);
-
-  const { data, error } = await supabase
-    .from("assinaturas_usuario")
-    .insert({
-      usuario_id: payment.usuario_id,
-      tipo,
-      status: "ativa",
-      inicio_em: now.toISOString(),
-      fim_em: fim.toISOString(),
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("❌ erro ao ativar assinatura:", error);
-    return null;
-  }
-
-  return data;
-}
-
-export async function publishMissionFromPayment(payment) {
-  if (payment.referencia_tipo !== "missao_publicacao") return null;
-
-  const md = payment.metadata || {};
-
-  const { data, error } = await supabase
-    .from("missoes")
-    .insert({
-      usuario_id: payment.usuario_id,
-      titulo: md.titulo,
-      descricao: md.descricao,
-      categoria_chave: md.categoria_chave,
-      valor: md.valor_missao,
-      taxa_plataforma: md.taxa_plataforma || 0,
-      urgencia: !!md.urgencia,
-      cidade: md.cidade,
-      estado: md.estado,
-      status: "aberta",
-      pagamento_status: "retido",
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("❌ erro ao publicar missão a partir do pagamento:", error);
-    return null;
-  }
-
-  return data;
-}
-
-export async function publishJobFromPayment(payment) {
-  if (payment.referencia_tipo !== "empresa_publicar_vaga") return null;
-
-  // 🔒 só publica se estiver pago
-  if (payment.status !== "pago") {
-    console.log("⛔ tentativa de publicar vaga sem pagamento aprovado");
-    return null;
-  }
-
-  const md = payment.metadata || {};
-
-  // 🔁 evita duplicação
-  const { data: existing } = await supabase
-    .from("vagas")
-    .select("id")
-    .eq("empresa_id", payment.usuario_id)
-    .eq("titulo", md.titulo || "")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing) {
-    console.log("ℹ️ vaga já existe, não duplicando");
-    return existing;
-  }
-
   const { data, error } = await supabase
     .from("vagas")
-    .insert({
-      empresa_id: payment.usuario_id,
-      nome_empresa: md.nome_empresa || null,
-      titulo: md.titulo,
-      descricao: md.descricao,
-      requisitos: md.requisitos,
-      tipo_contratacao: md.tipo_contratacao,
-      salario: md.salario,
-      jornada: md.jornada,
-      quantidade_vagas: md.quantidade_vagas || 1,
-      categoria_chave: md.categoria_chave,
-      cidade: md.cidade,
-      estado: md.estado,
-      destaque: !!md.destaque,
-      status: "ativa", // ✅ só aqui vira ativa
-      publicada_em: new Date().toISOString(),
-      contato_whatsapp: md.contato_whatsapp || null,
-    })
+    .insert(payload)
     .select()
     .single();
 
   if (error) {
-    console.error("❌ erro ao publicar vaga:", error);
+    console.error("❌ erro ao publicar vaga com crédito:", error);
     return null;
   }
 
-  return data;
+  return { vaga: data, credito: consumed };
 }
-export async function processApprovedMercadoPagoPayment(mpPaymentId) {
-  const mpPayment = await getMercadoPagoPayment(mpPaymentId);
 
-  if (!mpPayment) return null;
+export async function handleCompanyMenu({
+  user,
+  text,
+  phone,
+  supabase,
+  updateUser,
+  getCategorias,
+  getCategoriasPorGrupo,
+}) {
+  if (text === "voltar_menu") {
+    await updateUser({ etapa: "menu" });
+    return sendMenuEmpresa(phone);
+  }
 
-  // 🔒 só continua se o Mercado Pago disser APPROVED
-  if (mpPayment.status !== "approved") {
-    console.log("⏳ pagamento ainda não aprovado no Mercado Pago:", {
-      id: mpPayment.id,
-      status: mpPayment.status,
-      status_detail: mpPayment.status_detail,
+  if (text === "empresa_pacotes") {
+    await updateUser({ etapa: "menu" });
+    return mostrarPacotesEmpresa(phone, supabase, user);
+  }
+
+  if (text === "empresa_buy_1_vaga") {
+    return gerarPagamentoPacoteEmpresa({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "empresa_1_vaga",
     });
-    return null;
   }
 
-  const internalPaymentId =
-    mpPayment.external_reference ||
-    mpPayment.metadata?.plataforma_payment_id ||
-    null;
-
-  if (!internalPaymentId) {
-    console.error("❌ pagamento Mercado Pago sem external_reference interno.");
-    return null;
+  if (text === "empresa_buy_3_vagas") {
+    return gerarPagamentoPacoteEmpresa({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "empresa_3_vagas",
+    });
   }
 
-  const internalPayment = await getPendingPaymentById(internalPaymentId);
-  if (!internalPayment) return null;
-
-  if (internalPayment.status === "pago") {
-    await activateSubscriptionFromPayment(internalPayment);
-    await publishMissionFromPayment(internalPayment);
-    await publishJobFromPayment(internalPayment);
-    return internalPayment;
+  if (text === "empresa_buy_10_vagas") {
+    return gerarPagamentoPacoteEmpresa({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "empresa_10_vagas",
+    });
   }
 
-  const paid = await markPaymentAsPaid(internalPayment.id, {
-    mp_payment_id: String(mpPayment.id),
-    metadata: {
-      ...(internalPayment.metadata || {}),
-      mercado_pago_status: mpPayment.status,
-      mercado_pago_status_detail: mpPayment.status_detail || null,
-    },
-  });
+  if (text === "empresa_buscar_profissionais") {
+    const areas = await getCategorias("geral");
+    await updateUser({ etapa: "empresa_buscar_area" });
 
-  if (!paid) return null;
+    return sendList(phone, "🧑‍🔧 Em qual área você quer buscar profissionais?", [
+      {
+        title: "Áreas",
+        rows: areas
+          .filter((a) => a.chave !== "profissional")
+          .map((a) => ({
+            id: `empresa_area_${a.chave}`,
+            title: a.nome,
+          })),
+      },
+    ]);
+  }
 
-  await activateSubscriptionFromPayment(paid);
-  await publishMissionFromPayment(paid);
-  await publishJobFromPayment(paid);
+  if (user.etapa === "empresa_buscar_area") {
+    if (!text.startsWith("empresa_area_")) return false;
 
-  return paid;
+    const area = text.replace("empresa_area_", "");
+    const grupo = gruposMap[area] || area;
+    const categorias = await getCategoriasPorGrupo("servico", grupo);
+
+    await updateUser({ etapa: "empresa_buscar_categoria" });
+
+    if (!categorias.length) {
+      await updateUser({ etapa: "menu" });
+      await sendText(phone, "Não encontrei categorias nessa área.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    return sendList(phone, "Escolha a categoria do profissional:", [
+      {
+        title: "Categorias",
+        rows: categorias.map((c) => ({
+          id: `empresa_buscar_cat_${c.chave}`,
+          title: c.nome,
+        })),
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_buscar_categoria") {
+    if (!text.startsWith("empresa_buscar_cat_")) return false;
+
+    const categoria = text.replace("empresa_buscar_cat_", "");
+
+    const { data: servicos, error } = await supabase
+      .from("servicos")
+      .select("*")
+      .eq("ativo", true)
+      .eq("categoria_chave", categoria)
+      .ilike("cidade", user.cidade || "")
+      .limit(3);
+
+    await updateUser({ etapa: "menu" });
+
+    if (error) {
+      console.error("❌ erro ao buscar profissionais para empresa:", error);
+      await sendText(phone, "Erro ao buscar profissionais.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    if (!servicos?.length) {
+      await sendText(phone, "Nenhum profissional encontrado no momento.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    let out = "🧑‍🔧 *Prévia de profissionais:*\n";
+    for (const s of servicos) {
+      out += `\n• ${s.titulo} - ${s.cidade || "Sem cidade"}`;
+    }
+    out += "\n\n🔒 Para desbloquear a busca completa, use o plano de busca.";
+
+    await sendText(phone, out);
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  if (text === "empresa_criar_vaga") {
+    const areas = await getCategorias("geral");
+
+    await updateUser({
+      etapa: "empresa_vaga_area",
+      ...limparTempVagaPayload(),
+    });
+
+    return sendList(phone, "🏢 Escolha a área da vaga:", [
+      {
+        title: "Áreas",
+        rows: areas
+          .filter((a) => a.chave !== "profissional")
+          .map((a) => ({
+            id: `vaga_area_${a.chave}`,
+            title: a.nome,
+          })),
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_vaga_area") {
+    if (!text.startsWith("vaga_area_")) return false;
+
+    const area = text.replace("vaga_area_", "");
+    const grupo = gruposMap[area] || area;
+    const categorias = await getCategoriasPorGrupo("vaga", grupo);
+
+    await updateUser({ etapa: "empresa_vaga_categoria" });
+
+    if (!categorias.length) {
+      await updateUser({ etapa: "menu" });
+      await sendText(phone, "Não encontrei categorias de vaga nessa área.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    return sendList(phone, "💼 Escolha a função da vaga:", [
+      {
+        title: "Funções",
+        rows: categorias.map((c) => ({
+          id: `vaga_cat_${c.chave}`,
+          title: c.nome,
+        })),
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_vaga_categoria") {
+    if (!text.startsWith("vaga_cat_")) return false;
+
+    const categoria = text.replace("vaga_cat_", "");
+
+    await updateUser({
+      categoria_principal: categoria,
+      etapa: "empresa_vaga_titulo",
+    });
+
+    return sendText(
+      phone,
+      "📝 Qual o título da vaga?\nEx: Vendedor interno, Auxiliar administrativo"
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_titulo") {
+    if (!text || text.length < 3) {
+      return sendText(phone, "Digite um título válido para a vaga:");
+    }
+
+    await updateUser({
+      vaga_titulo_temp: text,
+      etapa: "empresa_vaga_descricao",
+    });
+
+    return sendText(
+      phone,
+      "📄 Descreva a vaga em poucas palavras.\nEx: Atendimento ao cliente, organização da loja e fechamento de vendas."
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_descricao") {
+    if (!text || text.length < 5) {
+      return sendText(phone, "Descreva melhor a vaga:");
+    }
+
+    await updateUser({
+      vaga_descricao_temp: text,
+      etapa: "empresa_vaga_requisitos",
+    });
+
+    return sendText(
+      phone,
+      "✅ Quais os requisitos básicos?\nEx: ensino médio completo, boa comunicação, experiência com vendas."
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_requisitos") {
+    if (!text || text.length < 5) {
+      return sendText(phone, "Informe requisitos básicos válidos:");
+    }
+
+    await updateUser({
+      vaga_requisitos_temp: text,
+      etapa: "empresa_vaga_tipo_contratacao",
+    });
+
+    return sendList(phone, "📌 Escolha o tipo de contratação:", [
+      {
+        title: "Contratação",
+        rows: [
+          { id: "contratacao_clt", title: "CLT" },
+          { id: "contratacao_diaria", title: "Diária" },
+          { id: "contratacao_freelance", title: "Freelance" },
+          { id: "contratacao_mei", title: "MEI" },
+          { id: "contratacao_meio_periodo", title: "Meio período" },
+          { id: "contratacao_comissao", title: "Comissão" },
+          { id: "contratacao_a_combinar", title: "A combinar" },
+        ],
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_vaga_tipo_contratacao") {
+    if (!text.startsWith("contratacao_")) return false;
+
+    const tipoContratacao = text.replace("contratacao_", "");
+
+    await updateUser({
+      vaga_tipo_contratacao_temp: tipoContratacao,
+      etapa: "empresa_vaga_salario",
+    });
+
+    return sendText(
+      phone,
+      "💰 Qual o salário ou faixa salarial?\nEx: 1600, 1800 + comissão, a combinar"
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_salario") {
+    if (!text || text.length < 2) {
+      return sendText(phone, "Digite um salário ou faixa válida:");
+    }
+
+    await updateUser({
+      vaga_salario_temp: text,
+      etapa: "empresa_vaga_jornada",
+    });
+
+    return sendText(
+      phone,
+      "🕒 Qual a jornada ou horário?\nEx: segunda a sábado, horário comercial"
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_jornada") {
+    if (!text || text.length < 3) {
+      return sendText(phone, "Digite uma jornada válida:");
+    }
+
+    await updateUser({
+      vaga_jornada_temp: text,
+      etapa: "empresa_vaga_quantidade",
+    });
+
+    return sendList(phone, "👥 Quantas posições essa vaga possui?", [
+      {
+        title: "Quantidade",
+        rows: [
+          { id: "vaga_qtd_1", title: "1 posição" },
+          { id: "vaga_qtd_2", title: "2 posições" },
+          { id: "vaga_qtd_3", title: "3 posições" },
+          { id: "vaga_qtd_5", title: "5 posições" },
+          { id: "vaga_qtd_10", title: "10 posições" },
+        ],
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_vaga_quantidade") {
+    if (!text.startsWith("vaga_qtd_")) return false;
+
+    const quantidade = Number(text.replace("vaga_qtd_", ""));
+    if (!quantidade) {
+      return sendText(phone, "Escolha a quantidade pela lista.");
+    }
+
+    await updateUser({
+      vaga_quantidade_temp: String(quantidade),
+      etapa: "empresa_vaga_destaque",
+    });
+
+    return sendActionButtons(
+      phone,
+      "⭐ Quer colocar esse anúncio em destaque por +R$ 4,90?",
+      [
+        { id: "vaga_destaque_sim", title: "Com destaque" },
+        { id: "vaga_destaque_nao", title: "Sem destaque" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]
+    );
+  }
+
+  if (
+    user.etapa === "empresa_vaga_destaque" &&
+    ["vaga_destaque_sim", "vaga_destaque_nao"].includes(text)
+  ) {
+    const destaque = text === "vaga_destaque_sim";
+
+    await updateUser({
+      vaga_destaque_temp: destaque,
+      etapa: "empresa_vaga_confirmar_publicacao",
+    });
+
+    const fakeUser = { ...user, vaga_destaque_temp: destaque };
+    await sendText(phone, resumoVaga(fakeUser));
+
+    const credits = await getActiveCompanyJobCredits(user.id);
+    const total = credits.reduce((acc, c) => acc + Number(c.total_creditos || 0), 0);
+    const usados = credits.reduce((acc, c) => acc + Number(c.creditos_usados || 0), 0);
+    const restantes = Math.max(0, total - usados);
+
+    return sendActionButtons(
+      phone,
+      `🎟️ *Créditos disponíveis:* ${restantes}\n\nDeseja publicar essa vaga agora?`,
+      [
+        { id: "empresa_publicar_vaga_confirmada", title: "Publicar agora" },
+        { id: "empresa_pacotes", title: "Ver pacotes" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]
+    );
+  }
+
+  if (text === "empresa_publicar_vaga_confirmada") {
+    const credits = await getActiveCompanyJobCredits(user.id);
+    const total = credits.reduce((acc, c) => acc + Number(c.total_creditos || 0), 0);
+    const usados = credits.reduce((acc, c) => acc + Number(c.creditos_usados || 0), 0);
+    const restantes = Math.max(0, total - usados);
+
+    if (restantes <= 0) {
+      await sendText(
+        phone,
+        "Você não tem créditos de vaga disponíveis no momento. Compre um pacote para publicar."
+      );
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_pacotes", title: "Ver pacotes" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    const publicado = await publicarVagaComCredito({ supabase, user });
+
+    if (!publicado?.vaga) {
+      await sendText(phone, "Erro ao publicar vaga com seu crédito.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_criar_vaga", title: "Tentar novamente" },
+        { id: "empresa_pacotes", title: "Ver pacotes" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    const restantesDepois =
+      Number(publicado.credito.total_creditos || 0) -
+      Number(publicado.credito.creditos_usados || 0);
+
+    await updateUser({
+      etapa: "menu",
+      ...limparTempVagaPayload(),
+    });
+
+    if (user.vaga_destaque_temp) {
+      await sendText(
+        phone,
+        `✅ *Vaga publicada com sucesso usando 1 crédito!*\n\n` +
+          `📌 *Título:* ${publicado.vaga.titulo}\n` +
+          `🎟️ *Créditos restantes neste pacote:* ${Math.max(0, restantesDepois)}\n\n` +
+          `Como você marcou destaque, o sistema vai gerar a cobrança separada desse adicional.`
+      );
+
+      const payment = await cobrarDestaqueSeparado({ supabase, phone, user });
+
+      if (!payment) {
+        return sendActionButtons(phone, "O que deseja fazer agora?", [
+          { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+          { id: "empresa_pacotes", title: "Ver pacotes" },
+          { id: "voltar_menu", title: "Voltar ao menu" },
+        ]);
+      }
+
+      return sendActionButtons(phone, "Depois do pagamento do destaque:", [
+        { id: "payment_check_status", title: "Já paguei" },
+        { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    await sendText(
+      phone,
+      `✅ *Vaga publicada com sucesso!*\n\n` +
+        `📌 *Título:* ${publicado.vaga.titulo}\n` +
+        `🎟️ *Créditos restantes neste pacote:* ${Math.max(0, restantesDepois)}`
+    );
+
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_criar_vaga", title: "Criar outra vaga" },
+      { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  if (text === "empresa_minhas_vagas") {
+    const { data: vagas, error } = await supabase
+      .from("vagas")
+      .select("*")
+      .eq("empresa_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    await updateUser({ etapa: "menu" });
+
+    if (error) {
+      console.error("❌ erro ao listar vagas da empresa:", error);
+      await sendText(phone, "Erro ao buscar suas vagas.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    if (!vagas?.length) {
+      await sendText(phone, "Você ainda não criou nenhuma vaga.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_criar_vaga", title: "Criar vaga" },
+        { id: "empresa_pacotes", title: "Ver pacotes" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    let out = "📋 *Suas vagas:*\n";
+    for (const v of vagas) {
+      const statusLabel =
+        v.status === "ativa"
+          ? "✅ Ativa"
+          : v.status === "encerrada"
+          ? "⛔ Encerrada"
+          : v.status === "aberta"
+          ? "✅ Ativa"
+          : v.status;
+
+      out += `\n• ${v.titulo} - ${statusLabel}`;
+    }
+
+    await sendText(phone, out);
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_remover_vaga", title: "Remover vaga" },
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  if (text === "empresa_remover_vaga") {
+    const { data: vagas, error } = await supabase
+      .from("vagas")
+      .select("id,titulo,status")
+      .eq("empresa_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("❌ erro ao carregar vagas para remoção:", error);
+      await sendText(phone, "Erro ao carregar vagas.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    if (!vagas?.length) {
+      await sendText(phone, "Você não tem vagas para remover.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    await updateUser({ etapa: "empresa_remover_vaga_lista" });
+
+    return sendList(phone, "Escolha a vaga que deseja remover:", [
+      {
+        title: "Suas vagas",
+        rows: vagas.map((v) => ({
+          id: `empresa_delete_vaga_${v.id}`,
+          title: v.titulo.slice(0, 24),
+          description: (v.status || "sem status").slice(0, 72),
+        })),
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_remover_vaga_lista") {
+    if (!text.startsWith("empresa_delete_vaga_")) return false;
+
+    const vagaId = text.replace("empresa_delete_vaga_", "");
+
+    const { error } = await supabase
+      .from("vagas")
+      .delete()
+      .eq("id", vagaId)
+      .eq("empresa_id", user.id);
+
+    await updateUser({ etapa: "menu" });
+
+    if (error) {
+      console.error("❌ erro ao remover vaga:", error);
+      await sendText(phone, "Erro ao remover vaga.");
+      return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]);
+    }
+
+    await sendText(phone, "🗑️ Vaga removida com sucesso.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+      { id: "empresa_pacotes", title: "Ver pacotes" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  return false;
+}
+
+export async function handleCompanyFallback(phone) {
+  return sendMenuEmpresa(phone);
 }

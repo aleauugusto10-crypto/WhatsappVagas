@@ -1,4 +1,4 @@
-import { sendText } from "../services/whatsapp.js";
+import { sendList, sendText } from "../services/whatsapp.js";
 import { sendMenuUsuario, sendActionButtons } from "./menus.js";
 import {
   buildJobsPreview,
@@ -12,7 +12,7 @@ async function buscarVagasParaUsuario(supabase, user, limit = 10) {
   let query = supabase
     .from("vagas")
     .select("*")
-    .eq("status", "aberta")
+    .eq("status", "ativa")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -38,17 +38,35 @@ async function buscarVagasParaUsuario(supabase, user, limit = 10) {
   return { vagas: data || [], error: null };
 }
 
+function formatVagaResumo(vaga) {
+  const empresa = vaga.nome_empresa || "Empresa não informada";
+  const salario = vaga.salario || "A combinar";
+  const tipo = vaga.tipo_contratacao || "A combinar";
+  const qtd = vaga.quantidade_vagas || 1;
+
+  return (
+    `🏢 *Empresa:* ${empresa}\n` +
+    `💼 *Vaga:* ${vaga.titulo || "-"}\n` +
+    `📍 *Local:* ${vaga.cidade || "-"}${vaga.estado ? `/${vaga.estado}` : ""}\n` +
+    `💰 *Salário:* ${salario}\n` +
+    `📌 *Contratação:* ${tipo}\n` +
+    `👥 *Quantidade:* ${qtd}`
+  );
+}
+
 function buildPixResumo(intent, plano) {
   const checkoutUrl = intent?.checkout_url || null;
 
   let out =
-    `💳 Pagamento gerado com sucesso!\n\n` +
-    `Plano: ${plano.nome}\n` +
-    `Valor: R$ ${Number(plano.valor).toFixed(2)}`;
+    `💳 *Pagamento gerado com sucesso!*\n\n` +
+    `📦 *Plano:* ${plano.nome}\n` +
+    `💵 *Valor:* R$ ${Number(plano.valor).toFixed(2)}`;
 
   if (checkoutUrl) {
-    out += `\n\n🔗 Link de pagamento:\n${checkoutUrl}`;
+    out += `\n\n🔗 *Link de pagamento:*\n${checkoutUrl}`;
   }
+
+  out += `\n\n📌 *PIX copia e cola:*`;
 
   return out;
 }
@@ -63,13 +81,17 @@ async function gerarPagamentoPix({
   user,
   planoCodigo,
   referenciaTipo,
+  metadataExtra = {},
   afterSuccessLabel = "Acesso liberado após a aprovação do pagamento.",
+  backActionId = "jobs_pacotes",
+  backActionTitle = "Ver pacotes",
 }) {
   const plano = await getPlanoByCodigo(supabase, planoCodigo);
 
   if (!plano) {
     await sendText(phone, "Plano indisponível no momento.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: backActionId, title: backActionTitle },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
@@ -84,13 +106,14 @@ async function gerarPagamentoPix({
       cidade: user.cidade,
       estado: user.estado,
       categoria_principal: user.categoria_principal,
+      ...metadataExtra,
     },
   });
 
   if (!payment) {
     await sendText(phone, "Erro ao gerar cobrança.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "user_ver_vagas", title: "Tentar novamente" },
+      { id: backActionId, title: backActionTitle },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
@@ -99,38 +122,56 @@ async function gerarPagamentoPix({
   try {
     intent = await createMercadoPagoPixIntent(payment.id);
   } catch (err) {
-    console.error("❌ erro ao gerar Pix das vagas:", err);
+    console.error("❌ erro ao gerar Pix:", err);
   }
 
   if (!intent) {
     await sendText(
       phone,
-      `💳 Pedido criado com sucesso!\n\nPlano: ${plano.nome}\nValor: R$ ${Number(
-        plano.valor
-      ).toFixed(2)}\nPedido: ${
-        payment.id
-      }\n\nNão consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
+      `💳 *Pedido criado com sucesso!*\n\n` +
+        `📦 *Plano:* ${plano.nome}\n` +
+        `💵 *Valor:* R$ ${Number(plano.valor).toFixed(2)}\n` +
+        `🆔 *Pedido:* ${payment.id}\n\n` +
+        `Não consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
     );
 
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "user_ver_vagas", title: "Ver vagas de novo" },
+    await sendText(phone, afterSuccessLabel);
+
+    return sendActionButtons(phone, "Depois do pagamento:", [
+      { id: "payment_check_status", title: "Já paguei" },
+      { id: backActionId, title: backActionTitle },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
 
   await sendText(phone, buildPixResumo(intent, plano));
-
-  await sendText(
-    phone,
-    `\n\n${buildPixCodeOnly(intent)}`
-  );
-
+  await sendText(phone, buildPixCodeOnly(intent));
   await sendText(phone, afterSuccessLabel);
 
   return sendActionButtons(phone, "Depois do pagamento:", [
     { id: "payment_check_status", title: "Já paguei" },
-    { id: "user_ver_vagas", title: "Ver vagas de novo" },
+    { id: backActionId, title: backActionTitle },
     { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+async function mostrarPacotesUsuario(phone) {
+  return sendList(phone, "💼 Escolha um pacote:", [
+    {
+      title: "Pacotes para ver vagas",
+      rows: [
+        { id: "jobs_buy_single", title: "Ver vagas agora - R$ 4,90" },
+        { id: "jobs_buy_week", title: "Passe semanal - R$ 9,90" },
+        { id: "jobs_buy_alert", title: "Mensal + alertas - R$ 19,90" },
+      ],
+    },
+    {
+      title: "Pacotes para divulgar trabalho",
+      rows: [
+        { id: "job_service_buy_30d", title: "Anunciar serviço 30 dias - R$ 9,90" },
+        { id: "job_service_highlight_30d", title: "Destaque profissional 30 dias - R$ 19,90" },
+      ],
+    },
   ]);
 }
 
@@ -140,15 +181,21 @@ export async function handleJobsMenu({
   phone,
   supabase,
 }) {
-  if (text === "user_redefinir_interesses") {
-    return sendText(
-      phone,
-      "Envie 'redefinir perfil' no menu para refazer seus interesses."
-    );
+  // =====================
+  // MENU DE PACOTES
+  // =====================
+
+  if (text === "jobs_pacotes") {
+    return mostrarPacotesUsuario(phone);
   }
+
+  // =====================
+  // VER VAGAS
+  // =====================
 
   if (text === "user_ver_vagas") {
     const paidAccess = await hasPaidAccessForJobs(supabase, user.id);
+
     const { vagas, error } = await buscarVagasParaUsuario(
       supabase,
       user,
@@ -165,6 +212,7 @@ export async function handleJobsMenu({
     if (!vagas.length) {
       await sendText(phone, "Sem vagas no momento para seu perfil.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "jobs_pacotes", title: "Ver pacotes" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
@@ -172,8 +220,14 @@ export async function handleJobsMenu({
     if (paidAccess) {
       const fullMessage = buildJobsPreview(vagas, false);
       await sendText(phone, fullMessage);
+
+      if (vagas[0]) {
+        await sendText(phone, formatVagaResumo(vagas[0]));
+      }
+
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "user_ver_vagas", title: "Atualizar vagas" },
+        { id: "jobs_pacotes", title: "Ver pacotes" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
@@ -188,6 +242,10 @@ export async function handleJobsMenu({
     ]);
   }
 
+  // =====================
+  // PACOTES PARA VER VAGAS
+  // =====================
+
   if (text === "jobs_buy_single") {
     return gerarPagamentoPix({
       supabase,
@@ -197,6 +255,8 @@ export async function handleJobsMenu({
       referenciaTipo: "usuario_vagas_avulso",
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, você poderá visualizar essa busca.",
+      backActionId: "jobs_pacotes",
+      backActionTitle: "Ver pacotes",
     });
   }
 
@@ -209,6 +269,8 @@ export async function handleJobsMenu({
       referenciaTipo: "usuario_vagas_semanal",
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, suas buscas ficarão liberadas por 7 dias.",
+      backActionId: "jobs_pacotes",
+      backActionTitle: "Ver pacotes",
     });
   }
 
@@ -221,6 +283,46 @@ export async function handleJobsMenu({
       referenciaTipo: "usuario_alerta_mensal",
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, sua busca será liberada e você também poderá receber notificações automáticas.",
+      backActionId: "jobs_pacotes",
+      backActionTitle: "Ver pacotes",
+    });
+  }
+
+  // =====================
+  // PACOTES PARA DIVULGAR TRABALHO
+  // =====================
+
+  if (text === "job_service_buy_30d") {
+    return gerarPagamentoPix({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "profissional_anuncio_30d",
+      referenciaTipo: "profissional_anuncio",
+      metadataExtra: {
+        modo: "divulgacao_trabalho",
+      },
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, seu anúncio profissional poderá ser publicado por 30 dias.",
+      backActionId: "jobs_pacotes",
+      backActionTitle: "Ver pacotes",
+    });
+  }
+
+  if (text === "job_service_highlight_30d") {
+    return gerarPagamentoPix({
+      supabase,
+      phone,
+      user,
+      planoCodigo: "profissional_destaque_30d",
+      referenciaTipo: "profissional_destaque",
+      metadataExtra: {
+        modo: "destaque_trabalho",
+      },
+      afterSuccessLabel:
+        "Assim que o pagamento for aprovado, seu anúncio profissional ficará em destaque por 30 dias.",
+      backActionId: "jobs_pacotes",
+      backActionTitle: "Ver pacotes",
     });
   }
 
