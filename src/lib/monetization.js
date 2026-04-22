@@ -86,59 +86,132 @@ export async function createPendingPayment(
   return data;
 }
 
+function isPaymentApproved(status = "") {
+  const s = String(status || "").toLowerCase();
+  return s === "pago" || s === "approved" || s === "aprovado";
+}
+
+function getExpirationDaysByReferenceType(referenciaTipo = "") {
+  const tipo = String(referenciaTipo || "");
+
+  if (tipo === "usuario_vagas_avulso") return 1;
+  if (tipo === "usuario_missoes_avulso") return 1;
+
+  if (tipo === "usuario_vagas_semanal") return 7;
+
+  if (
+    tipo === "usuario_alerta_mensal" ||
+    tipo === "usuario_missoes_mensal" ||
+    tipo === "usuario_vagas_missoes_mensal" ||
+    tipo === "usuario_total_mensal"
+  ) {
+    return 30;
+  }
+
+  return 0;
+}
+
+function isPaymentStillValid(pagamento) {
+  if (!pagamento?.created_at) return false;
+
+  const validadeDias = getExpirationDaysByReferenceType(
+    pagamento.referencia_tipo
+  );
+
+  if (!validadeDias) return false;
+
+  const createdAt = new Date(pagamento.created_at);
+  const expiraEm = new Date(createdAt);
+  expiraEm.setDate(expiraEm.getDate() + validadeDias);
+
+  return new Date() <= expiraEm;
+}
+
+async function hasApprovedPlatformPayment(
+  supabase,
+  userId,
+  referenciaTipos = []
+) {
+  if (!userId || !referenciaTipos.length) return false;
+
+  const { data, error } = await supabase
+    .from("pagamentos_plataforma")
+    .select("*")
+    .eq("usuario_id", userId)
+    .in("referencia_tipo", referenciaTipos)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("❌ erro ao verificar pagamentos da plataforma:", error);
+    return false;
+  }
+
+  if (!data?.length) return false;
+
+  for (const pagamento of data) {
+    if (!isPaymentApproved(pagamento.status)) continue;
+    if (isPaymentStillValid(pagamento)) return true;
+  }
+
+  return false;
+}
+
 /**
  * Trabalhador:
- * agora o acesso recorrente faz sentido por NOTIFICAÇÕES.
- * Mantemos esses tipos como acesso pago útil para o fluxo de vagas.
+ * acesso para VAGAS.
  */
 export async function hasPaidAccessForJobs(supabase, userId) {
   if (!userId) return false;
 
-  const agora = new Date();
-
-  // 1) acesso por assinatura ativa
   const assinaturaAtiva = await hasActiveSubscription(supabase, userId, [
     "usuario_vagas_semanal",
     "usuario_alerta_mensal",
+    "usuario_vagas_missoes_mensal",
+    "usuario_total_mensal",
   ]);
 
   if (assinaturaAtiva) {
     return true;
   }
 
-  // 2) acesso avulso por pagamento aprovado
-  const { data, error } = await supabase
-    .from("pagamentos_plataforma")
-    .select("*")
-    .eq("usuario_id", userId)
-    .eq("status", "pago")
-    .eq("referencia_tipo", "usuario_vagas_avulso")
-    .order("created_at", { ascending: false })
-    .limit(1);
+  return hasApprovedPlatformPayment(supabase, userId, [
+    "usuario_vagas_avulso",
+    "usuario_vagas_semanal",
+    "usuario_alerta_mensal",
+    "usuario_vagas_missoes_mensal",
+    "usuario_total_mensal",
+  ]);
+}
 
-  if (error) {
-    console.error("❌ erro ao verificar pagamento avulso de vagas:", error);
-    return false;
+/**
+ * Trabalhador:
+ * acesso para MISSÕES.
+ */
+export async function hasPaidAccessForMissions(supabase, userId) {
+  if (!userId) return false;
+
+  const assinaturaAtiva = await hasActiveSubscription(supabase, userId, [
+    "usuario_missoes_mensal",
+    "usuario_vagas_missoes_mensal",
+    "usuario_total_mensal",
+  ]);
+
+  if (assinaturaAtiva) {
+    return true;
   }
 
-  if (!data || data.length === 0) {
-    return false;
-  }
-
-  const pagamento = data[0];
-  const createdAt = new Date(pagamento.created_at);
-  const expiraEm = new Date(createdAt);
-  expiraEm.setDate(expiraEm.getDate() + 1);
-
-  return agora <= expiraEm;
+  return hasApprovedPlatformPayment(supabase, userId, [
+    "usuario_missoes_avulso",
+    "usuario_missoes_mensal",
+    "usuario_vagas_missoes_mensal",
+    "usuario_total_mensal",
+  ]);
 }
 
 /**
  * Busca de profissionais:
  * no modelo novo NÃO tem assinatura semanal/mensal.
  * É desbloqueio avulso por busca.
- *
- * Então deixamos false por padrão para não confundir lógica antiga.
  */
 export async function hasPaidAccessForProfessionals() {
   return false;
@@ -146,15 +219,13 @@ export async function hasPaidAccessForProfessionals() {
 
 /**
  * Preview simples legado.
- * O jobs.js novo já usa o preview próprio dele,
- * mas deixamos aqui para compatibilidade.
  */
 export function buildJobsPreview(vagas = [], locked = true) {
   if (!vagas.length) {
     return "Sem vagas no momento para seu perfil.";
   }
 
-  const lista = locked ? vagas.slice(0, 5) : vagas;
+  const lista = locked ? vagas.slice(0, 3) : vagas;
 
   let out = locked
     ? "🔎 Encontramos vagas para seu perfil:\n"

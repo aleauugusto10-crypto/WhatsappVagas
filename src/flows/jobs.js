@@ -201,7 +201,45 @@ function getJobPackageDetails(packageId) {
       backId: "jobs_pacotes",
       backTitle: "Ver pacotes",
     },
+    missoes_buy_single: {
+      titulo: "Desbloqueio de missões",
+      valor: 4.9,
+      descricao:
+        "Libera a lista completa de missões da busca atual. Ideal para ver todos os bicos disponíveis agora, sem assinatura.",
+      confirmId: "confirm_missoes_buy_single",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
 
+    missoes_buy_month: {
+      titulo: "Missões mensais",
+      valor: 19.9,
+      descricao:
+        "Libera o acesso às missões por 30 dias e prepara seu acesso para futuras notificações desse tipo.",
+      confirmId: "confirm_missoes_buy_month",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    jobs_missions_buy_month: {
+      titulo: "Vagas + Missões mensal",
+      valor: 29.9,
+      descricao:
+        "Libera o acesso a vagas e missões por 30 dias em um pacote combinado.",
+      confirmId: "confirm_jobs_missions_buy_month",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
+
+    jobs_total_buy_month: {
+      titulo: "Plano completo mensal",
+      valor: 39.9,
+      descricao:
+        "Libera vagas, missões e acesso completo por 30 dias em um pacote mais amplo.",
+      confirmId: "confirm_jobs_total_buy_month",
+      backId: "jobs_pacotes",
+      backTitle: "Ver pacotes",
+    },
     jobs_buy_week_base: {
       titulo: "Notificações semanais",
       valor: 9.9,
@@ -400,14 +438,29 @@ async function gerarPagamentoPix({
 async function mostrarPacotesUsuario(phone) {
   return sendList(phone, "💼 *Pacotes do trabalhador*", [
     {
-      title: "Buscar emprego",
+      title: "Desbloqueios avulsos",
       rows: [
-        { id: "jobs_buy_week_base", title: "Semanal R$ 9,90" },
-        { id: "jobs_buy_week_plus2", title: "Semanal +2 cat. R$ 13,80" },
-        { id: "jobs_buy_week_all", title: "Semanal total R$ 17,80" },
-        { id: "jobs_buy_month_base", title: "Mensal R$ 19,90" },
-        { id: "jobs_buy_month_plus2", title: "Mensal +2 cat. R$ 23,80" },
-        { id: "jobs_buy_month_all", title: "Mensal total R$ 27,80" },
+        { id: "jobs_buy_single", title: "Vagas avulso R$ 4,90" },
+        { id: "missoes_buy_single", title: "Missões avulso R$ 4,90" },
+      ],
+    },
+    {
+      title: "Notificações e acesso",
+      rows: [
+        { id: "jobs_buy_week_base", title: "Vagas semanal R$ 9,90" },
+        { id: "jobs_buy_week_plus2", title: "Vagas semanal +2 cat. R$ 13,80" },
+        { id: "jobs_buy_week_all", title: "Vagas semanal total R$ 17,80" },
+        { id: "jobs_buy_month_base", title: "Vagas mensal R$ 19,90" },
+        { id: "jobs_buy_month_plus2", title: "Vagas mensal +2 cat. R$ 23,80" },
+        { id: "jobs_buy_month_all", title: "Vagas mensal total R$ 27,80" },
+      ],
+    },
+    {
+      title: "Planos combinados",
+      rows: [
+        { id: "missoes_buy_month", title: "Missões mensal R$ 19,90" },
+        { id: "jobs_missions_buy_month", title: "Vagas + Missões R$ 29,90" },
+        { id: "jobs_total_buy_month", title: "Completo mensal R$ 39,90" },
       ],
     },
     {
@@ -872,7 +925,85 @@ if (text === "confirm_jobs_buy_single") {
     backActionTitle: "Ver vagas",
   });
 }
+if (text === "confirm_missoes_buy_single") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "missao_avulsa_usuario",
+    referenciaTipo: "usuario_missoes_avulso",
+    tituloPlano: "Desbloqueio de missões",
+    valorFinal: 4.9,
+    metadataExtra: {
+      modo: "desbloqueio_busca_missoes",
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, a lista completa das missões ficará liberada.",
+    backActionId: "user_ver_missoes",
+    backActionTitle: "Ver missões",
+  });
+}
 
+if (text === "confirm_missoes_buy_month") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "usuario_missoes_mensal",
+    referenciaTipo: "usuario_missoes_mensal",
+    tituloPlano: "Missões mensais",
+    valorFinal: 19.9,
+    metadataExtra: {
+      cobertura: "missoes",
+      periodicidade: "mensal",
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, seu acesso às missões ficará liberado por 30 dias.",
+    backActionId: "user_ver_missoes",
+    backActionTitle: "Ver missões",
+  });
+}
+
+if (text === "confirm_jobs_missions_buy_month") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "usuario_vagas_missoes_mensal",
+    referenciaTipo: "usuario_vagas_missoes_mensal",
+    tituloPlano: "Vagas + Missões mensal",
+    valorFinal: 29.9,
+    metadataExtra: {
+      cobertura: "vagas_missoes",
+      periodicidade: "mensal",
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, seu acesso a vagas e missões ficará liberado por 30 dias.",
+    backActionId: "jobs_pacotes",
+    backActionTitle: "Ver pacotes",
+  });
+}
+
+if (text === "confirm_jobs_total_buy_month") {
+  return gerarPagamentoPix({
+    supabase,
+    phone,
+    user,
+    planoCodigo: "usuario_total_mensal",
+    referenciaTipo: "usuario_total_mensal",
+    tituloPlano: "Plano completo mensal",
+    valorFinal: 39.9,
+    metadataExtra: {
+      cobertura: "total",
+      periodicidade: "mensal",
+      escopo: "todas",
+    },
+    afterSuccessLabel:
+      "Assim que o pagamento for aprovado, seu acesso completo ficará liberado por 30 dias.",
+    backActionId: "jobs_pacotes",
+    backActionTitle: "Ver pacotes",
+  });
+}
 if (text === "confirm_jobs_buy_week_base") {
   return gerarPagamentoPix({
     supabase,
@@ -1152,7 +1283,21 @@ if (text === "confirm_job_service_highlight_30d") {
   if (text === "jobs_buy_single") {
   return explicarPacoteAntesDoPagamento(phone, "jobs_buy_single");
 }
+if (text === "missoes_buy_single") {
+  return explicarPacoteAntesDoPagamento(phone, "missoes_buy_single");
+}
 
+if (text === "missoes_buy_month") {
+  return explicarPacoteAntesDoPagamento(phone, "missoes_buy_month");
+}
+
+if (text === "jobs_missions_buy_month") {
+  return explicarPacoteAntesDoPagamento(phone, "jobs_missions_buy_month");
+}
+
+if (text === "jobs_total_buy_month") {
+  return explicarPacoteAntesDoPagamento(phone, "jobs_total_buy_month");
+}
   // =====================
   // NOTIFICAÇÕES SEMANAIS
   // =====================
