@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { handleMessage } from "./src/bot.js";
+import paymentsRouter from "./src/routes/payments.js";
 
 dotenv.config();
 
@@ -9,6 +10,9 @@ app.use(express.json());
 
 // 🔥 ANTI DUPLICAÇÃO EM MEMÓRIA
 const processedMessages = new Set();
+
+// ✅ ROTAS INTERNAS
+app.use("/payments", paymentsRouter);
 
 /**
  * 🔐 VERIFICAÇÃO DO WEBHOOK (META)
@@ -91,11 +95,20 @@ app.post("/webhook", async (req, res) => {
     await handleMessage(msg);
 
     return res.sendStatus(200);
-
   } catch (err) {
     console.error("❌ erro no webhook:", err);
     return res.sendStatus(500);
   }
+});
+
+/**
+ * ❤️ HEALTHCHECK
+ */
+app.get("/", (req, res) => {
+  return res.status(200).json({
+    ok: true,
+    service: "whatsapp-marketplace",
+  });
 });
 
 /**

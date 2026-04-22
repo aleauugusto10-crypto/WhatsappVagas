@@ -1,21 +1,42 @@
 import { sendText } from "../services/whatsapp.js";
 import { sendActionButtons } from "./menus.js";
+import {
+  calcMissaoTaxa,
+  calcMissaoTotal,
+  createPendingPayment,
+} from "../lib/monetization.js";
 
 function inferCategoria(text = "") {
   const t = String(text).toLowerCase();
 
-  if (t.includes("limp") || t.includes("faxina") || t.includes("lavar") || t.includes("capin"))
+  if (
+    t.includes("limp") ||
+    t.includes("faxina") ||
+    t.includes("lavar") ||
+    t.includes("capin")
+  ) {
     return "limpeza";
-  if (t.includes("frete") || t.includes("mudan") || t.includes("transport"))
+  }
+
+  if (t.includes("frete") || t.includes("mudan") || t.includes("transport")) {
     return "frete";
-  if (t.includes("pet") || t.includes("cachorro") || t.includes("passear"))
+  }
+
+  if (t.includes("pet") || t.includes("cachorro") || t.includes("passear")) {
     return "passeio_pet";
-  if (t.includes("jard"))
+  }
+
+  if (t.includes("jard")) {
     return "jardinagem";
-  if (t.includes("mont"))
+  }
+
+  if (t.includes("mont")) {
     return "montagem";
-  if (t.includes("entrega"))
+  }
+
+  if (t.includes("entrega")) {
     return "entrega";
+  }
 
   return "outros";
 }
@@ -104,25 +125,56 @@ export async function handleMissions({
       return sendText(phone, "Digite um valor válido.\nEx: 40");
     }
 
+    await updateUser({
+      etapa: "missao_urgencia",
+      missao_valor_temp: String(valor),
+    });
+
+    const taxa = calcMissaoTaxa(valor);
+
+    return sendActionButtons(
+      phone,
+      `Resumo da missão:\n\nValor da missão: R$ ${valor.toFixed(
+        2
+      )}\nTaxa da plataforma (10%): R$ ${taxa.toFixed(
+        2
+      )}\n\nQuer adicionar urgência por +R$ 4,90?`,
+      [
+        { id: "missao_urgencia_sim", title: "Com urgência" },
+        { id: "missao_urgencia_nao", title: "Sem urgência" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]
+    );
+  }
+
+  if (
+    user.etapa === "missao_urgencia" &&
+    ["missao_urgencia_sim", "missao_urgencia_nao"].includes(text)
+  ) {
+    const urgencia = text === "missao_urgencia_sim";
+    const valorBase = Number(user.missao_valor_temp || 0);
+    const resumo = calcMissaoTotal(valorBase, urgencia);
     const categoria = inferCategoria(user.missao_desc || user.missao_titulo || "");
 
-    const payload = {
-      usuario_id: user.id,
-      titulo: user.missao_titulo,
-      descricao: user.missao_desc,
-      valor,
-      categoria_chave: categoria,
-      cidade: user.cidade,
-      estado: user.estado,
-      status: "aberta",
-      pagamento_status: "pendente",
-    };
+    const payment = await createPendingPayment(supabase, {
+      usuarioId: user.id,
+      referenciaTipo: "missao_publicacao",
+      planoCodigo: urgencia ? "missao_urgencia" : null,
+      valor: resumo.total,
+      metadata: {
+        titulo: user.missao_titulo,
+        descricao: user.missao_desc,
+        valor_missao: resumo.valorMissao,
+        taxa_plataforma: resumo.taxa,
+        urgencia,
+        categoria_chave: categoria,
+        cidade: user.cidade,
+        estado: user.estado,
+      },
+    });
 
-    const { error } = await supabase.from("missoes").insert(payload);
-
-    if (error) {
-      console.error("❌ erro ao criar missão:", error);
-      await sendText(phone, "Erro ao criar missão.");
+    if (!payment) {
+      await sendText(phone, "Erro ao gerar cobrança da missão.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "contratar_criar_missao", title: "Tentar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
@@ -133,11 +185,18 @@ export async function handleMissions({
       etapa: "menu",
       missao_titulo: null,
       missao_desc: null,
+      missao_valor_temp: null,
     });
 
     await sendText(
       phone,
-      `🚀 Missão criada com sucesso!\n\nTítulo: ${payload.titulo}\nValor: R$ ${valor.toFixed(2)}`
+      `💳 Pedido criado com sucesso!\n\nMissão: ${
+        payment.metadata?.titulo || "Missão"
+      }\nValor da missão: R$ ${resumo.valorMissao.toFixed(
+        2
+      )}\nTaxa da plataforma: R$ ${resumo.taxa.toFixed(2)}\nUrgência: R$ ${resumo.urgencia.toFixed(
+        2
+      )}\nTotal: R$ ${resumo.total.toFixed(2)}\nPedido: ${payment.id}\n\nDepois do pagamento aprovado, a missão pode ser publicada.`
     );
 
     return sendActionButtons(phone, "O que deseja fazer agora?", [

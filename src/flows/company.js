@@ -1,5 +1,9 @@
 import { sendList, sendText } from "../services/whatsapp.js";
 import { sendMenuEmpresa, sendActionButtons } from "./menus.js";
+import {
+  createPendingPayment,
+  getPlanoByCodigo,
+} from "../lib/monetization.js";
 
 const gruposMap = {
   construcao: "construcao",
@@ -11,6 +15,82 @@ const gruposMap = {
   tecnologia: "tecnologia",
   outros: "tarefas",
 };
+
+function limparTempVagaPayload() {
+  return {
+    vaga_titulo_temp: null,
+    vaga_descricao_temp: null,
+    vaga_requisitos_temp: null,
+    vaga_tipo_contratacao_temp: null,
+    vaga_salario_temp: null,
+    vaga_jornada_temp: null,
+    vaga_quantidade_temp: null,
+    vaga_destaque_temp: false,
+  };
+}
+
+function resumoVaga(user) {
+  const qtd = Number(user.vaga_quantidade_temp || 1);
+  return (
+    `📋 Resumo da vaga:\n\n` +
+    `Função: ${user.categoria_principal || "-"}\n` +
+    `Título: ${user.vaga_titulo_temp || "-"}\n` +
+    `Descrição: ${user.vaga_descricao_temp || "-"}\n` +
+    `Requisitos: ${user.vaga_requisitos_temp || "-"}\n` +
+    `Tipo de contratação: ${user.vaga_tipo_contratacao_temp || "-"}\n` +
+    `Salário: ${user.vaga_salario_temp || "-"}\n` +
+    `Jornada: ${user.vaga_jornada_temp || "-"}\n` +
+    `Quantidade: ${qtd}\n` +
+    `Destaque: ${user.vaga_destaque_temp ? "Sim" : "Não"}`
+  );
+}
+
+async function criarCobrancaPublicacaoVaga({ supabase, user, pacoteCodigo }) {
+  const plano = await getPlanoByCodigo(supabase, pacoteCodigo);
+  if (!plano) return { plano: null, payment: null, total: null };
+
+  let total = Number(plano.valor);
+  let destaqueValor = 0;
+
+  if (user.vaga_destaque_temp) {
+    const destaquePlano = await getPlanoByCodigo(supabase, "empresa_destaque_vaga");
+    if (destaquePlano) {
+      destaqueValor = Number(destaquePlano.valor);
+      total += destaqueValor;
+    }
+  }
+
+  const payment = await createPendingPayment(supabase, {
+    usuarioId: user.id,
+    referenciaTipo: "empresa_publicar_vaga",
+    planoCodigo: plano.codigo,
+    valor: Number(total.toFixed(2)),
+    metadata: {
+      empresa_id: user.id,
+      categoria_chave: user.categoria_principal,
+      titulo: user.vaga_titulo_temp,
+      descricao: user.vaga_descricao_temp,
+      requisitos: user.vaga_requisitos_temp,
+      tipo_contratacao: user.vaga_tipo_contratacao_temp,
+      salario: user.vaga_salario_temp,
+      jornada: user.vaga_jornada_temp,
+      quantidade_vagas: Number(user.vaga_quantidade_temp || 1),
+      destaque: !!user.vaga_destaque_temp,
+      cidade: user.cidade,
+      estado: user.estado,
+      pacote_codigo: plano.codigo,
+      pacote_nome: plano.nome,
+      pacote_valor: Number(plano.valor),
+      destaque_valor: Number(destaqueValor.toFixed(2)),
+    },
+  });
+
+  return {
+    plano,
+    payment,
+    total: Number(total.toFixed(2)),
+  };
+}
 
 export async function handleCompanyMenu({
   user,
@@ -25,6 +105,10 @@ export async function handleCompanyMenu({
     await updateUser({ etapa: "menu" });
     return sendMenuEmpresa(phone);
   }
+
+  // =====================
+  // BUSCAR PROFISSIONAIS
+  // =====================
 
   if (text === "empresa_buscar_profissionais") {
     const areas = await getCategorias("geral");
@@ -82,12 +166,12 @@ export async function handleCompanyMenu({
       .eq("ativo", true)
       .eq("categoria_chave", categoria)
       .ilike("cidade", user.cidade || "")
-      .limit(10);
+      .limit(3);
 
     await updateUser({ etapa: "menu" });
 
     if (error) {
-      console.error("❌ erro ao buscar profissionais:", error);
+      console.error("❌ erro ao buscar profissionais para empresa:", error);
       await sendText(phone, "Erro ao buscar profissionais.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "voltar_menu", title: "Voltar ao menu" },
@@ -101,10 +185,11 @@ export async function handleCompanyMenu({
       ]);
     }
 
-    let out = "🧑‍🔧 Profissionais encontrados:\n";
+    let out = "🧑‍🔧 Prévia de profissionais:\n";
     for (const s of servicos) {
       out += `\n• ${s.titulo} - ${s.cidade || "Sem cidade"}`;
     }
+    out += "\n\n🔒 Para desbloquear a busca completa, use o menu de planos.";
 
     await sendText(phone, out);
     return sendActionButtons(phone, "O que deseja fazer agora?", [
@@ -112,9 +197,17 @@ export async function handleCompanyMenu({
     ]);
   }
 
+  // =====================
+  // CRIAR VAGA
+  // =====================
+
   if (text === "empresa_criar_vaga") {
     const areas = await getCategorias("geral");
-    await updateUser({ etapa: "empresa_vaga_area" });
+
+    await updateUser({
+      etapa: "empresa_vaga_area",
+      ...limparTempVagaPayload(),
+    });
 
     return sendList(phone, "Escolha a área da vaga:", [
       {
@@ -167,7 +260,10 @@ export async function handleCompanyMenu({
       etapa: "empresa_vaga_titulo",
     });
 
-    return sendText(phone, "Qual o título da vaga?");
+    return sendText(
+      phone,
+      "Qual o título da vaga?\nEx: Vendedor interno, Auxiliar administrativo"
+    );
   }
 
   if (user.etapa === "empresa_vaga_titulo") {
@@ -180,7 +276,10 @@ export async function handleCompanyMenu({
       etapa: "empresa_vaga_descricao",
     });
 
-    return sendText(phone, "Descreva a vaga em poucas palavras:");
+    return sendText(
+      phone,
+      "Descreva a vaga em poucas palavras.\nEx: Atendimento ao cliente, organização da loja e fechamento de vendas."
+    );
   }
 
   if (user.etapa === "empresa_vaga_descricao") {
@@ -188,37 +287,199 @@ export async function handleCompanyMenu({
       return sendText(phone, "Descreva melhor a vaga:");
     }
 
-    const { error } = await supabase.from("vagas").insert({
-      empresa_id: user.id,
-      titulo: user.vaga_titulo_temp,
-      descricao: text,
-      categoria_chave: user.categoria_principal,
-      cidade: user.cidade,
-      estado: user.estado,
-      status: "aberta",
-      contato_whatsapp: user.telefone,
+    await updateUser({
+      vaga_descricao_temp: text,
+      etapa: "empresa_vaga_requisitos",
     });
 
-    if (error) {
-      console.error("❌ erro ao criar vaga:", error);
-      await sendText(phone, "Erro ao criar vaga.");
+    return sendText(
+      phone,
+      "Quais os requisitos básicos?\nEx: ensino médio completo, boa comunicação, experiência com vendas."
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_requisitos") {
+    if (!text || text.length < 5) {
+      return sendText(phone, "Informe requisitos básicos válidos:");
+    }
+
+    await updateUser({
+      vaga_requisitos_temp: text,
+      etapa: "empresa_vaga_tipo_contratacao",
+    });
+
+    return sendList(phone, "Escolha o tipo de contratação:", [
+      {
+        title: "Contratação",
+        rows: [
+          { id: "contratacao_clt", title: "CLT" },
+          { id: "contratacao_diaria", title: "Diária" },
+          { id: "contratacao_freelance", title: "Freelance" },
+          { id: "contratacao_mei", title: "MEI" },
+          { id: "contratacao_meio_periodo", title: "Meio período" },
+          { id: "contratacao_comissao", title: "Comissão" },
+          { id: "contratacao_a_combinar", title: "A combinar" },
+        ],
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_vaga_tipo_contratacao") {
+    if (!text.startsWith("contratacao_")) return false;
+
+    const tipoContratacao = text.replace("contratacao_", "");
+
+    await updateUser({
+      vaga_tipo_contratacao_temp: tipoContratacao,
+      etapa: "empresa_vaga_salario",
+    });
+
+    return sendText(
+      phone,
+      "Qual o salário ou faixa salarial?\nEx: 1600, 1800 + comissão, a combinar"
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_salario") {
+    if (!text || text.length < 2) {
+      return sendText(phone, "Digite um salário ou faixa válida:");
+    }
+
+    await updateUser({
+      vaga_salario_temp: text,
+      etapa: "empresa_vaga_jornada",
+    });
+
+    return sendText(
+      phone,
+      "Qual a jornada ou horário?\nEx: segunda a sábado, horário comercial"
+    );
+  }
+
+  if (user.etapa === "empresa_vaga_jornada") {
+    if (!text || text.length < 3) {
+      return sendText(phone, "Digite uma jornada válida:");
+    }
+
+    await updateUser({
+      vaga_jornada_temp: text,
+      etapa: "empresa_vaga_quantidade",
+    });
+
+    return sendList(phone, "Quantas vagas deseja publicar?", [
+      {
+        title: "Quantidade",
+        rows: [
+          { id: "vaga_qtd_1", title: "1 vaga" },
+          { id: "vaga_qtd_2", title: "2 vagas" },
+          { id: "vaga_qtd_3", title: "3 vagas" },
+          { id: "vaga_qtd_5", title: "5 vagas" },
+          { id: "vaga_qtd_10", title: "10 vagas" },
+        ],
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_vaga_quantidade") {
+    if (!text.startsWith("vaga_qtd_")) return false;
+
+    const quantidade = Number(text.replace("vaga_qtd_", ""));
+    if (!quantidade) {
+      return sendText(phone, "Escolha a quantidade pela lista.");
+    }
+
+    await updateUser({
+      vaga_quantidade_temp: String(quantidade),
+      etapa: "empresa_vaga_destaque",
+    });
+
+    return sendActionButtons(
+      phone,
+      "Quer colocar essa vaga em destaque por +R$ 4,90?",
+      [
+        { id: "vaga_destaque_sim", title: "Com destaque" },
+        { id: "vaga_destaque_nao", title: "Sem destaque" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]
+    );
+  }
+
+  if (
+    user.etapa === "empresa_vaga_destaque" &&
+    ["vaga_destaque_sim", "vaga_destaque_nao"].includes(text)
+  ) {
+    const destaque = text === "vaga_destaque_sim";
+
+    await updateUser({
+      vaga_destaque_temp: destaque,
+      etapa: "empresa_vaga_pacote",
+    });
+
+    await sendText(phone, resumoVaga({ ...user, vaga_destaque_temp: destaque }));
+
+    return sendList(phone, "Escolha o pacote de publicação:", [
+      {
+        title: "Pacotes",
+        rows: [
+          { id: "vaga_pacote_1", title: "1 vaga - R$ 9,90" },
+          { id: "vaga_pacote_3", title: "3 vagas - R$ 24,90" },
+          { id: "vaga_pacote_10", title: "10 vagas - R$ 79,90" },
+        ],
+      },
+    ]);
+  }
+
+  if (user.etapa === "empresa_vaga_pacote") {
+    if (!text.startsWith("vaga_pacote_")) return false;
+
+    const qtdPacote = Number(text.replace("vaga_pacote_", ""));
+    let pacoteCodigo = "empresa_1_vaga";
+
+    if (qtdPacote === 3) pacoteCodigo = "empresa_3_vagas";
+    if (qtdPacote === 10) pacoteCodigo = "empresa_10_vagas";
+
+    const { plano, payment, total } = await criarCobrancaPublicacaoVaga({
+      supabase,
+      user,
+      pacoteCodigo,
+    });
+
+    if (!plano || !payment) {
+      await sendText(phone, "Erro ao gerar cobrança da vaga.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
+        { id: "empresa_criar_vaga", title: "Tentar novamente" },
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
 
     await updateUser({
       etapa: "menu",
-      vaga_titulo_temp: null,
+      ...limparTempVagaPayload(),
     });
 
-    await sendText(phone, "✅ Vaga criada com sucesso!");
+    const destaqueValor = user.vaga_destaque_temp ? 4.9 : 0;
+
+    await sendText(
+      phone,
+      `💳 Pedido criado com sucesso!\n\n` +
+        `Pacote: ${plano.nome}\n` +
+        `Pacote base: R$ ${Number(plano.valor).toFixed(2)}\n` +
+        `Destaque: R$ ${destaqueValor.toFixed(2)}\n` +
+        `Total: R$ ${Number(total).toFixed(2)}\n` +
+        `Pedido: ${payment.id}\n\n` +
+        `Após o pagamento aprovado, a vaga poderá ser publicada.`
+    );
+
     return sendActionButtons(phone, "O que deseja fazer agora?", [
       { id: "empresa_criar_vaga", title: "Criar outra vaga" },
       { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+
+  // =====================
+  // MINHAS VAGAS
+  // =====================
 
   if (text === "empresa_minhas_vagas") {
     const { data: vagas, error } = await supabase
@@ -231,7 +492,7 @@ export async function handleCompanyMenu({
     await updateUser({ etapa: "menu" });
 
     if (error) {
-      console.error("❌ erro ao listar vagas:", error);
+      console.error("❌ erro ao listar vagas da empresa:", error);
       await sendText(phone, "Erro ao buscar suas vagas.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "voltar_menu", title: "Voltar ao menu" },
@@ -267,7 +528,7 @@ export async function handleCompanyMenu({
       .limit(10);
 
     if (error) {
-      console.error("❌ erro ao carregar vagas:", error);
+      console.error("❌ erro ao carregar vagas para remoção:", error);
       await sendText(phone, "Erro ao carregar vagas.");
       return sendActionButtons(phone, "O que deseja fazer agora?", [
         { id: "voltar_menu", title: "Voltar ao menu" },
