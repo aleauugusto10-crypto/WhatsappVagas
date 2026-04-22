@@ -41,23 +41,24 @@ async function getCategorias(contexto) {
   return data || [];
 }
 
-async function getCategoriasPorGrupo(contexto, grupo) {
+async function getCategoriasPorGrupos(contexto, grupos = []) {
+  if (!grupos.length) return [];
+
   const { data, error } = await supabase
     .from("categorias")
     .select("*")
     .eq("contexto", contexto)
-    .eq("grupo", grupo)
+    .in("grupo", grupos)
     .eq("ativo", true)
     .order("nome");
 
   if (error) {
-    console.error("❌ erro getCategoriasPorGrupo:", error);
+    console.error("❌ erro getCategoriasPorGrupos:", error);
     return [];
   }
 
   return data || [];
 }
-
 function getMenuByTipo(tipo, phone) {
   if (tipo === "empresa") return sendMenuEmpresa(phone);
   if (tipo === "contratante") return sendMenuContratante(phone);
@@ -221,7 +222,7 @@ export async function handleMessage(msg) {
       supabase, // 🔥 CORREÇÃO CRÍTICA
       updateUser,
       getCategorias,
-      getCategoriasPorGrupo,
+      getCategoriasPorGrupos,
     });
 
     if (onboardingResponse) return onboardingResponse;
@@ -263,7 +264,7 @@ export async function handleMessage(msg) {
         supabase,
         updateUser,
         getCategorias,
-        getCategoriasPorGrupo,
+        getCategoriasPorGrupos,
       });
       if (services) return services;
 
@@ -291,7 +292,7 @@ export async function handleMessage(msg) {
         supabase,
         updateUser,
         getCategorias,
-        getCategoriasPorGrupo,
+        getCategoriasPorGrupos,
       });
       if (company) return company;
 
