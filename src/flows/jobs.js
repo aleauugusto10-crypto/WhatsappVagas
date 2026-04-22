@@ -15,7 +15,9 @@ async function buscarVagasParaUsuario(supabase, user, limit = 30) {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (user.categoria_principal) {
+  if (user.categoria_id) {
+    query = query.eq("categoria_id", user.categoria_id);
+  } else if (user.categoria_principal) {
     query = query.eq("categoria_chave", user.categoria_principal);
   }
 
@@ -470,12 +472,12 @@ if (user.etapa === "jobs_week_plus2_cat_1") {
     })
     .eq("id", user.id);
 
-  const { data: areas } = await supabase
-    .from("categorias")
-    .select("*")
-    .eq("contexto", "geral")
-    .eq("ativo", true)
-    .order("nome");
+ const { data: categorias, error } = await supabase
+  .from("categorias_novas")
+  .select("*")
+  .eq("area_id", areaId)
+  .eq("ativo", true)
+  .order("nome");
 
   return sendList(phone, "Escolha a 2ª categoria extra:", [
     {
@@ -758,12 +760,12 @@ if (text === "confirm_jobs_buy_week_plus2") {
     .eq("id", user.id);
 
   // 🔥 COLOCA AQUI
-  const { data: areas } = await supabase
-    .from("categorias")
-    .select("*")
-    .eq("contexto", "geral")
-    .eq("ativo", true)
-    .order("nome");
+ const { data: categorias, error } = await supabase
+  .from("categorias_novas")
+  .select("*")
+  .eq("area_id", areaId)
+  .eq("ativo", true)
+  .order("nome");
 
   return sendList(phone, "Escolha a 1ª categoria extra:", [
     {
@@ -824,12 +826,12 @@ if (text === "confirm_jobs_buy_month_plus2") {
     })
     .eq("id", user.id);
 
-  const { data: areas } = await supabase
-    .from("categorias")
-    .select("*")
-    .eq("contexto", "geral")
-    .eq("ativo", true)
-    .order("nome");
+ const { data: categorias, error } = await supabase
+  .from("categorias_novas")
+  .select("*")
+  .eq("area_id", areaId)
+  .eq("ativo", true)
+  .order("nome");
 
   return sendList(phone, "Escolha a 1ª categoria extra:", [
     {
@@ -858,12 +860,12 @@ if (user.etapa === "jobs_month_plus2_cat_1") {
     })
     .eq("id", user.id);
 
-  const { data: areas } = await supabase
-    .from("categorias")
-    .select("*")
-    .eq("contexto", "geral")
-    .eq("ativo", true)
-    .order("nome");
+ const { data: categorias, error } = await supabase
+  .from("categorias_novas")
+  .select("*")
+  .eq("area_id", areaId)
+  .eq("ativo", true)
+  .order("nome");
 
   return sendList(phone, "Escolha a 2ª categoria extra:", [
     {
