@@ -7,9 +7,17 @@ export async function getPlanoByCodigo(supabase, codigo) {
     .maybeSingle();
 
   if (error) {
-    console.error("❌ erro ao buscar plano:", error);
+    console.error("❌ erro ao buscar plano:", {
+      codigo,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
     return null;
   }
+
+  console.log("📦 plano encontrado:", codigo, data);
 
   return data || null;
 }
