@@ -433,7 +433,6 @@ async function mostrarPacotesUsuario(phone) {
         { id: "pacotes_vagas", title: "Pacotes de vagas" },
         { id: "pacotes_missoes", title: "Pacotes de missões" },
         { id: "pacotes_combinados", title: "Planos combinados" },
-        { id: "prof_pacotes", title: "Divulgação profissional" },
       ],
     },
   ]);

@@ -629,6 +629,7 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   if (!paid) return null;
 
   await activateSubscriptionFromPayment(paid);
+  
   await activateCompanyJobCreditsFromPayment(paid);
   await publishMissionFromPayment(paid);
   await publishJobFromPayment(paid);
