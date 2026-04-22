@@ -6,6 +6,10 @@ import {
   sendMenuEmpresa,
 } from "./menus.js";
 
+function isValidEmail(value = "") {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim().toLowerCase());
+}
+
 export async function handleOnboarding({
   user,
   text,
@@ -56,44 +60,13 @@ export async function handleOnboarding({
     }
 
     if (estado) {
-      if (user.tipo === "empresa") {
-        await updateUser({
-          cidade,
-          estado,
-          etapa: "menu",
-          onboarding_finalizado: true,
-        });
-        return sendMenuEmpresa(phone);
-      }
-
-      if (user.tipo === "contratante") {
-        await updateUser({
-          cidade,
-          estado,
-          etapa: "menu",
-          onboarding_finalizado: true,
-        });
-        return sendMenuContratante(phone);
-      }
-
       await updateUser({
         cidade,
         estado,
-        etapa: "area",
+        etapa: "email",
       });
 
-      const areas = await getCategorias("geral");
-      return sendList(phone, "Escolha sua área de interesse:", [
-        {
-          title: "Áreas",
-          rows: areas
-            .filter((a) => a.chave !== "profissional")
-            .map((a) => ({
-              id: `area_${a.chave}`,
-              title: a.nome,
-            })),
-        },
-      ]);
+      return sendText(phone, "Qual seu e-mail?");
     }
 
     await updateUser({
@@ -116,9 +89,25 @@ export async function handleOnboarding({
 
     const estado = text.replace("estado_", "").toUpperCase();
 
+    await updateUser({
+      estado,
+      etapa: "email",
+    });
+
+    return sendText(phone, "Qual seu e-mail?");
+  }
+
+  if (user.etapa === "email") {
+    if (!isValidEmail(text)) {
+      return sendText(phone, "Digite um e-mail válido.\nEx: nome@email.com");
+    }
+
+    await updateUser({
+      email: text.trim().toLowerCase(),
+    });
+
     if (user.tipo === "empresa") {
       await updateUser({
-        estado,
         etapa: "menu",
         onboarding_finalizado: true,
       });
@@ -127,7 +116,6 @@ export async function handleOnboarding({
 
     if (user.tipo === "contratante") {
       await updateUser({
-        estado,
         etapa: "menu",
         onboarding_finalizado: true,
       });
@@ -135,7 +123,6 @@ export async function handleOnboarding({
     }
 
     await updateUser({
-      estado,
       etapa: "area",
     });
 
