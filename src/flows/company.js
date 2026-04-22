@@ -610,7 +610,17 @@ await sendText(phone, buildPixCodeOnly(intent));
 
     let out = "📋 *Suas vagas:*\n";
     for (const v of vagas) {
-      out += `\n• ${v.titulo} - ${v.status}`;
+      let out = "📋 *Suas vagas:*\n";
+
+for (const v of vagas) {
+  let statusLabel = "🟡 Desconhecido";
+
+  if (v.status === "ativa") statusLabel = "🟢 Ativa";
+  if (v.status === "encerrada") statusLabel = "🔴 Encerrada";
+  if (v.status === "aberta") statusLabel = "🟢 Ativa"; // fallback legado
+
+  out += `\n• ${v.titulo} - ${statusLabel}`;
+}
     }
 
     await sendText(phone, out);
