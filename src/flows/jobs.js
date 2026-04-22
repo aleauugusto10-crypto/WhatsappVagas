@@ -75,7 +75,7 @@ function buildJobsPreviewLocked(vagas = []) {
 
   out +=
     "\n\n🔒 Para liberar a lista completa desta busca, o desbloqueio é *avulso por R$ 4,90*." +
-    "\n\n📣 Se preferir, você também pode assinar um pacote de notificações para ser avisado sempre que novas oportunidades surgirem.";
+    "\n\n📣 Se preferir, você também pode assinar um pacote de notificações.";
 
   return out;
 }
@@ -215,7 +215,7 @@ async function gerarPagamentoPix({
 async function mostrarPacotesUsuario(phone) {
   return sendList(phone, "💼 *Pacotes do trabalhador*", [
     {
-      title: "Desbloqueio e notificações",
+      title: "Buscar emprego",
       rows: [
         { id: "jobs_buy_week_base", title: "Semanal categoria atual - R$ 9,90" },
         { id: "jobs_buy_week_plus2", title: "Semanal + 2 categorias - R$ 13,80" },
@@ -226,19 +226,13 @@ async function mostrarPacotesUsuario(phone) {
       ],
     },
     {
-      title: "Divulgação profissional",
+      title: "Divulgar meu trabalho",
       rows: [
         { id: "job_service_buy_30d", title: "Anunciar meu serviço 30 dias - R$ 9,90" },
         { id: "job_service_highlight_30d", title: "Destaque profissional 30 dias - R$ 19,90" },
       ],
     },
   ]);
-}
-
-function buildScopeLabel(scope = "categoria_atual") {
-  if (scope === "mais_2") return "categoria atual + 2 extras";
-  if (scope === "todas") return "todas as categorias";
-  return "categoria atual";
 }
 
 export async function handleJobsMenu({
@@ -261,7 +255,7 @@ export async function handleJobsMenu({
 
   if (text === "user_ver_vagas") {
     const paidAccess = await hasPaidAccessForJobs(supabase, user.id);
-    const { vagas, error } = await buscarVagasParaUsuario(supabase, user, paidAccess ? 20 : 20);
+    const { vagas, error } = await buscarVagasParaUsuario(supabase, user, 30);
 
     if (error) {
       await sendText(phone, "Erro ao buscar vagas.");
@@ -309,6 +303,7 @@ export async function handleJobsMenu({
       planoCodigo: "vaga_avulsa_usuario",
       referenciaTipo: "usuario_vagas_avulso",
       tituloPlano: "Desbloqueio da busca atual",
+      valorFinal: 4.9,
       metadataExtra: {
         modo: "desbloqueio_busca_vagas",
         categoria_principal: user.categoria_principal,
@@ -444,9 +439,11 @@ export async function handleJobsMenu({
       planoCodigo: "profissional_anuncio_30d",
       referenciaTipo: "profissional_anuncio",
       tituloPlano: "Divulgação do meu serviço - 30 dias",
+      valorFinal: 9.9,
       metadataExtra: {
         modo: "divulgacao_trabalho",
-        scope_label: buildScopeLabel("categoria_atual"),
+        categoria_chave: user.categoria_principal,
+        contato_whatsapp: user.telefone,
       },
       afterSuccessLabel:
         "Assim que o pagamento for aprovado, seu anúncio profissional poderá ser publicado por 30 dias.",
@@ -463,6 +460,7 @@ export async function handleJobsMenu({
       planoCodigo: "profissional_destaque_30d",
       referenciaTipo: "profissional_destaque",
       tituloPlano: "Destaque do meu serviço - 30 dias",
+      valorFinal: 19.9,
       metadataExtra: {
         modo: "destaque_trabalho",
       },
