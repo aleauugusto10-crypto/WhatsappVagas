@@ -5,6 +5,7 @@ import {
   sendMenuContratante,
   sendMenuEmpresa,
   sendActionButtons,
+  sendAreasPage,
 } from "./menus.js";
 import {
   getSubcategoriasByCategoria,
@@ -332,18 +333,9 @@ export async function handleOnboarding({
     });
 
     const areas = await getCategorias("geral");
+const areasFiltradas = areas.filter((a) => a.chave !== "profissional");
 
-    return sendList(phone, "Escolha sua área de interesse:", [
-      {
-        title: "Áreas",
-        rows: areas
-          .filter((a) => a.chave !== "profissional")
-          .map((a) => ({
-            id: `area_${a.chave}`,
-            title: a.nome,
-          })),
-      },
-    ]);
+return sendAreasPage(phone, areasFiltradas, 1);
   }
 
   // =====================
@@ -363,7 +355,18 @@ export async function handleOnboarding({
 
     return sendMenuEmpresa(phone);
   }
+// =====================
+// PAGINAÇÃO DE ÁREAS
+// =====================
 
+if (user.etapa === "area" && text.startsWith("areas_page_")) {
+  const page = Number(text.replace("areas_page_", "")) || 1;
+
+  const areas = await getCategorias("geral");
+  const areasFiltradas = areas.filter((a) => a.chave !== "profissional");
+
+  return sendAreasPage(phone, areasFiltradas, page);
+}
   // =====================
   // ÁREA
   // =====================
