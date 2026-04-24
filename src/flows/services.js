@@ -392,39 +392,58 @@ await sendText(
   }
 
   if (user.etapa === "contratar_categoria") {
-    if (!text.startsWith("contratar_cat_")) return false;
+  if (!text.startsWith("contratar_cat_")) return false;
 
-    const categoria = text.replace("contratar_cat_", "");
+  const categoria = text.replace("contratar_cat_", "");
 
-    await updateUser({
-      categoria_principal: categoria,
-      etapa: "contratar_subcat_1",
-      subcategorias_temp: [],
-    });
+  await updateUser({
+    categoria_principal: categoria,
+    etapa: "menu",
+    subcategorias_temp: [],
+  });
 
-    const firstList = await pedirListaDeSubcategorias({
-      supabase,
-      phone,
-      categoria,
-      etapa: "contratar_subcat_1",
-      usadas: [],
-      titulo: "Escolha a 1ª subcategoria que deseja buscar:",
-    });
+  let query = supabase
+    .from("servicos")
+    .select("*")
+    .eq("ativo", true)
+    .eq("categoria_chave", categoria)
+    .limit(5);
 
-    if (!firstList) {
-      await updateUser({ etapa: "menu" });
-      await sendText(
-        phone,
-        "Não encontrei subcategorias para essa categoria. Tente outra busca."
-      );
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    return firstList;
+  if (user.cidade) {
+    query = query.ilike("cidade", user.cidade);
   }
+
+  if (user.estado) {
+    query = query.eq("estado", user.estado);
+  }
+
+  const { data: servicos, error } = await query;
+
+  if (error) {
+    console.error("❌ erro ao buscar profissionais:", error);
+    await sendText(phone, "Erro ao buscar profissionais.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  if (!servicos?.length) {
+    await sendText(phone, "Nenhum profissional encontrado nessa categoria no momento.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  await sendText(phone, buildProfessionalsPreview(servicos, true));
+
+  return sendActionButtons(phone, "Deseja liberar a lista completa dessa busca?", [
+    { id: "prof_buy_single", title: "Pagar R$ 4,90" },
+    { id: "contratar_buscar_profissionais", title: "Nova busca" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 
   if (user.etapa === "contratar_subcat_1") {
     if (!text.startsWith("contratar_subcat_1_")) return false;
