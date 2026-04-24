@@ -13,7 +13,9 @@ import {
 } from "../lib/subcategories.js";
 
 function isValidEmail(value = "") {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim().toLowerCase());
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    String(value).trim().toLowerCase()
+  );
 }
 
 function cleanCPF(cpf = "") {
@@ -47,19 +49,56 @@ function isValidCPF(cpf = "") {
 }
 
 const areaGroupsMap = {
+  administrativo: ["administrativo"],
   construcao: ["construcao"],
+  logistica: ["logistica"],
   saude: ["saude"],
-  logistica: ["transporte"],
-  vendas: ["comercio"],
-  administrativo: ["administracao"],
-  servicos_gerais: ["limpeza", "cozinha"],
+  servicos_gerais: ["servicos_gerais"],
   tecnologia: ["tecnologia"],
-  outros: ["tarefas", "outros"],
+  vendas: ["vendas"],
+
+  atendimento: ["atendimento"],
+  comercial_vendas: ["comercial_vendas"],
+  marketing_comunicacao: ["marketing_comunicacao"],
+  design_criacao: ["design_criacao"],
+  financeiro_contabil: ["financeiro_contabil"],
+  juridico: ["juridico"],
+  recursos_humanos: ["recursos_humanos"],
+  educacao: ["educacao"],
+  beleza_estetica: ["beleza_estetica"],
+  alimentacao: ["alimentacao"],
+  eventos: ["eventos"],
+  limpeza_conservacao: ["limpeza_conservacao"],
+  manutencao_reparos: ["manutencao_reparos"],
+  eletrica_hidraulica: ["eletrica_hidraulica"],
+  transporte_logistica: ["transporte_logistica"],
+  entregas_motoboy: ["entregas_motoboy"],
+  motoristas: ["motoristas"],
+  seguranca: ["seguranca"],
+  industrial_producao: ["industrial_producao"],
+  agro_rural: ["agro_rural"],
+  comercio_varejo: ["comercio_varejo"],
+  hotelaria_turismo: ["hotelaria_turismo"],
+  pet_animais: ["pet_animais"],
+  cuidados_pessoais: ["cuidados_pessoais"],
+  cuidados_infantis: ["cuidados_infantis"],
+  cuidados_idosos: ["cuidados_idosos"],
+  domesticos: ["domesticos"],
+  fretes_mudancas: ["fretes_mudancas"],
+  jardinagem: ["jardinagem"],
+  servicos_digitais: ["servicos_digitais"],
+  audiovisual_fotografia: ["audiovisual_fotografia"],
+  moda_costura: ["moda_costura"],
+  artesanato_manual: ["artesanato_manual"],
+  esporte_lazer: ["esporte_lazer"],
+  imoveis: ["imoveis"],
+  automotivo: ["automotivo"],
 };
+
 const UF_SET = new Set([
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-  "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-  "RS","RO","RR","SC","SP","SE","TO",
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ]);
 
 const ESTADO_NOME_TO_UF = {
@@ -128,6 +167,22 @@ function normalizeEstadoInput(value = "") {
 
   return ESTADO_NOME_TO_UF[normalized] || null;
 }
+
+async function getAreasAtivas(supabase) {
+  const { data, error } = await supabase
+    .from("areas")
+    .select("chave,nome,ativo")
+    .eq("ativo", true)
+    .order("nome", { ascending: true });
+
+  if (error) {
+    console.log("❌ erro ao buscar áreas:", error.message);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
 function buildRaioList(phone) {
   return sendList(phone, "Até quantos km você aceita trabalhar?", [
     {
@@ -149,10 +204,6 @@ export async function handleOnboarding({
   getCategorias,
   getCategoriasPorGrupos,
 }) {
-  // =====================
-  // ESCOLHA DO TIPO
-  // =====================
-
   if (user.etapa === "tipo") {
     if (!["tipo_usuario", "tipo_contratante", "tipo_empresa"].includes(text)) {
       return false;
@@ -171,10 +222,6 @@ export async function handleOnboarding({
     return sendText(phone, "Qual seu nome e sobrenome?");
   }
 
-  // =====================
-  // NOME
-  // =====================
-
   if (user.etapa === "nome") {
     if (!text || text.length < 3) {
       return sendText(phone, "Digite seu nome e sobrenome:");
@@ -190,10 +237,6 @@ export async function handleOnboarding({
       "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana\n• Itabaiana - SE"
     );
   }
-
-  // =====================
-  // CIDADE
-  // =====================
 
   if (user.etapa === "cidade") {
     const { cidade, estado } = parseCidadeEstado(text);
@@ -225,60 +268,52 @@ export async function handleOnboarding({
     ]);
   }
 
-  // =====================
-  // ESTADO
-  // =====================
-
   if (user.etapa === "estado") {
-  if (["voltar", "voltar_menu"].includes(text)) {
+    if (["voltar", "voltar_menu"].includes(text)) {
+      await updateUser({
+        etapa: "cidade",
+        estado: null,
+      });
+
+      return sendText(
+        phone,
+        "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana\n• Itabaiana - SE"
+      );
+    }
+
+    if (["menu", "inicio", "início"].includes(text)) {
+      await updateUser({
+        etapa: "tipo",
+        onboarding_finalizado: false,
+        cidade: null,
+        estado: null,
+      });
+
+      return sendText(phone, "Escolha como deseja continuar pelo menu inicial.");
+    }
+
+    let estado = null;
+
+    if (text.startsWith("estado_")) {
+      estado = text.replace("estado_", "").toUpperCase();
+    } else {
+      estado = normalizeEstadoInput(text);
+    }
+
+    if (!estado) {
+      return sendText(
+        phone,
+        "Escolha o estado pela lista ou digite a sigla.\nEx: SE"
+      );
+    }
+
     await updateUser({
-      etapa: "cidade",
-      estado: null,
+      estado,
+      etapa: "email",
     });
 
-    return sendText(
-      phone,
-      "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana\n• Itabaiana - SE"
-    );
+    return sendText(phone, "Qual seu e-mail?");
   }
-
-  if (["menu", "inicio", "início"].includes(text)) {
-    await updateUser({
-      etapa: "tipo",
-      onboarding_finalizado: false,
-      cidade: null,
-      estado: null,
-    });
-
-    return sendText(phone, "Escolha como deseja continuar pelo menu inicial.");
-  }
-
-  let estado = null;
-
-  if (text.startsWith("estado_")) {
-    estado = text.replace("estado_", "").toUpperCase();
-  } else {
-    estado = normalizeEstadoInput(text);
-  }
-
-  if (!estado) {
-    return sendText(
-      phone,
-      "Escolha o estado pela lista ou digite a sigla.\nEx: SE"
-    );
-  }
-
-  await updateUser({
-    estado,
-    etapa: "email",
-  });
-
-  return sendText(phone, "Qual seu e-mail?");
-}
-
-  // =====================
-  // EMAIL
-  // =====================
 
   if (user.etapa === "email") {
     if (!isValidEmail(text)) {
@@ -292,10 +327,6 @@ export async function handleOnboarding({
 
     return sendText(phone, "Digite seu CPF (apenas números):");
   }
-
-  // =====================
-  // CPF
-  // =====================
 
   if (user.etapa === "cpf") {
     const cpfLimpo = cleanCPF(text);
@@ -332,15 +363,17 @@ export async function handleOnboarding({
       etapa: "area",
     });
 
-    const areas = await getCategorias("geral");
-const areasFiltradas = areas.filter((a) => a.chave !== "profissional");
+    const areas = await getAreasAtivas(supabase);
 
-return sendAreasPage(phone, areasFiltradas, 1);
+    if (!areas.length) {
+      return sendText(
+        phone,
+        "Não encontrei áreas cadastradas no momento. Tente novamente mais tarde."
+      );
+    }
+
+    return sendAreasPage(phone, areas, 1);
   }
-
-  // =====================
-  // NOME DA EMPRESA
-  // =====================
 
   if (user.etapa === "nome_empresa") {
     if (!text || text.length < 2) {
@@ -355,21 +388,21 @@ return sendAreasPage(phone, areasFiltradas, 1);
 
     return sendMenuEmpresa(phone);
   }
-// =====================
-// PAGINAÇÃO DE ÁREAS
-// =====================
 
-if (user.etapa === "area" && text.startsWith("areas_page_")) {
-  const page = Number(text.replace("areas_page_", "")) || 1;
+  if (user.etapa === "area" && text.startsWith("areas_page_")) {
+    const page = Number(text.replace("areas_page_", "")) || 1;
 
-  const areas = await getCategorias("geral");
-  const areasFiltradas = areas.filter((a) => a.chave !== "profissional");
+    const areas = await getAreasAtivas(supabase);
 
-  return sendAreasPage(phone, areasFiltradas, page);
-}
-  // =====================
-  // ÁREA
-  // =====================
+    if (!areas.length) {
+      return sendText(
+        phone,
+        "Não encontrei áreas cadastradas no momento. Tente novamente mais tarde."
+      );
+    }
+
+    return sendAreasPage(phone, areas, page);
+  }
 
   if (user.etapa === "area") {
     if (!text.startsWith("area_")) return false;
@@ -390,6 +423,7 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
 
     if (!categorias.length) {
       await updateUser({ etapa: "area" });
+
       return sendText(
         phone,
         "Ainda não encontrei categorias para essa área. Escolha outra área ou envie 'menu' para recomeçar."
@@ -407,10 +441,6 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
     ]);
   }
 
-  // =====================
-  // CATEGORIA
-  // =====================
-
   if (user.etapa === "categoria") {
     if (!text.startsWith("cat_")) return false;
 
@@ -422,7 +452,10 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
       subcategorias_temp: [],
     });
 
-    const subcategorias = await getSubcategoriasByCategoria(supabase, categoria);
+    const subcategorias = await getSubcategoriasByCategoria(
+      supabase,
+      categoria
+    );
 
     if (!subcategorias.length) {
       await updateUser({ etapa: "raio" });
@@ -440,10 +473,6 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
     ]);
   }
 
-  // =====================
-  // SUBCATEGORIA 1
-  // =====================
-
   if (user.etapa === "subcategoria_1") {
     if (!text.startsWith("subcat_")) return false;
 
@@ -460,10 +489,6 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
       { id: "subcat_finish", title: "Concluir" },
     ]);
   }
-
-  // =====================
-  // CONFIRMAR SUBCATEGORIA 2
-  // =====================
 
   if (user.etapa === "subcategoria_2_confirm") {
     if (text === "subcat_finish") {
@@ -521,10 +546,6 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
     ]);
   }
 
-  // =====================
-  // SUBCATEGORIA 2
-  // =====================
-
   if (user.etapa === "subcategoria_2") {
     if (!text.startsWith("subcat_")) return false;
 
@@ -543,10 +564,6 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
       { id: "subcat_finish", title: "Concluir" },
     ]);
   }
-
-  // =====================
-  // CONFIRMAR SUBCATEGORIA 3
-  // =====================
 
   if (user.etapa === "subcategoria_3_confirm") {
     if (text === "subcat_finish") {
@@ -604,10 +621,6 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
     ]);
   }
 
-  // =====================
-  // SUBCATEGORIA 3
-  // =====================
-
   if (user.etapa === "subcategoria_3") {
     if (!text.startsWith("subcat_")) return false;
 
@@ -635,14 +648,11 @@ if (user.etapa === "area" && text.startsWith("areas_page_")) {
     return buildRaioList(phone);
   }
 
-  // =====================
-  // RAIO
-  // =====================
-
   if (user.etapa === "raio") {
     if (!text.startsWith("raio_")) return false;
 
     const raio = Number(text.replace("raio_", ""));
+
     if (!raio) {
       return sendText(phone, "Escolha o raio pela lista.");
     }
