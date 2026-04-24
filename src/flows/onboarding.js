@@ -401,7 +401,15 @@ export async function handleOnboarding({
       );
     }
 
-    return sendAreasPage(phone, areas, 1);
+    return sendList(phone, "Escolha sua área de interesse:", [
+  {
+    title: "Áreas",
+    rows: areas.slice(0, 10).map((a) => ({
+      id: `area_${a.chave}`,
+      title: a.nome,
+    })),
+  },
+]);
   }
 
   if (user.etapa === "nome_empresa") {
@@ -418,7 +426,7 @@ export async function handleOnboarding({
     return sendMenuEmpresa(phone);
   }
 
-  if (user.etapa === "area" && text.startsWith("areas_page_")) {
+ {/*} if (user.etapa === "area" && text.startsWith("areas_page_")) {
     const page = Number(text.replace("areas_page_", "")) || 1;
 
     const areas = await getAreasAtivas(supabase);
@@ -431,7 +439,7 @@ export async function handleOnboarding({
     }
 
     return sendAreasPage(phone, areas, page);
-  }
+  }*/}
 
   if (user.etapa === "area") {
     if (!text.startsWith("area_")) return false;
