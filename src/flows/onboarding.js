@@ -48,7 +48,10 @@ function isValidCPF(cpf = "") {
   return secondDigit === Number(cpf[10]);
 }
 
-
+function shortTitle(value = "") {
+  const text = String(value || "").trim();
+  return text.length > 24 ? `${text.slice(0, 21)}...` : text;
+}
 const UF_SET = new Set([
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
   "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
@@ -358,9 +361,9 @@ export async function handleOnboarding({
   {
     title: "Áreas",
     rows: areas.slice(0, 10).map((a) => ({
-      id: `area_${a.chave}`,
-      title: a.nome,
-    })),
+  id: `area_${a.chave}`,
+  title: shortTitle(a.nome),
+})),
   },
 ]);
   }
@@ -417,7 +420,7 @@ if (user.etapa === "area") {
       title: "Categorias",
       rows: categorias.slice(0, 10).map((c) => ({
         id: `cat_${c.chave}`,
-        title: c.nome,
+        title: shortTitle(c.nome),
       })),
     },
   ]);
