@@ -404,7 +404,7 @@ export async function handleOnboarding({
     return sendList(phone, "Escolha sua área de interesse:", [
   {
     title: "Áreas",
-    rows: areas.slice(0, 10).map((a) => ({
+    rows: areas.slice(0, 40).map((a) => ({
       id: `area_${a.chave}`,
       title: a.nome,
     })),
