@@ -425,15 +425,25 @@ if (user.etapa === "area") {
     );
   }
 
-  return sendList(phone, "Escolha a categoria que mais combina com você:", [
-    {
-      title: "Categorias",
-      rows: categorias.slice(0, 10).map((c) => ({
-        id: `cat_${c.chave}`,
-        title: shortTitle(c.nome),
-      })),
-    },
-  ]);
+  const previewCategorias = categorias
+  .slice(0, 10)
+  .map((c, index) => `${index + 1}. ${c.nome}`)
+  .join("\n");
+
+await sendText(
+  phone,
+  `Escolha a categoria que mais combina com você:\n\n${previewCategorias}\n\n👇 Toque em "Ver opções" para selecionar.`
+);
+
+return sendList(phone, "Selecione uma categoria:", [
+  {
+    title: "Categorias",
+    rows: categorias.slice(0, 10).map((c) => ({
+      id: `cat_${c.chave}`,
+      title: shortTitle(c.nome),
+    })),
+  },
+]);
 }
 
   if (user.etapa === "categoria") {

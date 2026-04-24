@@ -7,16 +7,53 @@ import {
 import { createMercadoPagoPixIntent } from "../services/payments.js";
 import { getSubcategoriasByCategoria } from "../lib/subcategories.js";
 
-const areaGroupsMap = {
-  construcao: ["construcao"],
-  saude: ["saude"],
-  logistica: ["transporte"],
-  vendas: ["comercio"],
-  administrativo: ["administracao"],
-  servicos_gerais: ["limpeza", "cozinha"],
-  tecnologia: ["tecnologia"],
-  outros: ["tarefas", "outros"],
-};
+
+
+function shortTitle(value = "") {
+  const text = String(value || "").trim();
+  return text.length > 24 ? `${text.slice(0, 21)}...` : text;
+}
+
+function buildPreviewList(items = []) {
+  return items
+    .slice(0, 10)
+    .map((item, index) => `${index + 1}. ${item.nome}`)
+    .join("\n");
+}
+
+async function getAreasAtivas(supabase) {
+  const { data, error } = await supabase
+    .from("areas")
+    .select("chave,nome,ativo,ordem")
+    .eq("ativo", true)
+    .order("ordem", { ascending: true })
+    .order("nome", { ascending: true });
+
+  if (error) {
+    console.log("❌ erro ao buscar áreas:", error.message);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+async function getCategoriasPorArea(supabase, areaChave) {
+  const { data, error } = await supabase
+    .from("categorias")
+    .select("chave,nome,ativo,area_chave,ordem")
+    .eq("ativo", true)
+    .eq("area_chave", areaChave)
+    .order("ordem", { ascending: true })
+    .order("nome", { ascending: true });
+
+  if (error) {
+    console.log("❌ erro ao buscar categorias por área:", error.message);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
 
 function buildPixResumo(intent, plano) {
   const checkoutUrl = intent?.checkout_url || null;
@@ -294,34 +331,36 @@ export async function handleServicesMenu({
   // =====================
 
   if (text === "contratar_buscar_profissionais") {
-    const areas = await getCategorias("geral");
+  const areas = await getAreasAtivas(supabase);
 
-    await updateUser({
-      etapa: "contratar_area",
-      subcategorias_temp: [],
-      categoria_principal: null,
-      area_principal: null,
-    });
+  await updateUser({
+    etapa: "contratar_area",
+    subcategorias_temp: [],
+    categoria_principal: null,
+    area_principal: null,
+  });
 
-    return sendList(phone, "🧑‍🔧 Em qual área você quer buscar profissionais?", [
-      {
-        title: "Áreas",
-        rows: areas
-          .filter((a) => a.chave !== "profissional")
-          .map((a) => ({
-            id: `contratar_area_${a.chave}`,
-            title: a.nome,
-          })),
-      },
-    ]);
-  }
+  await sendText(
+    phone,
+    `Em qual área você quer buscar profissionais?\n\n${buildPreviewList(areas)}\n\n👇 Toque em "Ver opções" para selecionar.`
+  );
+
+  return sendList(phone, "Selecione uma área:", [
+    {
+      title: "Áreas",
+      rows: areas.slice(0, 10).map((a) => ({
+        id: `contratar_area_${a.chave}`,
+        title: shortTitle(a.nome),
+      })),
+    },
+  ]);
+}
 
   if (user.etapa === "contratar_area") {
     if (!text.startsWith("contratar_area_")) return false;
 
     const area = text.replace("contratar_area_", "");
-    const grupos = areaGroupsMap[area] || [area];
-    const categorias = await getCategoriasPorGrupos("servico", grupos);
+    const categorias = await getCategoriasPorArea(supabase, area);
 
     await updateUser({
       area_principal: area,
@@ -337,13 +376,16 @@ export async function handleServicesMenu({
         { id: "voltar_menu", title: "Voltar ao menu" },
       ]);
     }
-
+await sendText(
+  phone,
+  `Escolha a categoria do profissional:\n\n${buildPreviewList(categorias)}\n\n👇 Toque em "Ver opções" para selecionar.`
+);
     return sendList(phone, "Escolha a categoria do profissional:", [
       {
         title: "Categorias",
         rows: categorias.slice(0, 10).map((c) => ({
           id: `contratar_cat_${c.chave}`,
-          title: c.nome,
+          title: shortTitle(c.nome),
         })),
       },
     ]);

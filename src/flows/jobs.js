@@ -7,6 +7,20 @@ import {
 } from "../lib/monetization.js";
 import { createMercadoPagoPixIntent } from "../services/payments.js";
 
+
+
+
+function shortTitle(value = "") {
+  const text = String(value || "").trim();
+  return text.length > 24 ? `${text.slice(0, 21)}...` : text;
+}
+
+function buildPreviewList(items = []) {
+  return items
+    .slice(0, 10)
+    .map((item, index) => `${index + 1}. ${item.nome}`)
+    .join("\n");
+}
 async function buscarVagasParaUsuario(supabase, user, limit = 30) {
   let categoriaId = user?.categoria_id || null;
 
@@ -443,14 +457,13 @@ async function mostrarPacotesVagas(phone) {
     {
       title: "Vagas",
       rows: [
-        { id: "jobs_buy_single", title: "Vagas avulso R$ 4,90" },
-        { id: "jobs_buy_week_base", title: "Vagas semanal R$ 9,90" },
-        { id: "jobs_buy_week_plus2", title: "Semanal +2 cat. R$ 13,80" },
-        { id: "jobs_buy_week_all", title: "Semanal total R$ 17,80" },
-        { id: "jobs_buy_month_base", title: "Vagas mensal R$ 19,90" },
-        { id: "jobs_buy_month_plus2", title: "Mensal +2 cat. R$ 23,80" },
-        { id: "jobs_buy_month_all", title: "Mensal total R$ 27,80" },
-      ],
+  { id: "jobs_buy_week_base", title: "Semanal R$ 9,90" },
+  { id: "jobs_buy_week_plus2", title: "Semanal +2 R$ 13,80" },
+  { id: "jobs_buy_week_all", title: "Semanal total R$17,80" },
+  { id: "jobs_buy_month_base", title: "Mensal R$ 19,90" },
+  { id: "jobs_buy_month_plus2", title: "Mensal +2 R$ 23,80" },
+  { id: "jobs_buy_month_all", title: "Mensal total R$27,80" },
+],
     },
   ]);
 }
@@ -471,10 +484,10 @@ async function mostrarPacotesCombinados(phone) {
   return sendList(phone, "🚀 *Planos combinados*", [
     {
       title: "Combos",
-      rows: [
-        { id: "jobs_missions_buy_month", title: "Vagas + Missões R$ 29,90" },
-        { id: "jobs_total_buy_month", title: "Completo mensal R$ 39,90" },
-      ],
+   rows: [
+  { id: "jobs_missions_buy_month", title: "Vagas+Missões R$29,90" },
+  { id: "jobs_total_buy_month", title: "Completo R$39,90" },
+],
     },
   ]);
 }
@@ -713,10 +726,13 @@ await updateUser({
   categorias_extras_temp: [cat1],
 });
   const { data: categorias, error } = await supabase
-    .from("categorias")
-    .select("id, nome, chave")
-    .eq("ativo", true)
-    .order("nome");
+   .from("categorias")
+.select("id, nome, chave, area_chave, ordem")
+.eq("ativo", true)
+.not("area_chave", "is", null)
+.order("area_chave", { ascending: true })
+.order("ordem", { ascending: true })
+.order("nome", { ascending: true })
 
   if (error) {
     console.error("❌ erro ao buscar 2ª categoria extra semanal:", error);
@@ -726,17 +742,21 @@ await updateUser({
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+const categoriasFiltradas = (categorias || []).filter(
+  (c) => c.chave !== user.categoria_principal && c.chave !== cat1
+);
 
+await sendText(
+  phone,
+  `Escolha a 2ª categoria extra:\n\n${buildPreviewList(categoriasFiltradas)}\n\n👇 Toque em "Ver opções" para selecionar.`
+);
   return sendList(phone, "Escolha a 2ª categoria extra:", [
   {
     title: "Categorias",
-    rows: (categorias || [])
-      .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
-      .slice(0, 10)
-      .map((c) => ({
-        id: `extra_cat2_${c.id}`,
-        title: c.nome,
-      })),
+  rows: categoriasFiltradas.slice(0, 10).map((c) => ({
+  id: `extra_cat2_${c.id}`,
+  title: shortTitle(c.nome),
+})),
   },
 ]);
 }
@@ -1113,10 +1133,13 @@ if (text === "confirm_jobs_buy_week_plus2") {
   });
 
   const { data: categorias, error } = await supabase
-    .from("categorias")
-    .select("id, nome, chave")
-    .eq("ativo", true)
-    .order("nome");
+   .from("categorias")
+.select("id, nome, chave, area_chave, ordem")
+.eq("ativo", true)
+.not("area_chave", "is", null)
+.order("area_chave", { ascending: true })
+.order("ordem", { ascending: true })
+.order("nome", { ascending: true })
 
   if (error) {
     console.error("❌ erro ao buscar categorias extras semanais:", error);
@@ -1126,19 +1149,23 @@ if (text === "confirm_jobs_buy_week_plus2") {
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+const categoriasFiltradas = (categorias || []).filter(
+  (c) => c.chave !== user.categoria_principal
+);
 
-  return sendList(phone, "Escolha a 1ª categoria extra:", [
-    {
-      title: "Categorias",
-      rows: (categorias || [])
-        .filter((c) => c.chave !== user.categoria_principal)
-        .slice(0, 10)
-        .map((c) => ({
-          id: `extra_cat1_${c.id}`,
-          title: c.nome,
-        })),
-    },
-  ]);
+await sendText(
+  phone,
+  `Escolha a 1ª categoria extra:\n\n${buildPreviewList(categoriasFiltradas)}\n\n👇 Toque em "Ver opções" para selecionar.`
+);
+return sendList(phone, "Selecione uma categoria:", [
+  {
+    title: "Categorias",
+    rows: categoriasFiltradas.slice(0, 10).map((c) => ({
+      id: `extra_cat1_${c.id}`,
+      title: shortTitle(c.nome),
+    })),
+  },
+]);
 }
 
 if (text === "confirm_jobs_buy_week_all") {
@@ -1184,10 +1211,13 @@ if (text === "confirm_jobs_buy_month_plus2") {
   });
 
   const { data: categorias, error } = await supabase
-    .from("categorias")
-    .select("id, nome, chave")
-    .eq("ativo", true)
-    .order("nome");
+   .from("categorias")
+.select("id, nome, chave, area_chave, ordem")
+.eq("ativo", true)
+.not("area_chave", "is", null)
+.order("area_chave", { ascending: true })
+.order("ordem", { ascending: true })
+.order("nome", { ascending: true })
 
   if (error) {
     console.error("❌ erro ao buscar categorias extras mensais:", error);
@@ -1197,8 +1227,13 @@ if (text === "confirm_jobs_buy_month_plus2") {
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
-
-  return sendList(phone, "Escolha a 1ª categoria extra:", [
+await sendText(
+  phone,
+  `Escolha a 1ª categoria extra:\n\n${buildPreviewList(
+    (categorias || []).filter((c) => c.chave !== user.categoria_principal)
+  )}\n\n👇 Toque em "Ver opções" para selecionar.`
+);
+  return sendList(phone, "Selecione uma categoria:", [
     {
       title: "Categorias",
       rows: (categorias || [])
@@ -1206,7 +1241,7 @@ if (text === "confirm_jobs_buy_month_plus2") {
         .slice(0, 10)
         .map((c) => ({
           id: `month_extra_cat1_${c.id}`,
-          title: c.nome,
+          title: shortTitle(c.nome),
         })),
     },
   ]);
@@ -1257,10 +1292,13 @@ await updateUser({
 });
 
   const { data: categorias, error } = await supabase
-    .from("categorias")
-    .select("id, nome, chave")
-    .eq("ativo", true)
-    .order("nome");
+   .from("categorias")
+.select("id, nome, chave, area_chave, ordem")
+.eq("ativo", true)
+.not("area_chave", "is", null)
+.order("area_chave", { ascending: true })
+.order("ordem", { ascending: true })
+.order("nome", { ascending: true })
 
   if (error) {
     console.error("❌ erro ao buscar 2ª categoria extra mensal:", error);
@@ -1271,16 +1309,22 @@ await updateUser({
     ]);
   }
 
-  return sendList(phone, "Escolha a 2ª categoria extra:", [
+  const categoriasFiltradas = (categorias || []).filter(
+  (c) => c.chave !== user.categoria_principal && c.chave !== cat1
+);
+
+await sendText(
+  phone,
+  `Escolha a 2ª categoria extra:\n\n${buildPreviewList(categoriasFiltradas)}\n\n👇 Toque em "Ver opções" para selecionar.`
+);
+
+return sendList(phone, "Selecione uma categoria:", [
   {
     title: "Categorias",
-    rows: (categorias || [])
-      .filter((c) => c.chave !== user.categoria_principal && c.chave !== cat1)
-      .slice(0, 10)
-      .map((c) => ({
-        id: `month_extra_cat2_${c.id}`,
-        title: c.nome,
-      })),
+    rows: categoriasFiltradas.slice(0, 10).map((c) => ({
+      id: `month_extra_cat2_${c.id}`,
+      title: shortTitle(c.nome),
+    })),
   },
 ]);
 }
