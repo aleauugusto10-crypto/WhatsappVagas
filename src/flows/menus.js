@@ -71,7 +71,45 @@ export function sendMenuEmpresa(phone) {
     },
   ]);
 }
+export function sendAreasPage(phone, areas = [], page = 1) {
+  const PAGE_SIZE = 9;
 
+  const safeAreas = Array.isArray(areas)
+    ? areas.filter((a) => a?.chave && a?.nome)
+    : [];
+
+  const totalPages = Math.max(1, Math.ceil(safeAreas.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(Number(page) || 1, 1), totalPages);
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = safeAreas.slice(start, start + PAGE_SIZE);
+
+  const rows = pageItems.map((area) => ({
+    id: `area_${area.chave}`,
+    title: String(area.nome).slice(0, 24),
+  }));
+
+  if (currentPage < totalPages) {
+    rows.push({
+      id: `areas_page_${currentPage + 1}`,
+      title: "➡️ Próxima página",
+    });
+  }
+
+  if (currentPage > 1) {
+    rows.push({
+      id: `areas_page_${currentPage - 1}`,
+      title: "⬅️ Página anterior",
+    });
+  }
+
+  return sendList(phone, `Escolha sua área de interesse (${currentPage}/${totalPages}):`, [
+    {
+      title: `Áreas ${currentPage}/${totalPages}`,
+      rows,
+    },
+  ]);
+}
 export function sendActionButtons(phone, body, buttons) {
   return sendButtons(phone, body, buttons.slice(0, 3));
 }
