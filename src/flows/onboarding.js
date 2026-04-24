@@ -357,13 +357,23 @@ export async function handleOnboarding({
       );
     }
 
-    return sendList(phone, "Escolha sua área de interesse:", [
+   const previewAreas = areas
+  .slice(0, 10)
+  .map((a, index) => `${index + 1}. ${a.nome}`)
+  .join("\n");
+
+await sendText(
+  phone,
+  `Escolha sua área de interesse:\n\n${previewAreas}\n\n👇 Toque em "Ver opções" para selecionar.`
+);
+
+return sendList(phone, "Selecione uma área:", [
   {
     title: "Áreas",
     rows: areas.slice(0, 10).map((a) => ({
-  id: `area_${a.chave}`,
-  title: shortTitle(a.nome),
-})),
+      id: `area_${a.chave}`,
+      title: shortTitle(a.nome),
+    })),
   },
 ]);
   }
