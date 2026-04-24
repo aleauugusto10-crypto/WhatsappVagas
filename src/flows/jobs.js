@@ -729,8 +729,7 @@ await updateUser({
    .from("categorias")
 .select("id, nome, chave, area_chave, ordem")
 .eq("ativo", true)
-.not("area_chave", "is", null)
-.order("area_chave", { ascending: true })
+.eq("area_chave", user.area_principal)
 .order("ordem", { ascending: true })
 .order("nome", { ascending: true })
 
@@ -1136,8 +1135,7 @@ if (text === "confirm_jobs_buy_week_plus2") {
    .from("categorias")
 .select("id, nome, chave, area_chave, ordem")
 .eq("ativo", true)
-.not("area_chave", "is", null)
-.order("area_chave", { ascending: true })
+.eq("area_chave", user.area_principal)
 .order("ordem", { ascending: true })
 .order("nome", { ascending: true })
 
@@ -1214,8 +1212,7 @@ if (text === "confirm_jobs_buy_month_plus2") {
    .from("categorias")
 .select("id, nome, chave, area_chave, ordem")
 .eq("ativo", true)
-.not("area_chave", "is", null)
-.order("area_chave", { ascending: true })
+.eq("area_chave", user.area_principal)
 .order("ordem", { ascending: true })
 .order("nome", { ascending: true })
 
@@ -1295,8 +1292,7 @@ await updateUser({
    .from("categorias")
 .select("id, nome, chave, area_chave, ordem")
 .eq("ativo", true)
-.not("area_chave", "is", null)
-.order("area_chave", { ascending: true })
+.eq("area_chave", user.area_principal)
 .order("ordem", { ascending: true })
 .order("nome", { ascending: true })
 
