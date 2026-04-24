@@ -169,20 +169,49 @@ function normalizeEstadoInput(value = "") {
 }
 
 async function getAreasAtivas(supabase) {
+  // 1) Busca correta na tabela public.areas
   const { data, error } = await supabase
+    .schema("public")
     .from("areas")
     .select("chave,nome,ativo")
     .eq("ativo", true)
     .order("nome", { ascending: true });
 
-  if (error) {
-    console.log("❌ erro ao buscar áreas:", error.message);
-    return [];
+  console.log("🧪 BUSCA public.areas:", { data, error });
+
+  if (!error && Array.isArray(data) && data.length > 0) {
+    return data;
   }
 
-  return Array.isArray(data) ? data : [];
-}
+  // 2) Plano B: caso o ambiente não aceite schema("public")
+  const fallback = await supabase
+    .from("areas")
+    .select("chave,nome,ativo")
+    .eq("ativo", true)
+    .order("nome", { ascending: true });
 
+  console.log("🧪 BUSCA areas fallback:", fallback);
+
+  if (!fallback.error && Array.isArray(fallback.data) && fallback.data.length > 0) {
+    return fallback.data;
+  }
+
+  // 3) Plano C: se por algum motivo áreas estiverem em categorias/geral
+  const geral = await supabase
+    .from("categorias")
+    .select("chave,nome,ativo")
+    .eq("contexto", "geral")
+    .eq("ativo", true)
+    .order("nome", { ascending: true });
+
+  console.log("🧪 BUSCA categorias geral:", geral);
+
+  if (!geral.error && Array.isArray(geral.data)) {
+    return geral.data.filter((a) => a.chave !== "profissional");
+  }
+
+  return [];
+}
 function buildRaioList(phone) {
   return sendList(phone, "Até quantos km você aceita trabalhar?", [
     {
