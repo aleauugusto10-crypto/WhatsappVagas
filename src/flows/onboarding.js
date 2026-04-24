@@ -48,52 +48,6 @@ function isValidCPF(cpf = "") {
   return secondDigit === Number(cpf[10]);
 }
 
-const areaGroupsMap = {
-  administrativo: ["administrativo"],
-  construcao: ["construcao"],
-  logistica: ["logistica"],
-  saude: ["saude"],
-  servicos_gerais: ["servicos_gerais"],
-  tecnologia: ["tecnologia"],
-  vendas: ["vendas"],
-
-  atendimento: ["atendimento"],
-  comercial_vendas: ["comercial_vendas"],
-  marketing_comunicacao: ["marketing_comunicacao"],
-  design_criacao: ["design_criacao"],
-  financeiro_contabil: ["financeiro_contabil"],
-  juridico: ["juridico"],
-  recursos_humanos: ["recursos_humanos"],
-  educacao: ["educacao"],
-  beleza_estetica: ["beleza_estetica"],
-  alimentacao: ["alimentacao"],
-  eventos: ["eventos"],
-  limpeza_conservacao: ["limpeza_conservacao"],
-  manutencao_reparos: ["manutencao_reparos"],
-  eletrica_hidraulica: ["eletrica_hidraulica"],
-  transporte_logistica: ["transporte_logistica"],
-  entregas_motoboy: ["entregas_motoboy"],
-  motoristas: ["motoristas"],
-  seguranca: ["seguranca"],
-  industrial_producao: ["industrial_producao"],
-  agro_rural: ["agro_rural"],
-  comercio_varejo: ["comercio_varejo"],
-  hotelaria_turismo: ["hotelaria_turismo"],
-  pet_animais: ["pet_animais"],
-  cuidados_pessoais: ["cuidados_pessoais"],
-  cuidados_infantis: ["cuidados_infantis"],
-  cuidados_idosos: ["cuidados_idosos"],
-  domesticos: ["domesticos"],
-  fretes_mudancas: ["fretes_mudancas"],
-  jardinagem: ["jardinagem"],
-  servicos_digitais: ["servicos_digitais"],
-  audiovisual_fotografia: ["audiovisual_fotografia"],
-  moda_costura: ["moda_costura"],
-  artesanato_manual: ["artesanato_manual"],
-  esporte_lazer: ["esporte_lazer"],
-  imoveis: ["imoveis"],
-  automotivo: ["automotivo"],
-};
 
 const UF_SET = new Set([
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
@@ -230,8 +184,7 @@ export async function handleOnboarding({
   phone,
   supabase,
   updateUser,
-  getCategorias,
-  getCategoriasPorGrupos,
+
 }) {
   if (user.etapa === "tipo") {
     if (!["tipo_usuario", "tipo_contratante", "tipo_empresa"].includes(text)) {
@@ -426,57 +379,49 @@ export async function handleOnboarding({
     return sendMenuEmpresa(phone);
   }
 
- {/*} if (user.etapa === "area" && text.startsWith("areas_page_")) {
-    const page = Number(text.replace("areas_page_", "")) || 1;
+if (user.etapa === "area") {
+  if (!text.startsWith("area_")) return false;
 
-    const areas = await getAreasAtivas(supabase);
+  const area = text.replace("area_", "");
 
-    if (!areas.length) {
-      return sendText(
-        phone,
-        "Não encontrei áreas cadastradas no momento. Tente novamente mais tarde."
-      );
-    }
+  await updateUser({
+    area_principal: area,
+    etapa: "categoria",
+  });
 
-    return sendAreasPage(phone, areas, page);
-  }*/}
+  const { data, error } = await supabase
+    .from("categorias")
+    .select("chave,nome,ativo,area_chave,ordem")
+    .eq("ativo", true)
+    .eq("area_chave", area)
+    .order("ordem", { ascending: true })
+    .order("nome", { ascending: true });
 
-  if (user.etapa === "area") {
-    if (!text.startsWith("area_")) return false;
-
-    const area = text.replace("area_", "");
-    const grupos = areaGroupsMap[area] || [area];
-
-    await updateUser({
-      area_principal: area,
-      etapa: "categoria",
-    });
-
-    let categorias = await getCategoriasPorGrupos("vaga", grupos);
-
-    if (!categorias.length) {
-      categorias = await getCategoriasPorGrupos("servico", grupos);
-    }
-
-    if (!categorias.length) {
-      await updateUser({ etapa: "area" });
-
-      return sendText(
-        phone,
-        "Ainda não encontrei categorias para essa área. Escolha outra área ou envie 'menu' para recomeçar."
-      );
-    }
-
-    return sendList(phone, "Escolha a categoria que mais combina com você:", [
-      {
-        title: "Categorias",
-        rows: categorias.slice(0, 10).map((c) => ({
-          id: `cat_${c.chave}`,
-          title: c.nome,
-        })),
-      },
-    ]);
+  if (error) {
+    console.log("❌ erro ao buscar categorias da área:", error.message);
   }
+
+  const categorias = Array.isArray(data) ? data : [];
+
+  if (!categorias.length) {
+    await updateUser({ etapa: "area" });
+
+    return sendText(
+      phone,
+      "Ainda não encontrei categorias para essa área. Escolha outra área ou envie 'menu' para recomeçar."
+    );
+  }
+
+  return sendList(phone, "Escolha a categoria que mais combina com você:", [
+    {
+      title: "Categorias",
+      rows: categorias.slice(0, 10).map((c) => ({
+        id: `cat_${c.chave}`,
+        title: c.nome,
+      })),
+    },
+  ]);
+}
 
   if (user.etapa === "categoria") {
     if (!text.startsWith("cat_")) return false;
