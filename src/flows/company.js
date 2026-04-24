@@ -514,17 +514,18 @@ await sendText(
   phone,
   `Escolha a área da vaga:\n\n${previewAreas}\n\n👇 Toque em "Ver opções" para selecionar.`
 );
-    return sendList(phone, "🏢 Escolha a área da vaga:", [
-      {
-        title: "Áreas",
-        rows: areas
-          .filter((a) => a.chave !== "profissional")
-          .map((a) => ({
-            id: `vaga_area_${a.chave}`,
-            title: a.nome,
-          })),
-      },
-    ]);
+    return sendList(phone, "Selecione uma área:", [
+  {
+    title: "Áreas",
+    rows: areas
+      .filter((a) => a.chave !== "profissional")
+      .slice(0, 10)
+      .map((a) => ({
+        id: `vaga_area_${a.chave}`,
+        title: shortTitle(a.nome),
+      })),
+  },
+]);
   }
 
   if (user.etapa === "empresa_vaga_area") {
@@ -533,7 +534,10 @@ await sendText(
     const area = text.replace("vaga_area_", "");
     const categorias = await getCategoriasPorArea(supabase, area);
 
-    await updateUser({ etapa: "empresa_vaga_categoria" });
+    await updateUser({
+  area_principal: area,
+  etapa: "empresa_vaga_categoria",
+});
 
     if (!categorias.length) {
       await updateUser({ etapa: "empresa_vaga_area" });
@@ -549,7 +553,7 @@ await sendText(
   phone,
   `Escolha a função da vaga:\n\n${previewCategorias}\n\n👇 Toque em "Ver opções" para selecionar.`
 );
-    return sendList(phone, "💼 Escolha a função da vaga:", [
+    return sendList(phone, "Selecione uma função:", [
       {
         title: "Funções",
         rows: categorias.slice(0, 10).map((c) => ({
