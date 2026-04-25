@@ -4,7 +4,7 @@ import {
   calcMissaoTaxa,
   calcMissaoTotal,
   createPendingPayment,
-  hasPaidAccessForMissions,
+  
 } from "../lib/monetization.js";
 import { createMercadoPagoPixIntent } from "../services/payments.js";
 
@@ -502,23 +502,12 @@ if (text === "jobs_total_buy_month") {
     ]);
   }
 
-  if (paidAccess) {
-    await sendText(
-      phone,
-      `✅ *Seu acesso a missões está liberado.*\n\n` +
-        `Encontramos *${missoes.length}* missão(ões) para você.`
-    );
+  await sendText(
+  phone,
+  `✅ Encontramos *${missoes.length}* missão(ões) disponíveis para você.`
+);
 
-    return sendMissoesUnlockedList(phone, missoes);
-  }
-
-  await sendText(phone, buildMissoesPreviewLocked(missoes));
-
-  return sendActionButtons(phone, "Escolha como deseja continuar:", [
-    { id: "missoes_buy_single", title: "Liberar missões" },
-    { id: "jobs_pacotes", title: "Ver pacotes" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
+return sendMissoesUnlockedList(phone, missoes);
 }
 
   if (text.startsWith("missao_publica_")) {
