@@ -437,14 +437,18 @@ if (text === "jobs_total_buy_month") {
     user,
   });
 }
-  const paidAccess = await hasPaidAccessForMissions(supabase, user.id);
+
+// ATIVAR PACOTE AVULSO DE MISSOES 
+
+
+  {/* const paidAccess = await hasPaidAccessForMissions(supabase, user.id);
 if (text === "missoes_buy_single") {
   return gerarPagamentoMissaoAvulso({
     supabase,
     phone,
     user,
   });
-}
+} */}
 
 if (text === "missoes_buy_month") {
   return gerarPagamentoMissaoMensal({
