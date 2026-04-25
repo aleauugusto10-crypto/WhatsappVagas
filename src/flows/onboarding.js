@@ -219,7 +219,7 @@ export async function handleOnboarding({
 
     return sendText(
       phone,
-      "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana\n• Itabaiana - SE"
+      "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana - SE"
     );
   }
 
@@ -262,7 +262,7 @@ export async function handleOnboarding({
 
       return sendText(
         phone,
-        "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n• Itabaiana\n• Itabaiana - SE"
+        "Qual sua cidade?\n\nVocê pode escrever só a cidade ou cidade + estado.\nExemplos:\n\• Itabaiana - SE"
       );
     }
 
