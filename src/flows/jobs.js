@@ -473,7 +473,7 @@ async function mostrarPacotesMissoes(phone) {
     {
       title: "Missões",
       rows: [
-        { id: "missoes_buy_single", title: "Missões avulso R$ 4,90" },
+        
         { id: "missoes_buy_month", title: "Missões mensal R$ 19,90" },
       ],
     },
