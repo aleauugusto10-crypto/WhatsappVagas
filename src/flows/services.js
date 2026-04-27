@@ -310,6 +310,18 @@ async function pedirListaDeSubcategorias({
   ]);
 }
 
+async function sendProfessionalsList(phone, servicos = [], page = 0) {
+  return sendList(phone, `🧑‍🔧 Profissionais encontrados — Página ${page + 1}`, [
+    {
+      title: "Profissionais",
+      rows: servicos.slice(0, 10).map((s) => ({
+        id: `prof_ver_${s.id}`,
+        title: shortTitle(s.titulo || "Profissional"),
+        description: `${s.cidade || "Sem cidade"}${s.estado ? `/${s.estado}` : ""}`.slice(0, 72),
+      })),
+    },
+  ]);
+}
 export async function handleServicesMenu({
   user,
   text,
@@ -322,7 +334,37 @@ export async function handleServicesMenu({
   // =====================
   // BUSCAR PROFISSIONAIS
   // =====================
+if (text.startsWith("prof_ver_")) {
+  const servicoId = text.replace("prof_ver_", "");
 
+  const { data: servico, error } = await supabase
+    .from("servicos")
+    .select("*")
+    .eq("id", servicoId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (error || !servico) {
+    await sendText(phone, "Não consegui carregar esse profissional.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "contratar_buscar_profissionais", title: "Nova busca" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  await sendText(
+    phone,
+    `🧑‍🔧 *${servico.titulo || "Profissional"}*\n\n` +
+      `📍 *Local:* ${servico.cidade || "Sem cidade"}${servico.estado ? `/${servico.estado}` : ""}\n` +
+      `📝 *Descrição:*\n${servico.descricao || "Sem descrição informada."}\n\n` +
+      `📞 *WhatsApp:* ${servico.contato_whatsapp || "Não informado"}`
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "contratar_buscar_profissionais", title: "Nova busca" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
   if (text === "contratar_buscar_profissionais") {
   const areas = await getAreasAtivas(supabase);
 
@@ -451,7 +493,21 @@ if (
     ]);
   }
 
-  await sendText(phone, buildProfessionalsPreview(lista, page));
+  const botoes = [];
+
+if (temProximaPagina) {
+  botoes.push({
+    id: `contratar_prof_next_${categoria}__page_${page + 1}`,
+    title: "Próxima página",
+  });
+}
+
+botoes.push(
+  { id: "contratar_buscar_profissionais", title: "Nova busca" },
+  { id: "voltar_menu", title: "Voltar ao menu" }
+);
+
+return sendActionButtons(phone, "O que deseja fazer agora?", botoes);
 
   const botoes = [];
 
