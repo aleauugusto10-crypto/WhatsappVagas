@@ -20,11 +20,11 @@ function buildPreviewList(items = []) {
     .map((item, index) => `${index + 1}. ${item.nome}`)
     .join("\n");
 }
-
+const PROFESSIONALS_PAGE_SIZE = 10;
 async function getAreasAtivas(supabase) {
   const { data, error } = await supabase
     .from("areas")
-    .select("chave,nome,ativo,ordem")
+   .select("chave,nome,ativo,ordem")
     .eq("ativo", true)
     .order("ordem", { ascending: true })
     .order("nome", { ascending: true });
@@ -81,27 +81,20 @@ function formatEspecialidades(especialidades = []) {
   return especialidades.join(" • ");
 }
 
-function buildProfessionalsPreview(servicos = [], locked = true) {
+function buildProfessionalsPreview(servicos = [], page = 0) {
   if (!servicos.length) {
     return "Nenhum profissional encontrado no momento.";
   }
 
-  let out = locked
-    ? "🔎 *Encontramos profissionais para sua busca:*\n"
-    : "🧑‍🔧 *Profissionais encontrados:*\n";
+  let out = `🔎 *Profissionais encontrados:*\n\nPágina ${page + 1}`;
 
   servicos.forEach((s) => {
     out +=
       `\n\n• *${s.titulo || "Profissional"}*` +
       `\n📍 ${s.cidade || "Sem cidade"}${s.estado ? `/${s.estado}` : ""}` +
-      `\n🧩 Especialidades: ${formatEspecialidades(s.especialidades || [])}` +
-      `\n🎯 Compatibilidade: ${s.match_count || 0}`;
+      `\n📝 ${s.descricao || "Sem descrição informada."}` +
+      `\n📞 WhatsApp: ${s.contato_whatsapp || "Não informado"}`;
   });
-
-  if (locked) {
-    out +=
-      "\n\n🔒 Para liberar a lista completa dessa busca e os detalhes, o desbloqueio é avulso.";
-  }
 
   return out;
 }
@@ -390,11 +383,28 @@ await sendText(
       },
     ]);
   }
+if (
+  user.etapa === "contratar_categoria" ||
+  text.startsWith("contratar_prof_next_")
+) {
+  let categoria = null;
+  let page = 0;
 
-  if (user.etapa === "contratar_categoria") {
-  if (!text.startsWith("contratar_cat_")) return false;
+  if (text.startsWith("contratar_prof_next_")) {
+    const raw = text.replace("contratar_prof_next_", "");
+    const parts = raw.split("__page_");
 
-  const categoria = text.replace("contratar_cat_", "");
+    categoria = parts[0];
+    page = Number(parts[1] || 0);
+  } else {
+    if (!text.startsWith("contratar_cat_")) return false;
+
+    categoria = text.replace("contratar_cat_", "");
+    page = 0;
+  }
+
+  const from = page * PROFESSIONALS_PAGE_SIZE;
+  const to = from + PROFESSIONALS_PAGE_SIZE;
 
   await updateUser({
     categoria_principal: categoria,
@@ -407,7 +417,9 @@ await sendText(
     .select("*")
     .eq("ativo", true)
     .eq("categoria_chave", categoria)
-    .limit(5);
+    .order("nivel_visibilidade", { ascending: false })
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
   if (user.cidade) {
     query = query.ilike("cidade", user.cidade);
@@ -428,7 +440,10 @@ await sendText(
     ]);
   }
 
-  if (!servicos?.length) {
+  const lista = (servicos || []).slice(0, PROFESSIONALS_PAGE_SIZE);
+  const temProximaPagina = (servicos || []).length > PROFESSIONALS_PAGE_SIZE;
+
+  if (!lista.length) {
     await sendText(phone, "Nenhum profissional encontrado nessa categoria no momento.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
       { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
@@ -436,13 +451,23 @@ await sendText(
     ]);
   }
 
-  await sendText(phone, buildProfessionalsPreview(servicos, true));
+  await sendText(phone, buildProfessionalsPreview(lista, page));
 
-  return sendActionButtons(phone, "Deseja liberar a lista completa dessa busca?", [
-    { id: "prof_buy_single", title: "Pagar R$ 4,90" },
+  const botoes = [];
+
+  if (temProximaPagina) {
+    botoes.push({
+      id: `contratar_prof_next_${categoria}__page_${page + 1}`,
+      title: "Próxima página",
+    });
+  }
+
+  botoes.push(
     { id: "contratar_buscar_profissionais", title: "Nova busca" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
+    { id: "voltar_menu", title: "Voltar ao menu" }
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", botoes);
 }
 
   if (user.etapa === "contratar_subcat_1") {
