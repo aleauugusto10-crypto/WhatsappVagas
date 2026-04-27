@@ -492,24 +492,8 @@ if (
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
-
-  const botoes = [];
-
-if (temProximaPagina) {
-  botoes.push({
-    id: `contratar_prof_next_${categoria}__page_${page + 1}`,
-    title: "Próxima página",
-  });
-}
-
-botoes.push(
-  { id: "contratar_buscar_profissionais", title: "Nova busca" },
-  { id: "voltar_menu", title: "Voltar ao menu" }
-);
-
-return sendActionButtons(phone, "O que deseja fazer agora?", botoes);
-
-  const botoes = [];
+await sendProfessionalsList(phone, lista, page);
+  
 
   if (temProximaPagina) {
     botoes.push({
