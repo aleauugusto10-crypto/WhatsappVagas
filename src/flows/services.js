@@ -481,33 +481,34 @@ if (
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+const lista = (servicos || []).slice(0, PROFESSIONALS_PAGE_SIZE);
+const temProximaPagina = (servicos || []).length > PROFESSIONALS_PAGE_SIZE;
 
-  const lista = (servicos || []).slice(0, PROFESSIONALS_PAGE_SIZE);
-  const temProximaPagina = (servicos || []).length > PROFESSIONALS_PAGE_SIZE;
+if (!lista.length) {
+  await sendText(phone, "Nenhum profissional encontrado nessa categoria no momento.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 
-  if (!lista.length) {
-    await sendText(phone, "Nenhum profissional encontrado nessa categoria no momento.");
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "contratar_buscar_profissionais", title: "Buscar novamente" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
 await sendProfessionalsList(phone, lista, page);
-  
 
-  if (temProximaPagina) {
-    botoes.push({
-      id: `contratar_prof_next_${categoria}__page_${page + 1}`,
-      title: "Próxima página",
-    });
-  }
+const botoes = [];
 
-  botoes.push(
-    { id: "contratar_buscar_profissionais", title: "Nova busca" },
-    { id: "voltar_menu", title: "Voltar ao menu" }
-  );
+if (temProximaPagina) {
+  botoes.push({
+    id: `contratar_prof_next_${categoria}__page_${page + 1}`,
+    title: "Próxima página",
+  });
+}
 
-  return sendActionButtons(phone, "O que deseja fazer agora?", botoes);
+botoes.push(
+  { id: "contratar_buscar_profissionais", title: "Nova busca" },
+  { id: "voltar_menu", title: "Voltar ao menu" }
+);
+
+return sendActionButtons(phone, "O que deseja fazer agora?", botoes);
 }
 
   if (user.etapa === "contratar_subcat_1") {
