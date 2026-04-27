@@ -8,7 +8,14 @@ import { createMercadoPagoPixIntent } from "../services/payments.js";
 import { getSubcategoriasByCategoria } from "../lib/subcategories.js";
 
 
-
+function toTitleCase(text = "") {
+  return String(text)
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 function shortTitle(value = "") {
   const text = String(value || "").trim();
   return text.length > 24 ? `${text.slice(0, 21)}...` : text;
@@ -338,11 +345,16 @@ if (text.startsWith("prof_ver_")) {
   const servicoId = text.replace("prof_ver_", "");
 
   const { data: servico, error } = await supabase
-    .from("servicos")
-    .select("*")
-    .eq("id", servicoId)
-    .eq("ativo", true)
-    .maybeSingle();
+  .from("servicos")
+  .select(`
+    *,
+    usuarios (
+      nome
+    )
+  `)
+  .eq("id", servicoId)
+  .eq("ativo", true)
+  .maybeSingle();
 
   if (error || !servico) {
     await sendText(phone, "Não consegui carregar esse profissional.");
@@ -352,13 +364,14 @@ if (text.startsWith("prof_ver_")) {
     ]);
   }
 
-  await sendText(
-    phone,
-    `🧑‍🔧 *${servico.titulo || "Profissional"}*\n\n` +
-      `📍 *Local:* ${servico.cidade || "Sem cidade"}${servico.estado ? `/${servico.estado}` : ""}\n` +
-      `📝 *Descrição:*\n${servico.descricao || "Sem descrição informada."}\n\n` +
-      `📞 *WhatsApp:* ${servico.contato_whatsapp || "Não informado"}`
-  );
+ await sendText(
+  phone,
+  `🧑‍🔧 *${servico.titulo || "Profissional"}*\n\n` +
+    `👤 *Nome:* ${toTitleCase(servico.usuarios?.nome || "") || "Não informado"}\n` +
+    `📍 *Local:* ${servico.cidade || "Sem cidade"}${servico.estado ? `/${servico.estado}` : ""}\n` +
+    `📝 *Descrição:*\n${servico.descricao || "Sem descrição informada."}\n\n` +
+    `📞 *WhatsApp:* ${servico.contato_whatsapp || "Não informado"}`
+);
 
   return sendActionButtons(phone, "O que deseja fazer agora?", [
     { id: "contratar_buscar_profissionais", title: "Nova busca" },
