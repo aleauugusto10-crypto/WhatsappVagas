@@ -706,22 +706,60 @@ if (user.etapa === "prof_criar_perfil_preco") {
     ]);
   }
 
-  user.preco_base = preco;
-  user.etapa = "menu";
-await supabase.from("servicos").upsert(
+user.preco_base = preco;
+user.etapa = "menu";
+
+const { data: freshUser, error: freshUserError } = await supabase
+  .from("usuarios")
+  .select(`
+    id,
+    nome,
+    telefone,
+    cidade,
+    estado,
+    area_principal,
+    categoria_principal,
+    servico_principal,
+    descricao_perfil,
+    preco_base
+  `)
+  .eq("id", user.id)
+  .maybeSingle();
+
+if (freshUserError || !freshUser) {
+  console.error("❌ erro ao recarregar usuário para criar serviço:", freshUserError);
+  await sendText(phone, "Erro ao carregar seus dados profissionais.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "prof_criar_perfil", title: "Tentar novamente" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+const { error: servicoError } = await supabase.from("servicos").upsert(
   {
-    usuario_id: user.id,
-    titulo: user.servico_principal || user.nome || "Profissional",
-    descricao: user.descricao_perfil || "Profissional disponível.",
-    categoria_chave: user.categoria_principal,
-    cidade: user.cidade,
-    estado: user.estado,
-    contato_whatsapp: user.telefone,
+    usuario_id: freshUser.id,
+    titulo: freshUser.servico_principal || freshUser.nome || "Profissional",
+    descricao: freshUser.descricao_perfil || "",
+    categoria_chave: freshUser.categoria_principal,
+    cidade: freshUser.cidade,
+    estado: freshUser.estado,
+    contato_whatsapp: freshUser.telefone,
     ativo: true,
     nivel_visibilidade: 0,
   },
   { onConflict: "usuario_id,categoria_chave" }
 );
+
+if (servicoError) {
+  console.error("❌ erro ao criar/atualizar serviço profissional:", servicoError);
+  await sendText(phone, "Erro ao publicar seu perfil profissional nas buscas.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "prof_criar_perfil", title: "Tentar novamente" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
+
+user = { ...user, ...freshUser };
 await sendText(
   phone,
   "✅ *Perfil profissional criado com sucesso!*\n\nSeu perfil já está aparecendo gratuitamente nas buscas da sua categoria.\n\nSe quiser mais visibilidade, você pode contratar destaque."
