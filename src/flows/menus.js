@@ -3,7 +3,7 @@ import { sendButtons, sendList } from "../services/whatsapp.js";
 export function sendRootMenu(phone) {
   return sendButtons(
     phone,
-    "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra \noportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n📢 Divulgar oportunidades\n\nComo você quer usar a plataforma?",
+    "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n📢 Divulgar oportunidades\n\nComo você quer usar a plataforma?",
     [
       { id: "tipo_usuario", title: "Quero trabalhar" },
       { id: "tipo_contratante", title: "Buscar profissional" },
@@ -14,25 +14,29 @@ export function sendRootMenu(phone) {
 
 export function sendMenuUsuario(phone) {
   return sendList(phone, "💼 Menu do trabalhador:", [
-    {
-      title: "Buscar oportunidades",
-      rows: [
-        { id: "user_ver_vagas", title: "Ver vagas" },
-        { id: "user_ver_missoes", title: "Ver bicos / missões" },
-        { id: "jobs_pacotes", title: "Pacotes de notificações" },
-      ],
-    },
+   {
+  title: "Buscar oportunidades",
+  rows: [
+    { id: "user_ver_vagas", title: "📌 Vagas minha área" },
+    { id: "user_explorar_vagas", title: "🌍 Todas as vagas" },
+    { id: "user_ver_missoes", title: "🔥 Missões" },
+    { id: "jobs_pacotes", title: "🔔 Notificações" },
+  ],
+},
     {
       title: "Perfil profissional",
       rows: [
         { id: "prof_criar_perfil", title: "Criar perfil" },
         { id: "prof_ver_perfil", title: "Ver meu perfil" },
-        { id: "prof_pacotes", title: "Pacotes de divulgação" },
+        { id: "prof_pacotes", title: "Pacotes divulgação" },
       ],
     },
     {
       title: "Perfil",
-      rows: [{ id: "redefinir_perfil", title: "Redefinir perfil" }],
+      rows: [
+        { id: "user_carteira", title: "Minha carteira" },
+        { id: "redefinir_perfil", title: "Redefinir perfil" },
+      ],
     },
   ]);
 }
@@ -44,12 +48,15 @@ export function sendMenuContratante(phone) {
       rows: [
         { id: "contratar_buscar_profissionais", title: "Buscar profissionais" },
         { id: "contratar_criar_missao", title: "Criar missão" },
-        { id: "contratar_minhas_missoes", title: "Ver minhas missões" },
+        { id: "contratar_minhas_missoes", title: "Minhas missões" },
       ],
     },
     {
       title: "Perfil",
-      rows: [{ id: "redefinir_perfil", title: "Redefinir perfil" }],
+      rows: [
+        { id: "user_carteira", title: "Minha carteira" },
+        { id: "redefinir_perfil", title: "Redefinir perfil" },
+      ],
     },
   ]);
 }
@@ -60,17 +67,23 @@ export function sendMenuEmpresa(phone) {
       title: "Empresa",
       rows: [
         { id: "empresa_criar_vaga", title: "Criar vaga" },
+        { id: "contratar_criar_missao", title: "Criar missão" },
+        { id: "contratar_minhas_missoes", title: "Minhas missões" },
         { id: "empresa_pacotes", title: "Pacotes" },
         { id: "empresa_buscar_profissionais", title: "Buscar profissionais" },
-        { id: "empresa_minhas_vagas", title: "Ver minhas vagas" },
+        { id: "empresa_minhas_vagas", title: "Minhas vagas" },
       ],
     },
     {
       title: "Perfil",
-      rows: [{ id: "redefinir_perfil", title: "Redefinir perfil" }],
+      rows: [
+        { id: "user_carteira", title: "Minha carteira" },
+        { id: "redefinir_perfil", title: "Redefinir perfil" },
+      ],
     },
   ]);
 }
+
 export function sendAreasPage(phone, areas = [], page = 1) {
   const PAGE_SIZE = 9;
 
@@ -110,6 +123,7 @@ export function sendAreasPage(phone, areas = [], page = 1) {
     },
   ]);
 }
+
 export function sendActionButtons(phone, body, buttons) {
   return sendButtons(phone, body, buttons.slice(0, 3));
 }

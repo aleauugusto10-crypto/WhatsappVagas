@@ -8,6 +8,7 @@ import {
 } from "./flows/menus.js";
 import { handleOnboarding } from "./flows/onboarding.js";
 import { handleJobsMenu, handleUserFallback } from "./flows/jobs.js";
+import { handleAdminMenu } from "./flows/admin.js";
 import {
   handleServicesMenu,
   handleContratanteFallback,
@@ -126,6 +127,7 @@ async function handlePaymentCheckStatus(user, phone) {
 }
 
 export async function handleMessage(msg) {
+  
   const phone = msg?.from;
   if (!phone) return;
 
@@ -177,7 +179,19 @@ export async function handleMessage(msg) {
       Object.assign(user, updated);
       return updated;
     };
+const isAdmin = user?.tipo_admin === true;
 
+if (isAdmin) {
+  const adminResponse = await handleAdminMenu({
+    user,
+    text,
+    phone,
+    supabase,
+    updateUser,
+  });
+
+  if (adminResponse) return adminResponse;
+}
     // =====================
     // COMANDOS GLOBAIS
     // =====================
@@ -285,19 +299,30 @@ export async function handleMessage(msg) {
     // =====================
 
     if (user.tipo === "empresa") {
-      const company = await handleCompanyMenu({
-        user,
-        text,
-        phone,
-        supabase,
-        updateUser,
-        getCategorias,
-        getCategoriasPorGrupos,
-      });
-      if (company) return company;
+  const company = await handleCompanyMenu({
+    user,
+    text,
+    phone,
+    supabase,
+    updateUser,
+    getCategorias,
+    getCategoriasPorGrupos,
+  });
 
-      return handleCompanyFallback(phone);
-    }
+  if (company) return company;
+
+  const missions = await handleMissions({
+    user,
+    text,
+    phone,
+    supabase,
+    updateUser,
+  });
+
+  if (missions) return missions;
+
+  return handleCompanyFallback(phone);
+}
 
     return sendRootMenu(phone);
   } catch (err) {

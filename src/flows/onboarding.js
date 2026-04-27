@@ -47,6 +47,31 @@ function isValidCPF(cpf = "") {
 
   return secondDigit === Number(cpf[10]);
 }
+function cleanCNPJ(cnpj = "") {
+  return String(cnpj).replace(/\D/g, "");
+}
+
+function isValidCNPJ(cnpj = "") {
+  cnpj = cleanCNPJ(cnpj);
+
+  if (!cnpj || cnpj.length !== 14) return false;
+  if (/^(\d)\1+$/.test(cnpj)) return false;
+
+  const calcDigit = (base, weights) => {
+    let sum = 0;
+    for (let i = 0; i < weights.length; i++) {
+      sum += Number(base[i]) * weights[i];
+    }
+
+    const rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  };
+
+  const d1 = calcDigit(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const d2 = calcDigit(cnpj.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+
+  return d1 === Number(cnpj[12]) && d2 === Number(cnpj[13]);
+}
 
 function shortTitle(value = "") {
   const text = String(value || "").trim();
@@ -189,23 +214,24 @@ export async function handleOnboarding({
   updateUser,
 
 }) {
+
   if (user.etapa === "tipo") {
-    if (!["tipo_usuario", "tipo_contratante", "tipo_empresa"].includes(text)) {
-      return false;
-    }
-
-    let tipo = "usuario";
-    if (text === "tipo_contratante") tipo = "contratante";
-    if (text === "tipo_empresa") tipo = "empresa";
-
-    await updateUser({
-      tipo,
-      etapa: "nome",
-      onboarding_finalizado: false,
-    });
-
-    return sendText(phone, "Qual seu nome e sobrenome?");
+  if (!["tipo_usuario", "tipo_contratante", "tipo_empresa"].includes(text)) {
+    return false;
   }
+
+  let tipo = "usuario";
+  if (text === "tipo_contratante") tipo = "contratante";
+  if (text === "tipo_empresa") tipo = "empresa";
+
+  await updateUser({
+    tipo,
+    etapa: "nome",
+    onboarding_finalizado: false,
+  });
+
+  return sendText(phone, "Qual seu nome e sobrenome?");
+}
 
   if (user.etapa === "nome") {
     if (!text || text.length < 3) {
@@ -301,39 +327,102 @@ export async function handleOnboarding({
   }
 
   if (user.etapa === "email") {
-    if (!isValidEmail(text)) {
-      return sendText(phone, "Digite um e-mail válido.\nEx: nome@email.com");
-    }
+  const emailLimpo = String(text || "").trim().toLowerCase();
 
-    await updateUser({
-      email: text.trim().toLowerCase(),
-      etapa: "cpf",
-    });
-
-    return sendText(phone, "Digite seu CPF (apenas números):");
+  if (!isValidEmail(emailLimpo)) {
+    return sendText(phone, "Digite um e-mail válido.\nEx: nome@email.com");
   }
 
+  const emailExiste = await existsUsuarioByField(
+    supabase,
+    "email",
+    emailLimpo,
+    user.id
+  );
+
+  if (emailExiste) {
+    return sendText(
+      phone,
+      "Esse e-mail já está cadastrado. Digite outro e-mail."
+    );
+  }
+
+  if (user.tipo === "empresa") {
+    await updateUser({
+      email: emailLimpo,
+      etapa: "cnpj",
+    });
+
+    return sendText(phone, "Digite o CNPJ da empresa:");
+  }
+
+  await updateUser({
+    email: emailLimpo,
+    etapa: "cpf",
+  });
+
+  return sendText(phone, "Digite seu CPF (apenas números):");
+}
+if (user.etapa === "cnpj") {
+  const cnpjLimpo = cleanCNPJ(text);
+
+  if (!isValidCNPJ(cnpjLimpo)) {
+    return sendText(
+      phone,
+      "CNPJ inválido. Digite um CNPJ válido.\nEx: 12345678000195"
+    );
+  }
+
+  const cnpjExiste = await existsUsuarioByField(
+    supabase,
+    "cnpj",
+    cnpjLimpo,
+    user.id
+  );
+
+  if (cnpjExiste) {
+    return sendText(
+      phone,
+      "Esse CNPJ já está cadastrado. Digite outro CNPJ."
+    );
+  }
+
+  await updateUser({
+    cnpj: cnpjLimpo,
+    etapa: "nome_empresa",
+  });
+
+  return sendText(phone, "Qual o nome da empresa?");
+}
   if (user.etapa === "cpf") {
     const cpfLimpo = cleanCPF(text);
 
     if (!isValidCPF(cpfLimpo)) {
-      return sendText(
-        phone,
-        "CPF inválido. Digite um CPF válido.\nEx: 12345678909"
-      );
-    }
+  return sendText(
+    phone,
+    "CPF inválido. Digite um CPF válido.\nEx: 12345678909"
+  );
+}
 
-    await updateUser({
-      cpf: cpfLimpo,
-    });
+const cpfExiste = await existsUsuarioByField(
+  supabase,
+  "cpf",
+  cpfLimpo,
+  user.id
+);
 
-    if (user.tipo === "empresa") {
-      await updateUser({
-        etapa: "nome_empresa",
-      });
+if (cpfExiste) {
+  return sendText(
+    phone,
+    "Esse CPF já está cadastrado. Digite outro CPF."
+  );
+}
 
-      return sendText(phone, "Qual o nome da empresa?");
-    }
+await updateUser({
+  cpf: cpfLimpo,
+});
+
+    
 
     if (user.tipo === "contratante") {
       await updateUser({
@@ -377,7 +466,26 @@ return sendList(phone, "Selecione uma área:", [
   },
 ]);
   }
+async function existsUsuarioByField(supabase, field, value, ignoreUserId = null) {
+  let query = supabase
+    .from("usuarios")
+    .select("id")
+    .eq(field, value)
+    .limit(1);
 
+  if (ignoreUserId) {
+    query = query.neq("id", ignoreUserId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error(`❌ erro ao verificar duplicidade de ${field}:`, error);
+    return true;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
   if (user.etapa === "nome_empresa") {
     if (!text || text.length < 2) {
       return sendText(phone, "Digite o nome da empresa:");

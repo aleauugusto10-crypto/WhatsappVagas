@@ -398,8 +398,14 @@ export async function publishMissionFromPayment(payment) {
       titulo: md.titulo,
       descricao: md.descricao,
       categoria_chave: md.categoria_chave,
-      valor: md.valor_missao,
-      taxa_plataforma: md.taxa_plataforma || 0,
+      tipo: md.tipo || "individual",
+vagas_total: Number(md.vagas_total || 1),
+vagas_ocupadas: 0,
+valor_total: Number(md.valor_total || md.valor_missao || 0),
+valor_por_pessoa: Number(md.valor_por_pessoa || md.valor_missao || 0),
+
+valor: Number(md.valor_missao || md.valor_por_pessoa || 0),
+taxa_plataforma: md.taxa_plataforma || 0,
       urgencia: !!md.urgencia,
       cidade: md.cidade,
       estado: md.estado,
@@ -567,12 +573,16 @@ export async function applyProfessionalHighlightFromPayment(payment) {
   }
 
   const novoNivel = Math.max(Number(servico.nivel_visibilidade || 0), 1);
-
+const md = payment.metadata || {};
+const dias = Number(md.dias_destaque || 30);
+const destaqueAte = new Date();
+destaqueAte.setDate(destaqueAte.getDate() + dias);
   const { data, error } = await supabase
     .from("servicos")
-    .update({
-      nivel_visibilidade: novoNivel,
-    })
+   .update({
+  nivel_visibilidade: novoNivel,
+  destaque_ate: destaqueAte.toISOString(),
+})
     .eq("id", servico.id)
     .select()
     .single();
@@ -584,7 +594,27 @@ export async function applyProfessionalHighlightFromPayment(payment) {
 
   return data;
 }
+async function ensureCarteira(usuarioId) {
+  const { data: existente } = await supabase
+    .from("carteiras")
+    .select("*")
+    .eq("usuario_id", usuarioId)
+    .maybeSingle();
 
+  if (existente) return existente;
+
+  const { data } = await supabase
+    .from("carteiras")
+    .insert({
+      usuario_id: usuarioId,
+      saldo: 0,
+      saldo_pendente: 0,
+    })
+    .select()
+    .single();
+
+  return data;
+}
 export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const mpPayment = await getMercadoPagoPayment(mpPaymentId);
 
@@ -631,7 +661,32 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   await activateSubscriptionFromPayment(paid);
   
   await activateCompanyJobCreditsFromPayment(paid);
-  await publishMissionFromPayment(paid);
+  if (paid.referencia_tipo === "usuario_vagas_avulso_24h") {
+  const unlockAte = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  await supabase
+    .from("usuarios")
+    .update({ vagas_unlock_ate: unlockAte })
+    .eq("id", paid.usuario_id);
+}
+  if (paid.referencia_tipo === "missao_publicacao") {
+  const md = paid.metadata || {};
+
+  const valorBloqueado = Number(paid.valor || 0);
+
+const carteira = await ensureCarteira(paid.usuario_id);
+
+await supabase
+  .from("carteiras")
+  .update({
+    saldo_pendente: Number(carteira.saldo_pendente || 0) + valorBloqueado,
+  })
+  .eq("usuario_id", paid.usuario_id);
+
+await publishMissionFromPayment(paid);
+
+console.log("💰 valor bloqueado para missão:", valorBloqueado);
+  }
   await publishJobFromPayment(paid);
   await publishProfessionalServiceFromPayment(paid);
   await applyProfessionalHighlightFromPayment(paid);
