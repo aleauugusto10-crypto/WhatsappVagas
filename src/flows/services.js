@@ -37,14 +37,7 @@ function normalizePhoneBR(phone = "") {
 
   return num;
 }
-function toTitleCase(text = "") {
-  return String(text)
-    .toLowerCase()
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+
 function shortTitle(value = "") {
   const text = String(value || "").trim();
   return text.length > 24 ? `${text.slice(0, 21)}...` : text;
