@@ -990,7 +990,7 @@ await supabase.from("servicos").upsert(
     categoria_chave: user.categoria_principal,
     cidade: user.cidade,
     estado: user.estado,
-    contato_whatsapp: user.telefone,
+    contato_whatsapp: normalizePhoneBR(freshUser.telefone),
     ativo: true,
     nivel_visibilidade: 0,
   },
