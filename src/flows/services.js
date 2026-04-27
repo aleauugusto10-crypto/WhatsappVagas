@@ -7,7 +7,36 @@ import {
 import { createMercadoPagoPixIntent } from "../services/payments.js";
 import { getSubcategoriasByCategoria } from "../lib/subcategories.js";
 
+function normalizePhoneBR(phone = "") {
+  let num = String(phone).replace(/\D/g, "");
 
+  // já começa com 55?
+  if (num.startsWith("55")) {
+    const ddd = num.slice(2, 4);
+    let rest = num.slice(4);
+
+    // se for celular sem 9 (8 dígitos)
+    if (rest.length === 8) {
+      rest = "9" + rest;
+    }
+
+    return `55${ddd}${rest}`;
+  }
+
+  // se vier sem código do país
+  if (num.length >= 10) {
+    const ddd = num.slice(0, 2);
+    let rest = num.slice(2);
+
+    if (rest.length === 8) {
+      rest = "9" + rest;
+    }
+
+    return `55${ddd}${rest}`;
+  }
+
+  return num;
+}
 function toTitleCase(text = "") {
   return String(text)
     .toLowerCase()
@@ -364,13 +393,16 @@ if (text.startsWith("prof_ver_")) {
     ]);
   }
 
- await sendText(
+const numero = normalizePhoneBR(servico.contato_whatsapp);
+const linkWhatsapp = numero ? `https://wa.me/${numero}` : null;
+
+await sendText(
   phone,
   `🧑‍🔧 *${servico.titulo || "Profissional"}*\n\n` +
-    `👤 *Nome:* ${toTitleCase(servico.usuarios?.nome || "") || "Não informado"}\n` +
+    `👤 *Nome:* ${servico.usuarios?.nome || "Não informado"}\n` +
     `📍 *Local:* ${servico.cidade || "Sem cidade"}${servico.estado ? `/${servico.estado}` : ""}\n` +
     `📝 *Descrição:*\n${servico.descricao || "Sem descrição informada."}\n\n` +
-    `📞 *WhatsApp:* ${servico.contato_whatsapp || "Não informado"}`
+    `📞 *WhatsApp:* ${linkWhatsapp || "Não informado"}`
 );
 
   return sendActionButtons(phone, "O que deseja fazer agora?", [
