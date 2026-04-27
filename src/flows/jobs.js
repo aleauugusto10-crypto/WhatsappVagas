@@ -14,7 +14,35 @@ function shortTitle(value = "") {
   const text = String(value || "").trim();
   return text.length > 24 ? `${text.slice(0, 21)}...` : text;
 }
+function normalizePhoneBR(phone = "") {
+  let num = String(phone || "").replace(/\D/g, "");
 
+  if (!num) return "";
+
+  if (num.startsWith("55")) {
+    const ddd = num.slice(2, 4);
+    let rest = num.slice(4);
+
+    if (rest.length === 8) {
+      rest = "9" + rest;
+    }
+
+    return `55${ddd}${rest}`;
+  }
+
+  if (num.length >= 10) {
+    const ddd = num.slice(0, 2);
+    let rest = num.slice(2);
+
+    if (rest.length === 8) {
+      rest = "9" + rest;
+    }
+
+    return `55${ddd}${rest}`;
+  }
+
+  return num;
+}
 function buildPreviewList(items = []) {
   return items
     .slice(0, 10)
@@ -514,8 +542,7 @@ if (text.startsWith("vaga_candidatar_")) {
     ]);
   }
 
-  const numero = normalizePhoneBR(servico.contato_whatsapp);
-const linkWhatsapp = numero ? `https://wa.me/${numero}` : null;
+  
   let msg =
     `📩 *Candidatura à vaga*\n\n` +
     `💼 *Vaga:* ${vaga.titulo || "-"}\n` +
@@ -742,7 +769,7 @@ const { error: servicoError } = await supabase.from("servicos").upsert(
     categoria_chave: freshUser.categoria_principal,
     cidade: freshUser.cidade,
     estado: freshUser.estado,
-    contato_whatsapp: freshUser.telefone,
+    contato_whatsapp: normalizePhoneBR(freshUser.telefone),
     ativo: true,
     nivel_visibilidade: 0,
   },
