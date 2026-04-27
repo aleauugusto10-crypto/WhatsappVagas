@@ -49,7 +49,20 @@ function shortTitle(value = "") {
   const text = String(value || "").trim();
   return text.length > 24 ? `${text.slice(0, 21)}...` : text;
 }
+function toTitleCase(text = "") {
+  const lowerWords = ["de", "da", "do", "dos", "das", "e"];
 
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word, index) => {
+      if (index !== 0 && lowerWords.includes(word)) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
 function buildPreviewList(items = []) {
   return items
     .slice(0, 10)
@@ -352,8 +365,8 @@ async function sendProfessionalsList(phone, servicos = [], page = 0) {
       title: "Profissionais",
       rows: servicos.slice(0, 10).map((s) => ({
         id: `prof_ver_${s.id}`,
-        title: shortTitle(s.titulo || "Profissional"),
-        description: `${s.cidade || "Sem cidade"}${s.estado ? `/${s.estado}` : ""}`.slice(0, 72),
+        title: shortTitle(toTitleCase(s.titulo || "Profissional")),
+description: `${toTitleCase(s.cidade || "Sem cidade")}${s.estado ? `/${s.estado}` : ""}`.slice(0, 72),
       })),
     },
   ]);
@@ -398,9 +411,9 @@ const linkWhatsapp = numero ? `https://wa.me/${numero}` : null;
 
 await sendText(
   phone,
-  `🧑‍🔧 *${servico.titulo || "Profissional"}*\n\n` +
-    `👤 *Nome:* ${servico.usuarios?.nome || "Não informado"}\n` +
-    `📍 *Local:* ${servico.cidade || "Sem cidade"}${servico.estado ? `/${servico.estado}` : ""}\n` +
+  `🧑‍🔧 *${toTitleCase(servico.titulo || "Profissional")}*\n\n` +
+    `👤 *Nome:* ${toTitleCase(servico.usuarios?.nome || "Não informado")}\n` +
+    `📍 *Local:* ${toTitleCase(servico.cidade || "Sem cidade")}${servico.estado ? `/${servico.estado}` : ""}\n` +
     `📝 *Descrição:*\n${servico.descricao || "Sem descrição informada."}\n\n` +
     `📞 *WhatsApp:* ${linkWhatsapp || "Não informado"}`
 );
