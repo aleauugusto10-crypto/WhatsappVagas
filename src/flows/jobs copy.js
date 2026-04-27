@@ -643,9 +643,8 @@ if (text.startsWith("vaga_candidatar_")) {
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
-
-  const numero = String(vaga.contato_whatsapp || "").replace(/\D/g, "");
-  const linkWhatsapp = numero ? `https://wa.me/${numero}` : null;
+const numero = normalizePhoneBR(servico.contato_whatsapp);
+const linkWhatsapp = numero ? `https://wa.me/${numero}` : null;
 
   let msg =
     `📩 *Candidatura à vaga*\n\n` +
