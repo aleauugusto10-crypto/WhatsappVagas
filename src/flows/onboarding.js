@@ -760,7 +760,25 @@ return sendList(phone, "Selecione uma categoria:", [
 
     return buildRaioList(phone);
   }
+const { data: existing } = await supabase
+  .from("servicos")
+  .select("id")
+  .eq("usuario_id", user.id)
+  .maybeSingle();
 
+if (!existing) {
+  await supabase.from("servicos").insert({
+    usuario_id: user.id,
+    titulo: user.servico_principal || user.nome,
+    descricao: user.descricao_perfil || "Profissional disponível para serviços.",
+    categoria_chave: user.categoria_principal,
+    cidade: user.cidade,
+    estado: user.estado,
+    contato_whatsapp: user.telefone,
+    ativo: true,
+    nivel_visibilidade: 0
+  });
+}
   if (user.etapa === "raio") {
     if (!text.startsWith("raio_")) return false;
 

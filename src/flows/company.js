@@ -18,6 +18,10 @@ function shortTitle(value = "") {
   return text.length > 24 ? `${text.slice(0, 21)}...` : text;
 }
 
+const PROFESSIONALS_PAGE_SIZE = 10;
+
+
+
 function buildPreviewList(items = []) {
   return items
     .slice(0, 10)
@@ -443,59 +447,99 @@ await sendText(
     ]);
   }
 
-  if (user.etapa === "empresa_buscar_categoria") {
+  if (
+  user.etapa === "empresa_buscar_categoria" ||
+  text.startsWith("empresa_prof_next_")
+) {
+  let categoria = null;
+  let page = 0;
+
+  if (text.startsWith("empresa_prof_next_")) {
+    const raw = text.replace("empresa_prof_next_", "");
+    const parts = raw.split("__page_");
+
+    categoria = parts[0];
+    page = Number(parts[1] || 0);
+  } else {
     if (!text.startsWith("empresa_buscar_cat_")) return false;
 
-    const categoria = text.replace("empresa_buscar_cat_", "");
+    categoria = text.replace("empresa_buskar_cat_", "");
+    categoria = text.replace("empresa_buscar_cat_", "");
+    page = 0;
+  }
 
-    let query = supabase
-      .from("servicos")
-      .select("*")
-      .eq("ativo", true)
-      .eq("categoria_chave", categoria)
-      .limit(3);
+  const from = page * PROFESSIONALS_PAGE_SIZE;
+  const to = from + PROFESSIONALS_PAGE_SIZE;
 
-    if (user.cidade) {
-      query = query.ilike("cidade", user.cidade);
-    }
+  let query = supabase
+    .from("servicos")
+    .select("*")
+    .eq("ativo", true)
+    .eq("categoria_chave", categoria)
+    .order("nivel_visibilidade", { ascending: false })
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
-    if (user.estado) {
-      query = query.eq("estado", user.estado);
-    }
+  if (user.cidade) {
+    query = query.ilike("cidade", user.cidade);
+  }
 
-    const { data: servicos, error } = await query;
+  if (user.estado) {
+    query = query.eq("estado", user.estado);
+  }
 
-    await updateUser({ etapa: "menu" });
+  const { data: servicos, error } = await query;
 
-    if (error) {
-      console.error("❌ erro ao buscar profissionais para empresa:", error);
-      await sendText(phone, "Erro ao buscar profissionais.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
+  await updateUser({ etapa: "menu" });
 
-    if (!servicos?.length) {
-      await sendText(phone, "Nenhum profissional encontrado no momento.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    let out = "🧑‍🔧 *Prévia de profissionais:*\n";
-    for (const s of servicos) {
-      out += `\n• ${s.titulo || "Profissional"} - ${s.cidade || "Sem cidade"}`;
-    }
-    out += "\n\n🔒 A busca da empresa ainda está em modo prévia.";
-
-    await sendText(phone, out);
+  if (error) {
+    console.error("❌ erro ao buscar profissionais:", error);
+    await sendText(phone, "Erro ao buscar profissionais.");
     return sendActionButtons(phone, "O que deseja fazer agora?", [
       { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
       { id: "voltar_menu", title: "Voltar ao menu" },
     ]);
   }
+
+  const lista = (servicos || []).slice(0, PROFESSIONALS_PAGE_SIZE);
+  const temProximaPagina = (servicos || []).length > PROFESSIONALS_PAGE_SIZE;
+
+  if (!lista.length) {
+    await sendText(phone, "Nenhum profissional encontrado no momento.");
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+      { id: "empresa_buscar_profissionais", title: "Buscar novamente" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
+    ]);
+  }
+
+  let out = `🔎 *Encontramos profissionais para sua busca:*\n\nPágina ${page + 1}`;
+
+  for (const s of lista) {
+    out +=
+      `\n\n• *${s.titulo || "Profissional"}*` +
+      `\n📍 ${s.cidade || "Sem cidade"}${s.estado ? `/${s.estado}` : ""}` +
+      `\n📝 ${s.descricao || "Sem descrição informada."}` +
+      `\n📞 WhatsApp: ${s.contato_whatsapp || "Não informado"}`;
+  }
+
+  await sendText(phone, out);
+
+  const botoes = [];
+
+  if (temProximaPagina) {
+    botoes.push({
+      id: `empresa_prof_next_${categoria}__page_${page + 1}`,
+      title: "Próxima página",
+    });
+  }
+
+  botoes.push(
+    { id: "empresa_buscar_profissionais", title: "Nova busca" },
+    { id: "voltar_menu", title: "Voltar ao menu" }
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", botoes);
+}
 
   // =====================
   // CRIAR VAGA
