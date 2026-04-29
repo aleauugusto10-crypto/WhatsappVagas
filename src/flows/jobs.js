@@ -19,29 +19,20 @@ function normalizePhoneBR(phone = "") {
 
   if (!num) return "";
 
+  // Remove 55 se já tiver
   if (num.startsWith("55")) {
-    const ddd = num.slice(2, 4);
-    let rest = num.slice(4);
-
-    if (rest.length === 8) {
-      rest = "9" + rest;
-    }
-
-    return `55${ddd}${rest}`;
+    num = num.slice(2);
   }
 
-  if (num.length >= 10) {
-    const ddd = num.slice(0, 2);
-    let rest = num.slice(2);
+  const ddd = num.slice(0, 2);
+  let rest = num.slice(2);
 
-    if (rest.length === 8) {
-      rest = "9" + rest;
-    }
-
-    return `55${ddd}${rest}`;
+  // Se tiver 8 dígitos → adiciona 9
+  if (rest.length === 8) {
+    rest = "9" + rest;
   }
 
-  return num;
+  return `55${ddd}${rest}`;
 }
 function capitalizeText(value = "") {
   const text = String(value || "")
@@ -663,7 +654,7 @@ if (user.etapa === "prof_criar_perfil_servico") {
   const { error } = await supabase
     .from("usuarios")
     .update({
-      servico_principal: servico,
+      servico_principal: capitalizeText(servico),
       etapa: "prof_criar_perfil_descricao",
     })
     .eq("id", user.id);
@@ -707,7 +698,7 @@ if (user.etapa === "prof_criar_perfil_descricao") {
   const { error } = await supabase
     .from("usuarios")
     .update({
-      descricao_perfil: descricao,
+      descricao_perfil: capitalizeText(descricao),
       etapa: "prof_criar_perfil_preco",
     })
     .eq("id", user.id);
