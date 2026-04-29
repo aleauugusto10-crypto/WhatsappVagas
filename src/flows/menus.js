@@ -3,7 +3,7 @@ import { sendButtons, sendList } from "../services/whatsapp.js";
 export function sendRootMenu(phone) {
   return sendButtons(
     phone,
-    "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n📢 Divulgar oportunidades\n\nComo você quer usar a plataforma?",
+    "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n📢 Divulgar oportunidades\n\n🛟 Se precisar de ajuda, digite *suporte* a qualquer momento.\n\nComo você quer usar a plataforma?",
     [
       { id: "tipo_usuario", title: "Quero trabalhar" },
       { id: "tipo_contratante", title: "Buscar profissional" },

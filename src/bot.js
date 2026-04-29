@@ -172,7 +172,8 @@ await sendText(
   phone,
   "🤖 Você está falando com o assistente automático do RendaJá.\n\n" +
     "Ele ajuda no cadastro e nas principais dúvidas.\n\n" +
-    "Se precisar, você também pode falar com um atendente humano."
+    "Se precisar, você também pode falar com um atendente humano.\n\n" +
+    "A qualquer momento, digite *suporte* para abrir a Central de ajuda."
 );
 
 return sendEntradaInicial(phone);
@@ -195,9 +196,12 @@ const supportResponse = await handleSupport({
   text,
   phone,
   updateUser,
+  supabase,
 });
 
 if (supportResponse) return supportResponse;
+
+
 const isAdmin = user?.tipo_admin === true;
 
 if (isAdmin) {
