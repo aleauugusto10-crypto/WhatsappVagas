@@ -1,4 +1,4 @@
-import { sendText, sendList } from "../services/whatsapp.js";
+import { sendText, sendList, randomize } from "../services/whatsapp.js";
 import { parseCidadeEstado, estadosRows } from "../lib/location.js";
 import {
   sendMenuUsuario,

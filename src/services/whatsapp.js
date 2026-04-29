@@ -88,3 +88,8 @@ export async function sendList(to, body, sections){
     }
   });
 }
+
+export function randomize(arr = []) {
+  if (!Array.isArray(arr) || arr.length === 0) return "";
+  return arr[Math.floor(Math.random() * arr.length)];
+}
