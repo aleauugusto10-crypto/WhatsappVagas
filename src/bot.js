@@ -200,6 +200,25 @@ const supportResponse = await handleSupport({
 });
 
 if (supportResponse) return supportResponse;
+
+if (
+  ["suporte_nome", "suporte_assunto", "suporte_fila", "suporte_em_atendimento"].includes(user.etapa)
+) {
+  const suporteTravado = await handleSupport({
+    user,
+    text,
+    phone,
+    updateUser,
+    supabase,
+  });
+
+  if (suporteTravado) return suporteTravado;
+
+  return sendText(
+    phone,
+    "Estamos no atendimento. Digite sua mensagem ou aguarde o retorno."
+  );
+}
 const suporteIds = [
   "suporte_termos",
   "suporte_regras",

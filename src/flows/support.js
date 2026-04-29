@@ -354,6 +354,14 @@ if (text === "suporte_atendente") {
       "Ex: problema com cadastro, vaga, pagamento..."
   );
 }
+
+console.log("🛟 SUPPORT DEBUG:", {
+  phone,
+  text,
+  etapa: user?.etapa,
+  nome: user?.nome,
+  nome_empresa: user?.nome_empresa,
+});
   // =====================
   // ADMIN RESPONDENDO
   // =====================
