@@ -43,6 +43,36 @@ function normalizePhoneBR(phone = "") {
 
   return num;
 }
+function capitalizeText(value = "") {
+  const text = String(value || "")
+    .replace(/_/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!text) return "-";
+
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function capitalizeName(value = "") {
+  const text = String(value || "")
+    .replace(/_/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!text) return "-";
+
+  return text
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function buildWhatsappLink(phone = "") {
+  const numero = normalizePhoneBR(phone);
+  return numero ? `https://wa.me/${numero}` : "-";
+}
 function buildPreviewList(items = []) {
   return items
     .slice(0, 10)
