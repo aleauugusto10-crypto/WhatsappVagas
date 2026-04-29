@@ -110,9 +110,30 @@ export async function createServiceProfile(payload) {
     return { id: "mock_profile", ...payload };
   }
 
+  const { data: existing, error: findError } = await supabase
+    .from("servicos")
+    .select("id")
+    .eq("usuario_id", payload.usuario_id)
+    .eq("categoria_chave", payload.categoria_chave)
+    .maybeSingle();
+
+  if (findError) throw findError;
+
+  if (existing?.id) {
+    const { data, error } = await supabase
+      .from("servicos")
+      .update(payload)
+      .eq("id", existing.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   const { data, error } = await supabase
     .from("servicos")
-    .upsert(payload, { onConflict: "usuario_id,categoria_chave" })
+    .insert(payload)
     .select()
     .single();
 

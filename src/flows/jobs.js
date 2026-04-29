@@ -765,20 +765,43 @@ if (freshUserError || !freshUser) {
   ]);
 }
 
-const { error: servicoError } = await supabase.from("servicos").upsert(
-  {
-    usuario_id: freshUser.id,
-    titulo: freshUser.servico_principal || freshUser.nome || "Profissional",
-    descricao: freshUser.descricao_perfil || "",
-    categoria_chave: freshUser.categoria_principal,
-    cidade: freshUser.cidade,
-    estado: freshUser.estado,
-    contato_whatsapp: normalizePhoneBR(freshUser.telefone),
-    ativo: true,
-    nivel_visibilidade: 0,
-  },
-  { onConflict: "usuario_id,categoria_chave" }
-);
+const servicoPayload = {
+  usuario_id: freshUser.id,
+  titulo: freshUser.servico_principal || freshUser.nome || "Profissional",
+  descricao: freshUser.descricao_perfil || "",
+  categoria_chave: freshUser.categoria_principal,
+  cidade: freshUser.cidade,
+  estado: freshUser.estado,
+  contato_whatsapp: normalizePhoneBR(freshUser.telefone),
+  ativo: true,
+  nivel_visibilidade: 0,
+};
+
+const { data: servicoExistente, error: buscaServicoError } = await supabase
+  .from("servicos")
+  .select("id")
+  .eq("usuario_id", freshUser.id)
+  .eq("categoria_chave", freshUser.categoria_principal)
+  .maybeSingle();
+
+let servicoError = null;
+
+if (buscaServicoError) {
+  servicoError = buscaServicoError;
+} else if (servicoExistente?.id) {
+  const { error } = await supabase
+    .from("servicos")
+    .update(servicoPayload)
+    .eq("id", servicoExistente.id);
+
+  servicoError = error;
+} else {
+  const { error } = await supabase
+    .from("servicos")
+    .insert(servicoPayload);
+
+  servicoError = error;
+}
 
 if (servicoError) {
   console.error("❌ erro ao criar/atualizar serviço profissional:", servicoError);
