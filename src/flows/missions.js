@@ -1254,12 +1254,11 @@ await updateUser({
 return sendText(
   phone,
   "Qual valor total deseja investir nessa campanha?\n\n" +
+    "Esse valor será dividido automaticamente pela quantidade de pessoas.\n\n" +
     "Exemplos:\n" +
     "100 para dividir entre 10 pessoas\n" +
     "50 para dividir entre 5 pessoas\n\n" +
-    "Também pode responder:\n" +
-    "🤝 a combinar\n" +
-    "📊 orçamento"
+    "⚠️ Para campanha com várias pessoas, o valor precisa ser definido. Não pode ser a combinar."
 );
 }
 
@@ -1321,9 +1320,22 @@ return sendText(
 );
 }
 if (user.etapa === "missao_valor") {
-  const valorACombinar = isValorACombinar(text);
+  const tipo = user.missao_tipo_temp || "individual";
+const valorACombinar = isValorACombinar(text);
 
-  if (valorACombinar) {
+if (valorACombinar && tipo === "campanha") {
+  return sendText(
+    phone,
+    "Para campanha com várias pessoas, o valor precisa ser definido.\n\n" +
+      "Isso é necessário para o sistema dividir automaticamente quanto cada pessoa vai receber.\n\n" +
+      "Exemplos:\n" +
+      "100\n" +
+      "50\n" +
+      "200"
+  );
+}
+
+if (valorACombinar) {
     await updateUser({
       etapa: "missao_urgencia",
       missao_valor_temp: "0",
@@ -1365,7 +1377,7 @@ if (user.etapa === "missao_valor") {
     missao_valor_a_combinar_temp: false,
   });
 
-  const tipo = user.missao_tipo_temp || "individual";
+  
   const vagasTotal = Number(user.vagas_total_temp || 1);
   const valorPorPessoa = tipo === "campanha" ? valor / vagasTotal : valor;
   const taxa = calcMissaoTaxa(valor);
