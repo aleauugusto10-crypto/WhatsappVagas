@@ -7,7 +7,33 @@ import {
   
 } from "../lib/monetization.js";
 import { createMercadoPagoPixIntent } from "../services/payments.js";
+const MISSAO_TAXA_FIXA_A_COMBINAR = 9.9;
 
+function isValorACombinar(text = "") {
+  const t = String(text || "").trim().toLowerCase();
+
+  return (
+    t.includes("a combinar") ||
+    t.includes("combinar") ||
+    t.includes("orçamento") ||
+    t.includes("orcamento") ||
+    t.includes("não sei") ||
+    t.includes("nao sei")
+  );
+}
+
+function buildPixOwnerNotice() {
+  return (
+    "ℹ️ *Informação importante sobre o Pix*\n\n" +
+    "O pagamento pode aparecer no nome do criador/responsável pelo RendaJá, pois a plataforma ainda está usando a conta operacional do sistema.\n\n" +
+    "Pode ficar tranquilo: esse Pix pertence ao ambiente de pagamentos do RendaJá."
+  );
+}
+
+async function sendPixCodeFlow(phone, intent) {
+  await sendText(phone, "📌 *Pix Copia e Cola:*");
+  return sendText(phone, buildPixCodeOnly(intent));
+}
 function inferCategoria(text = "") {
   const t = String(text).toLowerCase();
 
@@ -35,18 +61,26 @@ function inferCategoria(text = "") {
 
 function buildPixResumo(intent, resumo) {
   const checkoutUrl = intent?.checkout_url || null;
+  const valorMissaoLabel = resumo.aCombinar
+    ? "A combinar"
+    : `R$ ${Number(resumo.valorMissao || 0).toFixed(2)}`;
 
   let out =
-    `💳 Pagamento da missão gerado com sucesso!\n\n` +
-    `Valor da missão: R$ ${resumo.valorMissao.toFixed(2)}\n` +
-    `Taxa da plataforma: R$ ${resumo.taxa.toFixed(2)}\n` +
-    `Urgência: R$ ${resumo.urgencia.toFixed(2)}\n` +
-    `Total: R$ ${resumo.total.toFixed(2)}`;
+    `💳 *Pagamento da missão gerado com sucesso!*\n\n` +
+    `Valor da missão: ${valorMissaoLabel}\n` +
+    `Taxa da plataforma: R$ ${Number(resumo.taxa || 0).toFixed(2)}\n` +
+    `Urgência: R$ ${Number(resumo.urgencia || 0).toFixed(2)}\n` +
+    `Total: R$ ${Number(resumo.total || 0).toFixed(2)}`;
 
-  if (checkoutUrl) out += `\n\n🔗 Link de pagamento:\n${checkoutUrl}`;
+  if (resumo.aCombinar) {
+    out +=
+      `\n\n📌 Como o valor ficou *a combinar*, você paga apenas uma taxa fixa para publicar a missão. O valor final do serviço será combinado diretamente com o profissional.`;
+  }
+
+  if (checkoutUrl) out += `\n\n🔗 *Link de pagamento:*\n${checkoutUrl}`;
+
   return out;
 }
-
 function buildPixCodeOnly(intent) {
   return intent?.qr_code || "Código Pix indisponível no momento.";
 }
@@ -1144,57 +1178,21 @@ if (tipo === "campanha") {
   // =====================
 
   if (text === "contratar_criar_missao") {
-    await updateUser({
-      etapa: "missao_titulo",
-      missao_titulo: null,
-      missao_desc: null,
-      missao_valor_temp: null,
-    });
-
-    return sendText(phone, "Qual o título da missão?\nEx: Preciso de alguém para me ajudar com uma tarefa específica.");
-  }
-
-  if (user.etapa === "missao_titulo") {
-    if (!text || text.length < 3) {
-      return sendText(phone, "Digite um título válido para a missão:");
-    }
-
-    await updateUser({
-      missao_titulo: text,
-      etapa: "missao_desc",
-    });
-
-    return sendText(phone, "Agora descreva melhor o que precisa:");
-  }
-
-  if (user.etapa === "missao_desc") {
-    if (!text || text.length < 5) {
-      return sendText(phone, "Descreva melhor a missão:");
-    }
-
-    await updateUser({
-      missao_desc: text,
-      etapa: "missao_valor",
-    });
-
-    return sendText(phone, "Qual valor você deseja investir?\nEsse valor será dividido pela quantidade de vagas!");
-  }
-
-  if (user.etapa === "missao_valor") {
-  const valor = Number(String(text).replace(",", "."));
-
-  if (!valor || valor <= 0) {
-    return sendText(phone, "Digite um valor válido.\nEx: 40");
-  }
-
   await updateUser({
     etapa: "missao_tipo",
-    missao_valor_temp: String(valor),
+    missao_titulo: null,
+    missao_desc: null,
+    missao_valor_temp: null,
+    missao_valor_a_combinar_temp: false,
+    missao_tipo_temp: null,
+    vagas_total_temp: null,
   });
 
   return sendActionButtons(
     phone,
-    "Essa missão será:",
+    "Essa missão será para quantas pessoas?\n\n" +
+      "👤 *Para 1 pessoa:* ideal para consertos, fretes, faxina, manutenção, serviços pontuais.\n\n" +
+      "👥 *Para várias pessoas:* ideal para divulgação, campanhas, tarefas repetidas ou várias pessoas executando a mesma missão.",
     [
       { id: "missao_tipo_individual", title: "Para 1 pessoa" },
       { id: "missao_tipo_campanha", title: "Para várias pessoas" },
@@ -1202,25 +1200,20 @@ if (tipo === "campanha") {
     ]
   );
 }
-
-
 if (user.etapa === "missao_tipo" && text === "missao_tipo_individual") {
   await updateUser({
-    etapa: "missao_urgencia",
+    etapa: "missao_titulo",
     missao_tipo_temp: "individual",
     vagas_total_temp: 1,
   });
 
-  const valorBase = Number(user.missao_valor_temp || 0);
-  const taxa = calcMissaoTaxa(valorBase);
-
-  return sendActionButtons(
+  return sendText(
     phone,
-    `Resumo:\n\nValor: R$ ${valorBase.toFixed(2)}\nTaxa: R$ ${taxa.toFixed(2)}\n\nAdicionar urgência?`,
-    [
-      { id: "missao_urgencia_sim", title: "Com urgência" },
-      { id: "missao_urgencia_nao", title: "Sem urgência" },
-    ]
+    "Qual o título da missão?\n\n" +
+      "Exemplos:\n" +
+      "• Consertar máquina de lavar\n" +
+      "• Fazer uma limpeza no quintal\n" +
+      "• Buscar uma encomenda"
   );
 }
 
@@ -1232,10 +1225,10 @@ if (user.etapa === "missao_tipo" && text === "missao_tipo_campanha") {
 
   return sendText(
     phone,
-    "Quantas pessoas você quer atingir?\nEx: 10"
+    "Quantas pessoas poderão aceitar essa missão?\n\n" +
+      "Exemplo:\n10 pessoas para divulgar um vídeo\n5 pessoas para entregar panfletos"
   );
 }
-
 
 if (user.etapa === "missao_qtd_pessoas") {
   const qtd = Number(text);
@@ -1245,27 +1238,124 @@ if (user.etapa === "missao_qtd_pessoas") {
   }
 
   await updateUser({
-    etapa: "missao_resumo_campanha",
+    etapa: "missao_titulo",
     vagas_total_temp: qtd,
   });
 
-  const total = Number(user.missao_valor_temp || 0);
-  const valorPorPessoa = total / qtd;
-
-  await sendText(
+  return sendText(
     phone,
-    `📊 *Resumo da campanha*\n\n` +
-    `💰 Total: R$ ${total.toFixed(2)}\n` +
-    `👥 Pessoas: ${qtd}\n` +
-    `🎯 Por pessoa: R$ ${valorPorPessoa.toFixed(2)}`
+    "Qual o título da missão?\n\n" +
+      "Exemplos:\n" +
+      "• Divulgar meu vídeo no Instagram\n" +
+      "• Entregar panfletos no centro\n" +
+      "• Compartilhar uma promoção"
   );
+}
+
+if (user.etapa === "missao_titulo") {
+  if (!text || text.length < 3) {
+    return sendText(phone, "Digite um título válido para a missão:");
+  }
+
+  await updateUser({
+    missao_titulo: text,
+    etapa: "missao_desc",
+  });
+
+  return sendText(
+    phone,
+    "Agora descreva melhor o que precisa.\n\n" +
+      "Exemplo:\nPreciso de alguém para avaliar minha máquina de lavar e informar o orçamento do conserto."
+  );
+}
+
+if (user.etapa === "missao_desc") {
+  if (!text || text.length < 5) {
+    return sendText(phone, "Descreva melhor a missão:");
+  }
+
+  await updateUser({
+    missao_desc: text,
+    etapa: "missao_valor",
+  });
+
+  return sendText(
+    phone,
+    "Qual valor deseja oferecer para essa missão?\n\n" +
+      "Você pode responder de três formas:\n\n" +
+      "💰 Valor fechado: 50\n" +
+      "📊 Orçamento: orçamento\n" +
+      "🤝 A combinar: a combinar\n\n" +
+      "Se escolher *a combinar/orçamento*, será cobrada apenas uma taxa fixa de publicação de R$ " +
+      MISSAO_TAXA_FIXA_A_COMBINAR.toFixed(2) +
+      "."
+  );
+}
+
+if (user.etapa === "missao_valor") {
+  const valorACombinar = isValorACombinar(text);
+
+  if (valorACombinar) {
+    await updateUser({
+      etapa: "missao_urgencia",
+      missao_valor_temp: "0",
+      missao_valor_a_combinar_temp: true,
+    });
+
+    return sendActionButtons(
+      phone,
+      `📌 *Missão com valor a combinar*\n\n` +
+        `Você pagará apenas a taxa fixa de publicação:\n` +
+        `🧾 Taxa da plataforma: R$ ${MISSAO_TAXA_FIXA_A_COMBINAR.toFixed(2)}\n\n` +
+        `O valor final será combinado diretamente com o profissional.\n\n` +
+        `Quer adicionar urgência por +R$ 4,90?`,
+      [
+        { id: "missao_urgencia_sim", title: "Com urgência" },
+        { id: "missao_urgencia_nao", title: "Sem urgência" },
+        { id: "voltar_menu", title: "Voltar ao menu" },
+      ]
+    );
+  }
+
+  const valor = Number(String(text).replace(",", "."));
+
+  if (!valor || valor <= 0) {
+    return sendText(
+      phone,
+      "Digite um valor válido ou escreva *a combinar*.\n\n" +
+        "Exemplos:\n" +
+        "50\n" +
+        "120,00\n" +
+        "orçamento\n" +
+        "a combinar"
+    );
+  }
+
+  await updateUser({
+    etapa: "missao_urgencia",
+    missao_valor_temp: String(valor),
+    missao_valor_a_combinar_temp: false,
+  });
+
+  const tipo = user.missao_tipo_temp || "individual";
+  const vagasTotal = Number(user.vagas_total_temp || 1);
+  const valorPorPessoa = tipo === "campanha" ? valor / vagasTotal : valor;
+  const taxa = calcMissaoTaxa(valor);
 
   return sendActionButtons(
     phone,
-    "Deseja continuar?",
+    `📊 *Resumo da missão*\n\n` +
+      `Tipo: ${tipo === "campanha" ? "Para várias pessoas" : "Para 1 pessoa"}\n` +
+      `💰 Valor total: R$ ${valor.toFixed(2)}\n` +
+      (tipo === "campanha"
+        ? `👥 Pessoas: ${vagasTotal}\n🎯 Por pessoa: R$ ${valorPorPessoa.toFixed(2)}\n`
+        : "") +
+      `🧾 Taxa da plataforma: R$ ${taxa.toFixed(2)}\n\n` +
+      `Quer adicionar urgência por +R$ 4,90?`,
     [
-      { id: "missao_confirmar_campanha", title: "Confirmar" },
-      { id: "voltar_menu", title: "Cancelar" },
+      { id: "missao_urgencia_sim", title: "Com urgência" },
+      { id: "missao_urgencia_nao", title: "Sem urgência" },
+      { id: "voltar_menu", title: "Voltar ao menu" },
     ]
   );
 }
@@ -1319,8 +1409,21 @@ if (user.etapa === "missao_resumo_campanha") {
     ["missao_urgencia_sim", "missao_urgencia_nao"].includes(text)
   ) {
     const urgencia = text === "missao_urgencia_sim";
-    const valorBase = Number(user.missao_valor_temp || 0);
-    const resumo = calcMissaoTotal(valorBase, urgencia);
+const valorACombinar = user.missao_valor_a_combinar_temp === true;
+const valorBase = Number(user.missao_valor_temp || 0);
+
+const resumo = valorACombinar
+  ? {
+      valorMissao: 0,
+      taxa: MISSAO_TAXA_FIXA_A_COMBINAR,
+      urgencia: urgencia ? 4.9 : 0,
+      total: MISSAO_TAXA_FIXA_A_COMBINAR + (urgencia ? 4.9 : 0),
+      aCombinar: true,
+    }
+  : {
+      ...calcMissaoTotal(valorBase, urgencia),
+      aCombinar: false,
+    };
     const categoria = inferCategoria(user.missao_desc || user.missao_titulo || "");
 
     const payment = await createPendingPayment(supabase, {
@@ -1343,6 +1446,8 @@ if (user.etapa === "missao_resumo_campanha") {
   valor_missao: resumo.valorMissao,
   taxa_plataforma: resumo.taxa,
   urgencia,
+  valor_a_combinar: valorACombinar,
+taxa_fixa_publicacao: valorACombinar ? MISSAO_TAXA_FIXA_A_COMBINAR : null,
   categoria_chave: categoria,
   cidade: user.cidade,
   estado: user.estado,
@@ -1395,7 +1500,8 @@ if (user.etapa === "missao_resumo_campanha") {
     }
 
     await sendText(phone, buildPixResumo(intent, resumo));
-    await sendText(phone, `\n\n${buildPixCodeOnly(intent)}`);
+await sendText(phone, buildPixOwnerNotice());
+await sendPixCodeFlow(phone, intent);
 
     return sendActionButtons(phone, "Depois do pagamento:", [
       { id: "payment_check_status", title: "Já paguei" },
