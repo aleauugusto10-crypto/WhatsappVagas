@@ -230,7 +230,11 @@ export async function handleOnboarding({
     onboarding_finalizado: false,
   });
 
-  return sendText(phone, "Qual seu nome e sobrenome?");
+  return sendText(phone, randomize([
+  "Qual seu nome e sobrenome?",
+  "Me diz seu nome completo 👇",
+  "Como posso te chamar?"
+]));
 }
 
   if (user.etapa === "nome") {
@@ -348,52 +352,31 @@ export async function handleOnboarding({
   }
 
   if (user.tipo === "empresa") {
-    await updateUser({
-      email: emailLimpo,
-      etapa: "cnpj",
-    });
+  await updateUser({
+    email: emailLimpo,
+    etapa: "nome_empresa",
+  });
 
-    return sendText(phone, "Digite o CNPJ da empresa:");
-  }
+  return sendText(phone, "Qual o nome da empresa?");
+}
 
   await updateUser({
     email: emailLimpo,
     etapa: "cpf",
   });
 
-  return sendText(phone, "Digite seu CPF (apenas números):");
+  return sendText(
+  phone,
+  "🔒 Para sua segurança, precisamos do seu CPF.\n\n" +
+  "Ele é usado apenas para:\n" +
+  "• Evitar contas duplicadas\n" +
+  "• Proteger sua conta\n\n" +
+  "• Evitar golpes e contas fantasmas\n\n" +
+  "Seus dados NÃO são compartilhados.\n\n" +
+  "Digite seu CPF (apenas números):"
+);
 }
-if (user.etapa === "cnpj") {
-  const cnpjLimpo = cleanCNPJ(text);
 
-  if (!isValidCNPJ(cnpjLimpo)) {
-    return sendText(
-      phone,
-      "CNPJ inválido. Digite um CNPJ válido.\nEx: 12345678000195"
-    );
-  }
-
-  const cnpjExiste = await existsUsuarioByField(
-    supabase,
-    "cnpj",
-    cnpjLimpo,
-    user.id
-  );
-
-  if (cnpjExiste) {
-    return sendText(
-      phone,
-      "Esse CNPJ já está cadastrado. Digite outro CNPJ."
-    );
-  }
-
-  await updateUser({
-    cnpj: cnpjLimpo,
-    etapa: "nome_empresa",
-  });
-
-  return sendText(phone, "Qual o nome da empresa?");
-}
   if (user.etapa === "cpf") {
     const cpfLimpo = cleanCPF(text);
 
@@ -794,7 +777,12 @@ if (!existing) {
       onboarding_finalizado: true,
     });
 
-    return sendMenuUsuario(phone);
+    await sendText(phone, "✅ Cadastro concluído com sucesso!");
+
+return sendActionButtons(phone, "Deseja fazer algo mais?", [
+  { id: "falar_atendente", title: "Falar com atendente" },
+  { id: "voltar_menu", title: "Ir para o menu" },
+]);
   }
 
   return false;

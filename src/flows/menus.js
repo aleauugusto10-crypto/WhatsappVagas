@@ -11,7 +11,16 @@ export function sendRootMenu(phone) {
     ]
   );
 }
-
+export function sendEntradaInicial(phone) {
+  return sendButtons(
+    phone,
+    "👋 Bem-vindo ao RendaJá!\n\nComo posso te ajudar agora?",
+    [
+      { id: "iniciar_cadastro", title: "Iniciar cadastro" },
+      { id: "abrir_suporte", title: "Tirar dúvidas" },
+    ]
+  );
+}
 export function sendMenuUsuario(phone) {
   return sendList(phone, "💼 Menu do trabalhador:", [
    {

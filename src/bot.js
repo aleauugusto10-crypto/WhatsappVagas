@@ -1,6 +1,8 @@
 import { supabase } from "./supabase.js";
-import { sendText } from "./services/whatsapp.js";
+import { sendText, sendList } from "./services/whatsapp.js";
+import { handleSupport } from "./flows/support.js";
 import {
+  sendEntradaInicial,
   sendRootMenu,
   sendMenuUsuario,
   sendMenuContratante,
@@ -154,31 +156,48 @@ export async function handleMessage(msg) {
     if (!user) {
       const { data: created } = await supabase
         .from("usuarios")
-        .insert({
-          telefone: phone,
-          tipo: "usuario",
-          etapa: "tipo",
-          ativo: true,
-          onboarding_finalizado: false,
-        })
+       .insert({
+  telefone: phone,
+  tipo: "usuario",
+  etapa: "entrada",
+  ativo: true,
+  onboarding_finalizado: false,
+})
         .select()
         .single();
 
       user = created;
-      return sendRootMenu(phone);
+
+await sendText(
+  phone,
+  "🤖 Você está falando com o assistente automático do RendaJá.\n\n" +
+    "Ele ajuda no cadastro e nas principais dúvidas.\n\n" +
+    "Se precisar, você também pode falar com um atendente humano."
+);
+
+return sendEntradaInicial(phone);
     }
 
-    const updateUser = async (data) => {
-      const { data: updated } = await supabase
-        .from("usuarios")
-        .update(data)
-        .eq("id", user.id)
-        .select()
-        .single();
+const updateUser = async (data) => {
+  const { data: updated } = await supabase
+    .from("usuarios")
+    .update(data)
+    .eq("id", user.id)
+    .select()
+    .single();
 
-      Object.assign(user, updated);
-      return updated;
-    };
+  Object.assign(user, updated);
+  return updated;
+};
+
+const supportResponse = await handleSupport({
+  user,
+  text,
+  phone,
+  updateUser,
+});
+
+if (supportResponse) return supportResponse;
 const isAdmin = user?.tipo_admin === true;
 
 if (isAdmin) {
@@ -196,12 +215,62 @@ if (isAdmin) {
     // COMANDOS GLOBAIS
     // =====================
 
+
+    if (text === "iniciar_cadastro") {
+  await updateUser({
+    etapa: "tipo",
+    onboarding_finalizado: false,
+  });
+
+  return sendRootMenu(phone);
+}
+
+if (text === "abrir_suporte" || text === "suporte") {
+  await updateUser({
+    etapa: "suporte_menu",
+  });
+
+  return sendList(
+  phone,
+  "🛟 *Central de ajuda RendaJá*\n\n" +
+  "Selecione uma opção abaixo ou fale com um atendente 👇",
+  [
+    {
+      title: "Suporte",
+      rows: [
+        {
+          id: "suporte_termos",
+          title: "📄 Termos de uso",
+        },
+        {
+          id: "suporte_regras",
+          title: "📌 Regras da plataforma",
+        },
+        {
+          id: "suporte_atendente",
+          title: "👤 Falar com atendente",
+        },
+        {
+          id: "iniciar_cadastro",
+          title: "🚀 Criar cadastro",
+        },
+      ],
+    },
+  ]
+);
+}
+
     if (["oi", "menu", "inicio", "início"].includes(text)) {
-      if (user.onboarding_finalizado) {
-        return getMenuByTipo(user.tipo, phone);
-      }
-      return sendRootMenu(phone);
-    }
+  if (user.onboarding_finalizado) {
+    return getMenuByTipo(user.tipo, phone);
+  }
+
+  await updateUser({
+    etapa: "entrada",
+  });
+
+  return sendEntradaInicial(phone);
+}
 
     if (text === "voltar_menu") {
       return getMenuByTipo(user.tipo, phone);
@@ -324,7 +393,11 @@ if (isAdmin) {
   return handleCompanyFallback(phone);
 }
 
-    return sendRootMenu(phone);
+    await updateUser({
+  etapa: "entrada",
+});
+
+return sendEntradaInicial(phone);
   } catch (err) {
     console.error("❌ erro geral:", err);
     return sendText(phone, "Erro ao processar mensagem.");

@@ -12,6 +12,10 @@ const headers = {
 // 🔥 FUNÇÃO CENTRAL COM LOG
 async function send(payload){
   try {
+
+    await new Promise(r => setTimeout(r, 2000 + Math.random() * 2000));
+
+    
     const res = await axios.post(url, payload, { headers });
 
     console.log("✅ WHATSAPP OK:", JSON.stringify(res.data));
@@ -63,6 +67,10 @@ export async function sendButtons(to, body, buttons){
     }
   });
 }
+export function randomize(arr){
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 
 // 📋 LISTA
 export async function sendList(to, body, sections){

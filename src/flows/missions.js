@@ -869,16 +869,16 @@ if (text === "user_ver_missoes") {
   if (error) {
     console.error("❌ erro ao buscar missões:", error);
     await sendText(phone, "Erro ao buscar missões.");
-    return sendActionButtons(phone, [
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+  { id: "voltar_menu", title: "Voltar ao menu" },
+]);
   }
 
   if (!missoes?.length) {
     await sendText(phone, "Sem missões no momento.");
-    return sendActionButtons(phone, [
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
+    return sendActionButtons(phone, "O que deseja fazer agora?", [
+  { id: "voltar_menu", title: "Voltar ao menu" },
+]);
   }
 
   await sendText(
