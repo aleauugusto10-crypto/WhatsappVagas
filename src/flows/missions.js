@@ -1200,7 +1200,10 @@ if (tipo === "campanha") {
     ]
   );
 }
-if (user.etapa === "missao_tipo" && text === "missao_tipo_individual") {
+if (
+  user.etapa === "missao_tipo" &&
+  (text === "missao_tipo_individual" || text === "Para 1 pessoa")
+) {
   await updateUser({
     etapa: "missao_titulo",
     missao_tipo_temp: "individual",
@@ -1217,16 +1220,22 @@ if (user.etapa === "missao_tipo" && text === "missao_tipo_individual") {
   );
 }
 
-if (user.etapa === "missao_tipo" && text === "missao_tipo_campanha") {
+if (
+  user.etapa === "missao_tipo" &&
+  (text === "missao_tipo_campanha" || text === "Para várias pessoas")
+) {
   await updateUser({
-    etapa: "missao_qtd_pessoas",
+    etapa: "missao_titulo",
     missao_tipo_temp: "campanha",
   });
 
   return sendText(
     phone,
-    "Quantas pessoas poderão aceitar essa missão?\n\n" +
-      "Exemplo:\n10 pessoas para divulgar um vídeo\n5 pessoas para entregar panfletos"
+    "Qual o título da campanha?\n\n" +
+      "Exemplos:\n" +
+      "• Divulgar meu vídeo no Instagram\n" +
+      "• Entregar panfletos no centro\n" +
+      "• Compartilhar uma promoção"
   );
 }
 
@@ -1237,19 +1246,21 @@ if (user.etapa === "missao_qtd_pessoas") {
     return sendText(phone, "Digite um número válido.\nEx: 10");
   }
 
-  await updateUser({
-    etapa: "missao_titulo",
-    vagas_total_temp: qtd,
-  });
+await updateUser({
+  etapa: "missao_valor",
+  vagas_total_temp: qtd,
+});
 
-  return sendText(
-    phone,
-    "Qual o título da missão?\n\n" +
-      "Exemplos:\n" +
-      "• Divulgar meu vídeo no Instagram\n" +
-      "• Entregar panfletos no centro\n" +
-      "• Compartilhar uma promoção"
-  );
+return sendText(
+  phone,
+  "Qual valor total deseja investir nessa campanha?\n\n" +
+    "Exemplos:\n" +
+    "100 para dividir entre 10 pessoas\n" +
+    "50 para dividir entre 5 pessoas\n\n" +
+    "Também pode responder:\n" +
+    "🤝 a combinar\n" +
+    "📊 orçamento"
+);
 }
 
 if (user.etapa === "missao_titulo") {
@@ -1262,11 +1273,17 @@ if (user.etapa === "missao_titulo") {
     etapa: "missao_desc",
   });
 
-  return sendText(
-    phone,
-    "Agora descreva melhor o que precisa.\n\n" +
-      "Exemplo:\nPreciso de alguém para avaliar minha máquina de lavar e informar o orçamento do conserto."
-  );
+ const tipoMissao = user.missao_tipo_temp || "individual";
+
+const exemploDescricao =
+  tipoMissao === "campanha"
+    ? "Exemplo:\nPreciso de pessoas para divulgar meu vídeo no Instagram, marcar amigos e enviar o print da divulgação."
+    : "Exemplo:\nPreciso de alguém para avaliar minha máquina de lavar e informar o orçamento do conserto.";
+
+return sendText(
+  phone,
+  "Agora descreva melhor o que precisa.\n\n" + exemploDescricao
+);
 }
 
 if (user.etapa === "missao_desc") {
@@ -1274,24 +1291,35 @@ if (user.etapa === "missao_desc") {
     return sendText(phone, "Descreva melhor a missão:");
   }
 
-  await updateUser({
-    missao_desc: text,
-    etapa: "missao_valor",
-  });
+  const tipoMissao = user.missao_tipo_temp || "individual";
 
+await updateUser({
+  missao_desc: text,
+  etapa: tipoMissao === "campanha" ? "missao_qtd_pessoas" : "missao_valor",
+});
+
+if (tipoMissao === "campanha") {
   return sendText(
     phone,
-    "Qual valor deseja oferecer para essa missão?\n\n" +
-      "Você pode responder de três formas:\n\n" +
-      "💰 Valor fechado: 50\n" +
-      "📊 Orçamento: orçamento\n" +
-      "🤝 A combinar: a combinar\n\n" +
-      "Se escolher *a combinar/orçamento*, será cobrada apenas uma taxa fixa de publicação de R$ " +
-      MISSAO_TAXA_FIXA_A_COMBINAR.toFixed(2) +
-      "."
+    "Quantas pessoas poderão aceitar essa campanha?\n\n" +
+      "Exemplos:\n" +
+      "10 pessoas para divulgar um vídeo\n" +
+      "5 pessoas para entregar panfletos"
   );
 }
 
+return sendText(
+  phone,
+  "Qual valor deseja oferecer para essa missão?\n\n" +
+    "Você pode responder de três formas:\n\n" +
+    "💰 Valor fechado: 50\n" +
+    "📊 Orçamento: orçamento\n" +
+    "🤝 A combinar: a combinar\n\n" +
+    "Se escolher *a combinar/orçamento*, será cobrada apenas uma taxa fixa de publicação de R$ " +
+    MISSAO_TAXA_FIXA_A_COMBINAR.toFixed(2) +
+    "."
+);
+}
 if (user.etapa === "missao_valor") {
   const valorACombinar = isValorACombinar(text);
 
