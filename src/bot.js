@@ -200,7 +200,28 @@ const supportResponse = await handleSupport({
 });
 
 if (supportResponse) return supportResponse;
+const suporteIds = [
+  "suporte_termos",
+  "suporte_regras",
+  "suporte_atendente",
+];
 
+if (suporteIds.includes(text)) {
+  const suporteDireto = await handleSupport({
+    user,
+    text,
+    phone,
+    updateUser,
+    supabase,
+  });
+
+  if (suporteDireto) return suporteDireto;
+
+  return sendText(
+    phone,
+    "Não consegui abrir essa opção do suporte agora. Digite *suporte* para tentar novamente."
+  );
+}
 
 const isAdmin = user?.tipo_admin === true;
 

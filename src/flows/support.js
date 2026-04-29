@@ -285,7 +285,75 @@ export async function handleSupport({
     console.error("❌ ADMIN_PHONE não configurado no .env");
     return false;
   }
+// =====================
+// OPÇÕES DIRETAS DO SUPORTE
+// =====================
 
+if (text === "suporte_termos") {
+  return sendText(
+    phone,
+    "📄 *Termos de uso - RendaJá*\n\n" +
+      "O RendaJá é uma plataforma que conecta pessoas para oportunidades, serviços e missões.\n\n" +
+      "📌 *Sobre o uso:*\n" +
+      "• O usuário deve fornecer informações verdadeiras\n" +
+      "• Cada pessoa pode ter apenas uma conta\n" +
+      "• O CPF é usado para segurança e prevenção de fraudes\n\n" +
+      "💸 *Sobre pagamentos:*\n" +
+      "• O RendaJá não garante acordos entre usuários\n" +
+      "• A responsabilidade pelos serviços é dos envolvidos\n\n" +
+      "⚠️ *Responsabilidade:*\n" +
+      "• Não nos responsabilizamos por negociações externas\n" +
+      "• Evite pagamentos fora da plataforma\n\n" +
+      "🔒 *Privacidade:*\n" +
+      "• Seus dados não são compartilhados com terceiros\n" +
+      "• Usamos informações apenas para funcionamento do sistema\n\n" +
+      "🚫 *Penalidades:*\n" +
+      "Contas podem ser bloqueadas em caso de fraude, informações falsas ou uso indevido."
+  );
+}
+
+if (text === "suporte_regras") {
+  return sendText(
+    phone,
+    "📌 *Regras da plataforma*\n\n" +
+      "✔️ *Permitido:*\n" +
+      "• Publicar vagas reais\n" +
+      "• Oferecer serviços legítimos\n" +
+      "• Buscar renda de forma honesta\n\n" +
+      "❌ *Proibido:*\n" +
+      "• Vagas falsas ou enganosas\n" +
+      "• Golpes ou promessas irreais\n" +
+      "• Pedir dinheiro antecipado sem garantia\n" +
+      "• Criar múltiplas contas\n\n" +
+      "⚠️ *Importante:*\n" +
+      "• Sempre verifique antes de aceitar uma proposta\n" +
+      "• O RendaJá não intermedia pagamentos diretos entre usuários\n\n" +
+      "🚨 Comportamentos suspeitos podem ser reportados ao suporte."
+  );
+}
+
+if (text === "suporte_atendente") {
+  if (!user.nome && !user.nome_empresa) {
+    await updateUser({
+      etapa: "suporte_nome",
+    });
+
+    return sendText(
+      phone,
+      "👤 Antes de chamar um atendente, me diga seu nome:"
+    );
+  }
+
+  await updateUser({
+    etapa: "suporte_assunto",
+  });
+
+  return sendText(
+    phone,
+    "💬 Me diga rapidamente qual é sua dúvida.\n\n" +
+      "Ex: problema com cadastro, vaga, pagamento..."
+  );
+}
   // =====================
   // ADMIN RESPONDENDO
   // =====================
@@ -351,96 +419,6 @@ export async function handleSupport({
     }
   }
 
-  // =====================
-  // MENU DO SUPORTE
-  // =====================
-
-  if (
-  user.etapa === "suporte_menu" ||
-  ["suporte_termos", "suporte_regras", "suporte_atendente"].includes(text)
-) {
-   if (text === "suporte_termos") {
-  return sendText(
-    phone,
-    "📄 *Termos de uso - RendaJá*\n\n" +
-    "O RendaJá é uma plataforma que conecta pessoas para oportunidades, serviços e missões.\n\n" +
-
-    "📌 *Sobre o uso:*\n" +
-    "• O usuário deve fornecer informações verdadeiras\n" +
-    "• Cada pessoa pode ter apenas uma conta\n" +
-    "• O CPF é usado para segurança e prevenção de fraudes\n\n" +
-
-    "💸 *Sobre pagamentos:*\n" +
-    "• O RendaJá não garante acordos entre usuários\n" +
-    "• A responsabilidade pelos serviços é dos envolvidos\n\n" +
-
-    "⚠️ *Responsabilidade:*\n" +
-    "• Não nos responsabilizamos por negociações externas\n" +
-    "• Evite pagamentos fora da plataforma\n\n" +
-
-    "🔒 *Privacidade:*\n" +
-    "• Seus dados não são compartilhados com terceiros\n" +
-    "• Usamos informações apenas para funcionamento do sistema\n\n" +
-
-    "🚫 *Penalidades:*\n" +
-    "Contas podem ser bloqueadas em caso de:\n" +
-    "• Fraude\n" +
-    "• Informações falsas\n" +
-    "• Uso indevido da plataforma"
-  );
-}
-if (text === "suporte_regras") {
-  return sendText(
-    phone,
-    "📌 *Regras da plataforma*\n\n" +
-
-    "✔️ *Permitido:*\n" +
-    "• Publicar vagas reais\n" +
-    "• Oferecer serviços legítimos\n" +
-    "• Buscar renda de forma honesta\n\n" +
-
-    "❌ *Proibido:*\n" +
-    "• Vagas falsas ou enganosas\n" +
-    "• Golpes ou promessas irreais\n" +
-    "• Pedir dinheiro antecipado sem garantia\n" +
-    "• Criar múltiplas contas\n\n" +
-
-    "⚠️ *Importante:*\n" +
-    "• Sempre verifique antes de aceitar uma proposta\n" +
-    "• O RendaJá não intermedia pagamentos diretos entre usuários\n\n" +
-
-    "🚨 *Denúncias:*\n" +
-    "Comportamentos suspeitos podem ser reportados ao suporte\n\n" +
-
-    "🔒 O descumprimento pode resultar em bloqueio da conta."
-  );
-}
-
-    if (text === "suporte_atendente") {
-      if (!user.nome && !user.nome_empresa) {
-        await updateUser({
-          etapa: "suporte_nome",
-        });
-
-        return sendText(
-          phone,
-          "👤 Antes de chamar um atendente, me diga seu nome:"
-        );
-      }
-
-      await updateUser({
-        etapa: "suporte_assunto",
-      });
-
-      return sendText(
-        phone,
-        "💬 Me diga rapidamente qual é sua dúvida.\n\n" +
-          "Ex: problema com cadastro, vaga, pagamento..."
-      );
-    }
-
-    return false;
-  }
 
   // =====================
   // PEGAR NOME ANTES DO SUPORTE
