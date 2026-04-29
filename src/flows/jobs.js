@@ -534,16 +534,21 @@ if (text.startsWith("vaga_candidatar_")) {
     .eq("status", "ativa")
     .maybeSingle();
 
-  if (error || !vaga) {
-    await sendText(phone, "Não consegui localizar o contato dessa vaga.");
-    return sendActionButtons(phone, "O que deseja fazer agora?", [
-      { id: "user_ver_vagas", title: "Ver vagas" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
+if (error || !vaga) {
+  await sendText(phone, "Não consegui localizar o contato dessa vaga.");
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "user_ver_vagas", title: "Ver vagas" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 
-  
-  let msg =
+const numero = normalizePhoneBR(
+  vaga.contato_whatsapp || vaga.telefone || vaga.whatsapp || ""
+);
+
+const linkWhatsapp = numero ? `https://wa.me/${numero}` : null;
+
+let msg =
     `📩 *Candidatura à vaga*\n\n` +
     `💼 *Vaga:* ${vaga.titulo || "-"}\n` +
     `🏢 *Empresa:* ${vaga.nome_empresa || "Empresa não informada"}\n\n` +
@@ -610,7 +615,6 @@ if (text === "prof_ver_perfil") {
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
-
 
 if (user.etapa === "prof_criar_perfil_servico") {
   const servico = String(text || "").trim();
