@@ -1290,43 +1290,13 @@ if (user.etapa === "missao_desc") {
       "📊 Orçamento"
   );
 }
-if (
-  user.missao_tipo_temp === "campanha" &&
-  (user.etapa === "missao_qtd_pessoas" ||
-    (user.etapa === "missao_valor" && Number(user.missao_valor_temp || 0) > 0))
-) {
-  const qtd = Number(String(text).replace(/\D/g, ""));
 
-  if (!qtd || qtd <= 0) {
-    return sendText(
-      phone,
-      "Digite uma quantidade válida de pessoas para essa campanha.\n\nExemplos:\n5\n10\n20"
-    );
-  }
-
-  const valorBase = Number(user.missao_valor_temp || 0);
-  const valorPorPessoa = valorBase / qtd;
-  const taxa = calcMissaoTaxa(valorBase);
-
-  await updateUser({
-    etapa: "missao_confirmar_publicacao",
-    vagas_total_temp: qtd,
-  });
-
-  return sendActionButtons(
-    phone,
-    `📊 *Resumo da campanha*\n\n` +
-      `💰 Total investido: R$ ${valorBase.toFixed(2)}\n` +
-      `👥 Pessoas: ${qtd}\n` +
-      `🎯 Por pessoa: R$ ${valorPorPessoa.toFixed(2)}\n` +
-      `🧾 Taxa da plataforma: R$ ${taxa.toFixed(2)}`,
-    [
-      { id: "missao_confirmar_publicacao", title: "Publicar missão" },
-      { id: "voltar_menu", title: "Cancelar" },
-    ]
-  );
-}
-
+console.log("🧪 MISSÕES DEBUG:", {
+  etapa: user.etapa,
+  tipo: user.missao_tipo_temp,
+  valor_temp: user.missao_valor_temp,
+  text,
+});
 if (user.etapa === "missao_valor") {
   const tipo = user.missao_tipo_temp || "individual";
   const valorACombinar = isValorACombinar(text);
