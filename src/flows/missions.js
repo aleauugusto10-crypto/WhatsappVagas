@@ -1196,7 +1196,10 @@ if (tipo === "campanha") {
     ]
   );
 }
-if (text === "missao_tipo_individual" || text === "Para 1 pessoa") {
+if (
+  user.etapa === "missao_tipo" &&
+  (text === "missao_tipo_individual" || text === "Para 1 pessoa")
+) {
   await updateUser({
     etapa: "missao_titulo",
     missao_tipo_temp: "individual",
@@ -1213,7 +1216,10 @@ if (text === "missao_tipo_individual" || text === "Para 1 pessoa") {
   );
 }
 
-if (text === "missao_tipo_campanha" || text === "Para várias pessoas") {
+if (
+  user.etapa === "missao_tipo" &&
+  (text === "missao_tipo_campanha" || text === "Para várias pessoas")
+) {
   await updateUser({
     etapa: "missao_titulo",
     missao_tipo_temp: "campanha",
