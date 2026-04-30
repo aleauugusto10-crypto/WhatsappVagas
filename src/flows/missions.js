@@ -720,7 +720,24 @@ async function enviarMissaoParaDono(phone, missao, interessado) {
     ]
   );
 }
+async function updateMissionState({ supabase, user, updateUser, data }) {
+  await updateUser(data);
 
+  const { data: updated, error } = await supabase
+    .from("usuarios")
+    .update(data)
+    .eq("id", user.id)
+    .select("id, etapa, missao_tipo_temp, missao_valor_temp, vagas_total_temp")
+    .maybeSingle();
+
+  if (error) {
+    console.error("❌ ERRO REAL AO SALVAR ESTADO DA MISSÃO:", error);
+    return null;
+  }
+
+  console.log("✅ ESTADO DA MISSÃO SALVO:", updated);
+  return updated;
+}
 export async function handleMissions({
   user,
   text,
@@ -1174,7 +1191,11 @@ if (tipo === "campanha") {
   // =====================
 
   if (text === "contratar_criar_missao") {
-  await updateUser({
+ await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
     etapa: "missao_tipo",
     missao_titulo: null,
     missao_desc: null,
@@ -1182,6 +1203,7 @@ if (tipo === "campanha") {
     missao_valor_a_combinar_temp: false,
     missao_tipo_temp: null,
     vagas_total_temp: null,
+  },
   });
 
   return sendActionButtons(
@@ -1200,11 +1222,16 @@ if (
   text === "missao_tipo_individual" ||
   (user.etapa === "missao_tipo" && text === "Para 1 pessoa")
 ) {
-  await updateUser({
+  await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
     etapa: "missao_titulo",
     missao_tipo_temp: "individual",
     vagas_total_temp: 1,
-  });
+  },
+});
 
   return sendText(
     phone,
@@ -1220,11 +1247,15 @@ if (
   text === "missao_tipo_campanha" ||
   (user.etapa === "missao_tipo" && text === "Para várias pessoas")
 ) {
-  await updateUser({
+await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
     etapa: "missao_titulo",
     missao_tipo_temp: "campanha",
-  });
-
+  },
+});
   return sendText(
     phone,
     "Qual o título da campanha?\n\n" +
@@ -1264,10 +1295,15 @@ if (user.etapa === "missao_desc") {
 
   const tipoMissao = user.missao_tipo_temp || "individual";
 
-  await updateUser({
+  await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
     missao_desc: text,
     etapa: "missao_valor",
-  });
+  },
+});
 
   if (tipoMissao === "campanha") {
     return sendText(
@@ -1309,12 +1345,17 @@ if (user.etapa === "missao_valor") {
   }
 
   if (valorACombinar) {
-    await updateUser({
-      etapa: "missao_confirmar_publicacao",
-      missao_valor_temp: "0",
-      missao_valor_a_combinar_temp: true,
-      vagas_total_temp: 1,
-    });
+    await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
+    etapa: "missao_confirmar_publicacao",
+    missao_valor_temp: "0",
+    missao_valor_a_combinar_temp: true,
+    vagas_total_temp: 1,
+  },
+});
 
     return sendActionButtons(
   phone,
@@ -1334,12 +1375,16 @@ if (user.etapa === "missao_valor") {
     return sendText(phone, "Me diga o valor total que você quer separar para essa campanha.\n\nExemplos:\n50\n100\n120");
   }
 
-  await updateUser({
+await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
     missao_valor_temp: String(valor),
     missao_valor_a_combinar_temp: false,
     etapa: tipo === "campanha" ? "missao_qtd_pessoas" : "missao_confirmar_publicacao",
-  });
-
+  },
+});
   if (tipo === "campanha") {
     return sendText(
       phone,
@@ -1372,9 +1417,14 @@ if (user.etapa === "missao_qtd_pessoas") {
   const valorPorPessoa = valorBase / qtd;
   const taxa = calcMissaoTaxa(valorBase);
 
-  await updateUser({
-  etapa: "missao_confirmar_publicacao",
-  vagas_total_temp: qtd,
+  await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
+    etapa: "missao_confirmar_publicacao",
+    vagas_total_temp: qtd,
+  },
 });
 return sendActionButtons(
   phone,
@@ -1452,15 +1502,22 @@ if (
     console.error("❌ erro ao gerar Pix da missão:", err);
   }
 
-  await updateUser({
-    etapa: "menu",
+ await updateUser({
+  etapa: "menu",
+});
+  await updateMissionState({
+  supabase,
+  user,
+  updateUser,
+  data: {
     missao_titulo: null,
     missao_desc: null,
     missao_valor_temp: null,
     missao_tipo_temp: null,
     vagas_total_temp: null,
     missao_valor_a_combinar_temp: false,
-  });
+  },
+});
 
   if (!intent) {
     return sendText(phone, "Pedido criado, mas não consegui gerar o Pix agora.");
