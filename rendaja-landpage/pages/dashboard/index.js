@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../src/lib/supabase";
 
 const DEFAULT_PROFILE = {
   slug: "",

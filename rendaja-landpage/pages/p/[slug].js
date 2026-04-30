@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../src/lib/supabase";
 import Hero from "../../components/Hero";
 import Gallery from "../../components/Gallery";
 import Reviews from "../../components/Reviews";
