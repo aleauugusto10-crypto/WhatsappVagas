@@ -1200,10 +1200,7 @@ if (tipo === "campanha") {
     ]
   );
 }
-if (
-  user.etapa === "missao_tipo" &&
-  (text === "missao_tipo_individual" || text === "Para 1 pessoa")
-) {
+if (text === "missao_tipo_individual" || text === "Para 1 pessoa") {
   await updateUser({
     etapa: "missao_titulo",
     missao_tipo_temp: "individual",
@@ -1220,10 +1217,7 @@ if (
   );
 }
 
-if (
-  user.etapa === "missao_tipo" &&
-  (text === "missao_tipo_campanha" || text === "Para várias pessoas")
-) {
+if (text === "missao_tipo_campanha" || text === "Para várias pessoas") {
   await updateUser({
     etapa: "missao_titulo",
     missao_tipo_temp: "campanha",
@@ -1360,16 +1354,29 @@ if (valorACombinar) {
   const valor = Number(String(text).replace(",", "."));
 
   if (!valor || valor <= 0) {
+  if (tipo === "campanha") {
     return sendText(
       phone,
-      "Digite um valor válido ou escreva *a combinar*.\n\n" +
+      "Digite um valor total válido para a campanha.\n\n" +
+        "Esse valor será dividido automaticamente pela quantidade de pessoas.\n\n" +
         "Exemplos:\n" +
+        "100\n" +
         "50\n" +
-        "120,00\n" +
-        "orçamento\n" +
-        "a combinar"
+        "200\n\n" +
+        "⚠️ Campanha para várias pessoas não aceita orçamento ou a combinar."
     );
   }
+
+  return sendText(
+    phone,
+    "Digite um valor válido ou escreva *a combinar*.\n\n" +
+      "Exemplos:\n" +
+      "50\n" +
+      "120,00\n" +
+      "orçamento\n" +
+      "a combinar"
+  );
+}
 
   await updateUser({
     etapa: "missao_urgencia",
