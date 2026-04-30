@@ -2,9 +2,7 @@ import { sendList, sendText } from "../services/whatsapp.js";
 import { sendActionButtons } from "./menus.js";
 import {
   calcMissaoTaxa,
-  calcMissaoTotal,
   createPendingPayment,
-  
 } from "../lib/monetization.js";
 import { createMercadoPagoPixIntent } from "../services/payments.js";
 const MISSAO_TAXA_FIXA_A_COMBINAR = 9.9;
@@ -69,7 +67,7 @@ function buildPixResumo(intent, resumo) {
     `💳 *Pagamento da missão gerado com sucesso!*\n\n` +
     `Valor da missão: ${valorMissaoLabel}\n` +
     `Taxa da plataforma: R$ ${Number(resumo.taxa || 0).toFixed(2)}\n` +
-    `Urgência: R$ ${Number(resumo.urgencia || 0).toFixed(2)}\n` +
+    
     `Total: R$ ${Number(resumo.total || 0).toFixed(2)}`;
 
   if (resumo.aCombinar) {
@@ -176,14 +174,12 @@ function getTaxaMissao(missao) {
   return Number(missao.taxa_plataforma || 0);
 }
 
-function getUrgenciaMissao(missao) {
-  return missao.urgencia ? 4.9 : 0;
-}
+
 
 async function reterTaxaMissaoSePrimeiroAceite({ supabase, missao }) {
   if (missao.taxa_retida) return true;
 
-  const taxa = getTaxaMissao(missao) + getUrgenciaMissao(missao);
+  const taxa = getTaxaMissao(missao);
   if (taxa <= 0) {
     await supabase.from("missoes").update({ taxa_retida: true }).eq("id", missao.id);
     return true;
@@ -236,7 +232,7 @@ async function descontarReservaDoDono({ supabase, missao }) {
 
 async function devolverSaldoMissaoCancelada({ supabase, missao }) {
   const totalMissao = getValorTotalMissao(missao);
-  const taxa = getTaxaMissao(missao) + getUrgenciaMissao(missao);
+  const taxa = getTaxaMissao(missao);
   const houveAceite = Number(missao.vagas_ocupadas || 0) > 0 || missao.taxa_retida;
 
   const { data: creditosPagos } = await supabase
@@ -1233,29 +1229,6 @@ if (text === "missao_tipo_campanha" || text === "Para várias pessoas") {
   );
 }
 
-if (user.etapa === "missao_qtd_pessoas") {
-  const qtd = Number(text);
-
-  if (!qtd || qtd <= 0) {
-    return sendText(phone, "Digite um número válido.\nEx: 10");
-  }
-
-await updateUser({
-  etapa: "missao_valor",
-  vagas_total_temp: qtd,
-});
-
-return sendText(
-  phone,
-  "Qual valor total deseja investir nessa campanha?\n\n" +
-    "Esse valor será dividido automaticamente pela quantidade de pessoas.\n\n" +
-    "Exemplos:\n" +
-    "100 para dividir entre 10 pessoas\n" +
-    "50 para dividir entre 5 pessoas\n\n" +
-    "⚠️ Para campanha com várias pessoas, o valor precisa ser definido. Não pode ser a combinar."
-);
-}
-
 if (user.etapa === "missao_titulo") {
   if (!text || text.length < 3) {
     return sendText(phone, "Digite um título válido para a missão:");
@@ -1278,7 +1251,6 @@ return sendText(
   "Agora descreva melhor o que precisa.\n\n" + exemploDescricao
 );
 }
-
 if (user.etapa === "missao_desc") {
   if (!text || text.length < 5) {
     return sendText(phone, "Descreva melhor a missão:");
@@ -1286,281 +1258,213 @@ if (user.etapa === "missao_desc") {
 
   const tipoMissao = user.missao_tipo_temp || "individual";
 
-await updateUser({
-  missao_desc: text,
-  etapa: tipoMissao === "campanha" ? "missao_qtd_pessoas" : "missao_valor",
-});
+  await updateUser({
+    missao_desc: text,
+    etapa: "missao_valor",
+  });
 
-if (tipoMissao === "campanha") {
+  if (tipoMissao === "campanha") {
+    return sendText(
+      phone,
+      "Qual valor total deseja investir nessa campanha?\n\n" +
+        "Exemplos:\n" +
+        "50\n" +
+        "100\n" +
+        "120"
+    );
+  }
+
   return sendText(
     phone,
-    "Quantas pessoas poderão aceitar essa campanha?\n\n" +
-      "Exemplos:\n" +
-      "10 pessoas para divulgar um vídeo\n" +
-      "5 pessoas para entregar panfletos"
+    "Qual valor deseja oferecer para essa missão?\n\n" +
+      "Você pode responder:\n\n" +
+      "💰 50\n" +
+      "💰 120,00\n" +
+      "🤝 A combinar\n" +
+      "📊 Orçamento"
   );
 }
 
-return sendText(
-  phone,
-  "Qual valor deseja oferecer para essa missão?\n\n" +
-    "Você pode responder de três formas:\n\n" +
-    "💰 Valor fechado: 50\n" +
-    "📊 Orçamento: orçamento\n" +
-    "🤝 A combinar: a combinar\n\n" +
-    "Se escolher *a combinar/orçamento*, será cobrada apenas uma taxa fixa de publicação de R$ " +
-    MISSAO_TAXA_FIXA_A_COMBINAR.toFixed(2) +
-    "."
-);
-}
+
 if (user.etapa === "missao_valor") {
   const tipo = user.missao_tipo_temp || "individual";
-const valorACombinar = isValorACombinar(text);
+  const valorACombinar = isValorACombinar(text);
 
-if (valorACombinar && tipo === "campanha") {
-  return sendText(
-    phone,
-    "Para campanha com várias pessoas, o valor precisa ser definido.\n\n" +
-      "Isso é necessário para o sistema dividir automaticamente quanto cada pessoa vai receber.\n\n" +
-      "Exemplos:\n" +
-      "100\n" +
-      "50\n" +
-      "200"
-  );
-}
+  if (tipo === "campanha" && valorACombinar) {
+    return sendText(
+      phone,
+      "Digite apenas o valor total da campanha.\n\nExemplos:\n50\n100\n120"
+    );
+  }
 
-if (valorACombinar) {
+  if (valorACombinar) {
     await updateUser({
-      etapa: "missao_urgencia",
+      etapa: "missao_confirmar_publicacao",
       missao_valor_temp: "0",
       missao_valor_a_combinar_temp: true,
+      vagas_total_temp: 1,
     });
 
     return sendActionButtons(
-      phone,
-      `📌 *Missão com valor a combinar*\n\n` +
-        `Você pagará apenas a taxa fixa de publicação:\n` +
-        `🧾 Taxa da plataforma: R$ ${MISSAO_TAXA_FIXA_A_COMBINAR.toFixed(2)}\n\n` +
-        `O valor final será combinado diretamente com o profissional.\n\n` +
-        `Quer adicionar urgência por +R$ 4,90?`,
-      [
-        { id: "missao_urgencia_sim", title: "Com urgência" },
-        { id: "missao_urgencia_nao", title: "Sem urgência" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]
-    );
+  phone,
+  `📌 *Missão com valor a combinar*\n\n` +
+    `Taxa de publicação: R$ ${MISSAO_TAXA_FIXA_A_COMBINAR.toFixed(2)}\n\n` +
+    `O valor final será combinado diretamente com o profissional.`,
+  [
+    { id: "missao_confirmar_publicacao", title: "Publicar missão" },
+    { id: "voltar_menu", title: "Cancelar" },
+  ]
+);
   }
 
   const valor = Number(String(text).replace(",", "."));
 
   if (!valor || valor <= 0) {
+    return sendText(phone, "Digite um valor válido.\n\nExemplos:\n50\n100\n120");
+  }
+
+  await updateUser({
+    missao_valor_temp: String(valor),
+    missao_valor_a_combinar_temp: false,
+    etapa: tipo === "campanha" ? "missao_qtd_pessoas" : "missao_confirmar_publicacao",
+  });
+
   if (tipo === "campanha") {
     return sendText(
       phone,
-      "Digite um valor total válido para a campanha.\n\n" +
-        "Esse valor será dividido automaticamente pela quantidade de pessoas.\n\n" +
-        "Exemplos:\n" +
-        "100\n" +
-        "50\n" +
-        "200\n\n" +
-        "⚠️ Campanha para várias pessoas não aceita orçamento ou a combinar."
+      "Quantas pessoas você quer que participem dessa campanha?\n\nExemplos:\n5\n10\n20"
     );
   }
 
-  return sendText(
-    phone,
-    "Digite um valor válido ou escreva *a combinar*.\n\n" +
-      "Exemplos:\n" +
-      "50\n" +
-      "120,00\n" +
-      "orçamento\n" +
-      "a combinar"
-  );
-}
-
-  await updateUser({
-    etapa: "missao_urgencia",
-    missao_valor_temp: String(valor),
-    missao_valor_a_combinar_temp: false,
-  });
-
-  
-  const vagasTotal = Number(user.vagas_total_temp || 1);
-  const valorPorPessoa = tipo === "campanha" ? valor / vagasTotal : valor;
   const taxa = calcMissaoTaxa(valor);
 
   return sendActionButtons(
-    phone,
-    `📊 *Resumo da missão*\n\n` +
-      `Tipo: ${tipo === "campanha" ? "Para várias pessoas" : "Para 1 pessoa"}\n` +
-      `💰 Valor total: R$ ${valor.toFixed(2)}\n` +
-      (tipo === "campanha"
-        ? `👥 Pessoas: ${vagasTotal}\n🎯 Por pessoa: R$ ${valorPorPessoa.toFixed(2)}\n`
-        : "") +
-      `🧾 Taxa da plataforma: R$ ${taxa.toFixed(2)}\n\n` +
-      `Quer adicionar urgência por +R$ 4,90?`,
-    [
-      { id: "missao_urgencia_sim", title: "Com urgência" },
-      { id: "missao_urgencia_nao", title: "Sem urgência" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]
-  );
+  phone,
+  `📊 *Resumo da missão*\n\n` +
+    `Tipo: Para 1 pessoa\n` +
+    `💰 Valor: R$ ${valor.toFixed(2)}\n` +
+    `🧾 Taxa da plataforma: R$ ${taxa.toFixed(2)}`,
+  [
+    { id: "missao_confirmar_publicacao", title: "Publicar missão" },
+    { id: "voltar_menu", title: "Cancelar" },
+  ]
+);
+}
+if (user.etapa === "missao_qtd_pessoas") {
+  const qtd = Number(String(text).replace(/\D/g, ""));
+
+  if (!qtd || qtd <= 0) {
+    return sendText(phone, "Digite uma quantidade válida.\n\nExemplos:\n5\n10\n20");
+  }
+
+  const valorBase = Number(user.missao_valor_temp || 0);
+  const valorPorPessoa = valorBase / qtd;
+  const taxa = calcMissaoTaxa(valorBase);
+
+  await updateUser({
+  etapa: "missao_confirmar_publicacao",
+  vagas_total_temp: qtd,
+});
+return sendActionButtons(
+  phone,
+  `📊 *Resumo da campanha*\n\n` +
+    `💰 Total investido: R$ ${valorBase.toFixed(2)}\n` +
+    `👥 Pessoas: ${qtd}\n` +
+    `🎯 Por pessoa: R$ ${valorPorPessoa.toFixed(2)}\n` +
+    `🧾 Taxa da plataforma: R$ ${taxa.toFixed(2)}`,
+  [
+    { id: "missao_confirmar_publicacao", title: "Publicar missão" },
+    { id: "voltar_menu", title: "Cancelar" },
+  ]
+);
 }
 
-
-if (user.etapa === "missao_resumo_campanha") {
-  if (text === "missao_confirmar_campanha") {
-    await updateUser({
-      etapa: "missao_urgencia",
-    });
-
-    const valorBase = Number(user.missao_valor_temp || 0);
-    const vagasTotal = Number(user.vagas_total_temp || 1);
-    const valorPorPessoa = valorBase / vagasTotal;
-    const taxa = calcMissaoTaxa(valorBase);
-
-    return sendActionButtons(
-      phone,
-      `📊 *Campanha confirmada*\n\n` +
-        `💰 Total: R$ ${valorBase.toFixed(2)}\n` +
-        `👥 Pessoas: ${vagasTotal}\n` +
-        `🎯 Por pessoa: R$ ${valorPorPessoa.toFixed(2)}\n` +
-        `🧾 Taxa da plataforma: R$ ${taxa.toFixed(2)}\n\n` +
-        `Quer adicionar urgência por +R$ 4,90?`,
-      [
-        { id: "missao_urgencia_sim", title: "Com urgência" },
-        { id: "missao_urgencia_nao", title: "Sem urgência" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]
-    );
-  }
-
-  if (text === "voltar_menu") {
-    await updateUser({
-      etapa: "menu",
-      missao_titulo: null,
-      missao_desc: null,
-      missao_valor_temp: null,
-      missao_tipo_temp: null,
-      vagas_total_temp: null,
-    });
-
-    return sendText(phone, "Criação da campanha cancelada.");
-  }
-
-  return sendText(phone, "Escolha uma opção: Confirmar ou Cancelar.");
-}
-
-  if (
-    user.etapa === "missao_urgencia" &&
-    ["missao_urgencia_sim", "missao_urgencia_nao"].includes(text)
-  ) {
-    const urgencia = text === "missao_urgencia_sim";
-const valorACombinar = user.missao_valor_a_combinar_temp === true;
-const valorBase = Number(user.missao_valor_temp || 0);
-
-const resumo = valorACombinar
-  ? {
-      valorMissao: 0,
-      taxa: MISSAO_TAXA_FIXA_A_COMBINAR,
-      urgencia: urgencia ? 4.9 : 0,
-      total: MISSAO_TAXA_FIXA_A_COMBINAR + (urgencia ? 4.9 : 0),
-      aCombinar: true,
-    }
-  : {
-      ...calcMissaoTotal(valorBase, urgencia),
-      aCombinar: false,
-    };
-    const categoria = inferCategoria(user.missao_desc || user.missao_titulo || "");
-
-    const payment = await createPendingPayment(supabase, {
-      usuarioId: user.id,
-      referenciaTipo: "missao_publicacao",
-      planoCodigo: urgencia ? "missao_urgencia" : null,
-      valor: resumo.total,
-     metadata: {
-  titulo: user.missao_titulo,
-  descricao: user.missao_desc,
-
-  tipo: user.missao_tipo_temp || "individual",
-  vagas_total: Number(user.vagas_total_temp || 1),
-  valor_total: Number(user.missao_valor_temp || 0),
-  valor_por_pessoa:
-    user.missao_tipo_temp === "campanha"
-      ? Number(user.missao_valor_temp || 0) / Number(user.vagas_total_temp || 1)
-      : Number(user.missao_valor_temp || 0),
-
-  valor_missao: resumo.valorMissao,
-  taxa_plataforma: resumo.taxa,
-  urgencia,
-  valor_a_combinar: valorACombinar,
-taxa_fixa_publicacao: valorACombinar ? MISSAO_TAXA_FIXA_A_COMBINAR : null,
-  categoria_chave: categoria,
-  cidade: user.cidade,
-  estado: user.estado,
-},
-    });
-
-    if (!payment) {
-      await sendText(phone, "Erro ao gerar cobrança da missão.");
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_criar_missao", title: "Tentar novamente" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    let intent = null;
-    try {
-      intent = await createMercadoPagoPixIntent(payment.id);
-    } catch (err) {
-      console.error("❌ erro ao gerar Pix da missão:", err);
-    }
-
-    await updateUser({
-      etapa: "menu",
-      missao_titulo: null,
-      missao_desc: null,
-      missao_valor_temp: null,
-    });
-
-    if (!intent) {
-      await sendText(
-        phone,
-        `💳 Pedido criado com sucesso!\n\nMissão: ${
-          payment.metadata?.titulo || "Missão"
-        }\nValor da missão: R$ ${resumo.valorMissao.toFixed(
-          2
-        )}\nTaxa da plataforma: R$ ${resumo.taxa.toFixed(
-          2
-        )}\nUrgência: R$ ${resumo.urgencia.toFixed(
-          2
-        )}\nTotal: R$ ${resumo.total.toFixed(2)}\nPedido: ${
-          payment.id
-        }\n\nNão consegui gerar o Pix automaticamente agora, mas o pedido foi criado.`
-      );
-
-      return sendActionButtons(phone, "O que deseja fazer agora?", [
-        { id: "contratar_criar_missao", title: "Criar outra missão" },
-        { id: "contratar_minhas_missoes", title: "Minhas missões" },
-        { id: "voltar_menu", title: "Voltar ao menu" },
-      ]);
-    }
-
-    await sendText(phone, buildPixResumo(intent, resumo));
-await sendText(phone, buildPixOwnerNotice());
-await sendPixCodeFlow(phone, intent);
-
-    return sendActionButtons(phone, "Depois do pagamento:", [
-      { id: "payment_check_status", title: "Já paguei" },
-      { id: "contratar_minhas_missoes", title: "Minhas missões" },
-      { id: "voltar_menu", title: "Voltar ao menu" },
-    ]);
-  }
 
   // =====================
   // DONO: VER MINHAS MISSÕES
   // =====================
+if (
+  user.etapa === "missao_confirmar_publicacao" &&
+  text === "missao_confirmar_publicacao"
+) {
+  const valorACombinar = user.missao_valor_a_combinar_temp === true;
+  const valorBase = Number(user.missao_valor_temp || 0);
 
+  const taxa = valorACombinar
+    ? MISSAO_TAXA_FIXA_A_COMBINAR
+    : calcMissaoTaxa(valorBase);
+
+  const resumo = {
+    valorMissao: valorACombinar ? 0 : valorBase,
+    taxa,
+    total: valorACombinar ? taxa : valorBase + taxa,
+    aCombinar: valorACombinar,
+  };
+
+  const categoria = inferCategoria(user.missao_desc || user.missao_titulo || "");
+
+  const payment = await createPendingPayment(supabase, {
+    usuarioId: user.id,
+    referenciaTipo: "missao_publicacao",
+    planoCodigo: null,
+    valor: resumo.total,
+    metadata: {
+      titulo: user.missao_titulo,
+      descricao: user.missao_desc,
+      tipo: user.missao_tipo_temp || "individual",
+      vagas_total: Number(user.vagas_total_temp || 1),
+      valor_total: valorBase,
+      valor_por_pessoa:
+        user.missao_tipo_temp === "campanha"
+          ? valorBase / Number(user.vagas_total_temp || 1)
+          : valorBase,
+      valor_missao: resumo.valorMissao,
+      taxa_plataforma: resumo.taxa,
+      urgencia: false,
+      valor_a_combinar: valorACombinar,
+      taxa_fixa_publicacao: valorACombinar ? MISSAO_TAXA_FIXA_A_COMBINAR : null,
+      categoria_chave: categoria,
+      cidade: user.cidade,
+      estado: user.estado,
+    },
+  });
+
+  if (!payment) {
+    return sendText(phone, "Erro ao gerar cobrança da missão.");
+  }
+
+  let intent = null;
+
+  try {
+    intent = await createMercadoPagoPixIntent(payment.id);
+  } catch (err) {
+    console.error("❌ erro ao gerar Pix da missão:", err);
+  }
+
+  await updateUser({
+    etapa: "menu",
+    missao_titulo: null,
+    missao_desc: null,
+    missao_valor_temp: null,
+    missao_tipo_temp: null,
+    vagas_total_temp: null,
+    missao_valor_a_combinar_temp: false,
+  });
+
+  if (!intent) {
+    return sendText(phone, "Pedido criado, mas não consegui gerar o Pix agora.");
+  }
+
+  await sendText(phone, buildPixResumo(intent, resumo));
+  await sendText(phone, buildPixOwnerNotice());
+  await sendPixCodeFlow(phone, intent);
+
+  return sendActionButtons(phone, "Depois do pagamento:", [
+    { id: "payment_check_status", title: "Já paguei" },
+    { id: "contratar_minhas_missoes", title: "Minhas missões" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
   if (text === "contratar_minhas_missoes") {
     const { data: missoes, error } = await supabase
       .from("missoes")
