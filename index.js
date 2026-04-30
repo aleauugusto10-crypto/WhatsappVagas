@@ -3,10 +3,18 @@ import dotenv from "dotenv";
 import { handleMessage } from "./src/bot.js";
 import paymentsRouter from "./src/routes/payments.js";
 import { processNotificationQueue } from "./src/services/notificationQueue.js";
+import authRoutes from "./src/routes/authRoutes.js";
+import cors from "cors";
 
 dotenv.config();
-
 const app = express();
+
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 app.use(express.json());
 
 // 🔥 ANTI DUPLICAÇÃO EM MEMÓRIA
@@ -14,6 +22,10 @@ const processedMessages = new Set();
 
 // ✅ ROTAS INTERNAS
 app.use("/payments", paymentsRouter);
+
+app.use("/auth", authRoutes);
+
+
 
 /**
  * 🔐 VERIFICAÇÃO DO WEBHOOK (META)
