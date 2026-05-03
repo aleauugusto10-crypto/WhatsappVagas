@@ -77,16 +77,25 @@ export function sendMenuEmpresa(phone) {
     {
       title: "Empresa",
       rows: [
+        { id: "empresa_buscar_profissionais", title: "Buscar profissionais" },
         { id: "empresa_criar_vaga", title: "Criar vaga" },
         { id: "contratar_criar_missao", title: "Criar missão" },
         { id: "contratar_minhas_missoes", title: "Minhas missões" },
-        { id: "empresa_pacotes", title: "Pacotes" },
-        { id: "empresa_buscar_profissionais", title: "Buscar profissionais" },
+         
         { id: "empresa_minhas_vagas", title: "Minhas vagas" },
+        { id: "empresa_pacotes", title: "Pacotes" },
+       
       ],
     },
     {
-      title: "Perfil",
+      title: "Perfil da empresa",
+      rows: [
+        { id: "empresa_criar_perfil", title: "🌐 Criar página da empresa" },
+        { id: "empresa_ver_perfil", title: "👀 Ver página da empresa" },
+      ],
+    },
+    {
+      title: "Conta",
       rows: [
         { id: "user_carteira", title: "Minha carteira" },
         { id: "redefinir_perfil", title: "Redefinir perfil" },
