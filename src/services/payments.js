@@ -722,8 +722,17 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
 
   // Se já está pago internamente, não reaplica efeitos
   if (internalPayment.status === "pago") {
-    return internalPayment;
-  }
+  console.log("🔁 pagamento já marcado como pago, garantindo efeitos...");
+
+  await activateProfilePageFromPayment(internalPayment);
+  await activateSubscriptionFromPayment(internalPayment);
+  await activateCompanyJobCreditsFromPayment(internalPayment);
+  await publishJobFromPayment(internalPayment);
+  await publishProfessionalServiceFromPayment(internalPayment);
+  await applyProfessionalHighlightFromPayment(internalPayment);
+
+  return internalPayment;
+}
 
   const paid = await markPaymentAsPaid(internalPayment.id, {
     mp_payment_id: String(mpPayment.id),
