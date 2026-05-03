@@ -99,15 +99,26 @@ async function handlePaymentCheckStatus(user, phone) {
       const mpStatus = await getMercadoPagoPayment(payment.mp_payment_id);
 
       if (mpStatus?.status === "approved") {
-        await processApprovedMercadoPagoPayment(String(payment.mp_payment_id));
+  await processApprovedMercadoPagoPayment(String(payment.mp_payment_id));
 
-        const updated = await getPendingPaymentById(payment.id);
+  const editarId =
+    user.tipo === "empresa" ? "empresa_editar_pagina" : "prof_editar_pagina";
 
-        return sendText(
-          phone,
-          `✅ Pagamento confirmado!\n\nPedido: ${updated?.id || payment.id}`
-        );
-      }
+  const verId =
+    user.tipo === "empresa" ? "empresa_ver_perfil" : "prof_ver_pagina";
+
+  await sendText(
+    phone,
+    `✅ *Pagamento confirmado!*\n\n` +
+      `Sua página agora está ativa e disponível para clientes 🚀`
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: editarId, title: "Editar página" },
+    { id: verId, title: "Ver página" },
+    { id: "voltar_menu", title: "Menu" },
+  ]);
+}
 
       return sendText(
         phone,
@@ -325,13 +336,45 @@ if (text === "abrir_suporte" || text === "suporte") {
       return handlePaymentCheckStatus(user, phone);
     }
     if (text === "prof_editar_pagina" || text === "empresa_editar_pagina") {
+  const { data: profile, error } = await supabase
+    .from("profiles_pages")
+    .select("id, slug, is_active, subscription_expires_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error || !profile) {
+    return sendText(
+      phone,
+      "Você ainda não tem uma página criada. Primeiro crie sua página profissional."
+    );
+  }
+
+  const assinaturaValida =
+    profile.is_active === true &&
+    (!profile.subscription_expires_at ||
+      new Date(profile.subscription_expires_at) > new Date());
+
+  if (!assinaturaValida) {
+    await sendText(
+      phone,
+      "🔒 Sua página ainda não está ativa ou a assinatura expirou.\n\nPara acessar o painel e editar sua página, primeiro você precisa ativá-la."
+    );
+
+    return sendActionButtons(phone, "Deseja ativar sua página agora?", [
+      { id: "comprar_pagina", title: "Ativar página" },
+      { id: "prof_ver_pagina", title: "Ver página" },
+      { id: "voltar_menu", title: "Voltar menu" },
+    ]);
+  }
+
   const dashboardUrl =
     process.env.DASHBOARD_URL ||
-    "https://rendaja.online/dashboard/login";
+    "https://rendaja.online/dashboard/";
 
   return sendText(
     phone,
     `✏️ *Editar sua página*\n\n` +
+      `Sua página está ativa ✅\n\n` +
       `Acesse o painel abaixo e faça login com o mesmo número do seu WhatsApp:\n\n` +
       `${dashboardUrl}`
   );
@@ -344,7 +387,6 @@ if (text === "comprar_pagina") {
     .maybeSingle();
 
   if (profileError || !profile) {
-    console.error("❌ página profissional não encontrada:", profileError);
     return sendText(phone, "Ainda não encontrei sua página profissional.");
   }
 
@@ -361,7 +403,7 @@ if (text === "comprar_pagina") {
     phone,
     `💎 *Ativar página profissional RendaJá*\n\n` +
       `📦 *Plano:* Página profissional mensal\n` +
-      `💵 *Valor:* R$ 5,90/mês\n\n` +
+      `💵 *Valor:* R$ 19,90/mês\n\n` +
       `ℹ️ O pagamento é processado com segurança pelo Mercado Pago.\n` +
       `Na hora do Pix, pode aparecer o nome do responsável pela conta de recebimento do RendaJá.\n\n` +
       `📌 *PIX copia e cola:*`
@@ -375,11 +417,10 @@ if (text === "comprar_pagina") {
 
   return sendActionButtons(phone, "Depois do pagamento:", [
     { id: "payment_check_status", title: "Já paguei" },
-    { id: "prof_ver_perfil", title: "Ver perfil" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
+    { id: user.tipo === "empresa" ? "empresa_ver_perfil" : "prof_ver_pagina", title: "Ver página" },
+    { id: "voltar_menu", title: "Voltar menu" },
   ]);
 }
-
 if (text === "prof_ver_pagina") {
   const { data: profile, error } = await supabase
     .from("profiles_pages")

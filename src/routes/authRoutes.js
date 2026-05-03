@@ -62,7 +62,35 @@ router.post("/request-code", async (req, res) => {
         error: "Número não encontrado. Use o mesmo WhatsApp cadastrado no RendaJá.",
       });
     }
+const { data: profile, error: profileError } = await supabase
+  .from("profiles_pages")
+  .select("id, is_active, subscription_expires_at")
+  .eq("user_id", user.id)
+  .maybeSingle();
 
+if (profileError) {
+  console.error("❌ erro ao buscar página no login:", profileError);
+  return res.status(500).json({
+    error: "Erro ao verificar sua página.",
+  });
+}
+
+const paginaAtiva =
+  profile?.is_active === true &&
+  (!profile.subscription_expires_at ||
+    new Date(profile.subscription_expires_at) > new Date());
+
+if (!paginaAtiva) {
+  await sendText(
+    telefone,
+    "🔒 Sua página profissional não está ativa no momento.\n\nPara acessar o painel, ative sua página pelo WhatsApp."
+  );
+
+  return res.status(403).json({
+    error: "Sua página não está ativa. Ative sua página pelo WhatsApp para acessar o painel.",
+    code: "PAGE_NOT_ACTIVE",
+  });
+}
     const codigo = gerarCodigo();
     const expires = new Date(Date.now() + 5 * 60 * 1000);
 
