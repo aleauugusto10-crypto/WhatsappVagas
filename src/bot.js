@@ -433,18 +433,13 @@ if (text === "comprar_pagina") {
     `💎 *Ativar página profissional RendaJá*\n\n` +
       `📦 *Plano:* Página profissional mensal\n` +
       `💵 *Valor:* R$ 5,90/mês\n\n` +
-      `ℹ️ O pagamento é processado com segurança pelo Mercado Pago.\n` +
-      `Na hora do Pix, pode aparecer o nome do responsável pela conta de recebimento do RendaJá.\n\n` +
-      `📌 *PIX copia e cola:*`
-  );
-
-  await sendText(
-  phone,
-  `💳 *Pagamento seguro via RendaJá*\n\n` +
+      `💳 *Pagamento seguro via RendaJá*\n\n` +
     `🔐 O Pix pode aparecer no nome do responsável pela plataforma.\n` +
     `Isso é normal — o pagamento é processado com segurança.\n\n` +
     `📌 *PIX copia e cola:*`
-);
+  );
+
+  
 
 await sendText(phone, payment.qr_code);
 
