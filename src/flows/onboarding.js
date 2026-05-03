@@ -237,23 +237,27 @@ export async function handleOnboarding({
     etapa: "nome",
     onboarding_finalizado: false,
   });
-const { data: usuarioCompleto, error: userError } = await supabase
-  .from("usuarios")
-  .select("*")
-  .eq("id", user.id)
-  .single();
+if (user.etapa === "tipo") {
+  if (!["tipo_usuario", "tipo_contratante", "tipo_empresa"].includes(text)) {
+    return false;
+  }
 
-if (userError || !usuarioCompleto) {
-  console.error("❌ erro ao buscar usuário completo:", userError);
-  return sendText(phone, "Cadastro concluído, mas não consegui gerar sua página agora.");
+  let tipo = "usuario";
+  if (text === "tipo_contratante") tipo = "contratante";
+  if (text === "tipo_empresa") tipo = "empresa";
+
+  await updateUser({
+    tipo,
+    etapa: "nome",
+    onboarding_finalizado: false,
+  });
+
+  return sendText(phone, randomize([
+    "Qual seu nome e sobrenome?",
+    "Me diz seu nome completo 👇",
+    "Como posso te chamar?"
+  ]));
 }
-
-const userAtualizado = {
-  ...usuarioCompleto,
-  raio_km: raio,
-  etapa: "menu",
-  onboarding_finalizado: true,
-};
   return sendText(phone, randomize([
   "Qual seu nome e sobrenome?",
   "Me diz seu nome completo 👇",
@@ -782,7 +786,26 @@ if (user.etapa === "raio") {
     etapa: "menu",
     onboarding_finalizado: true,
   });
+const { data: usuarioCompleto, error: userError } = await supabase
+  .from("usuarios")
+  .select("*")
+  .eq("id", user.id)
+  .single();
 
+if (userError || !usuarioCompleto) {
+  console.error("❌ erro ao buscar usuário completo:", userError);
+  return sendText(
+    phone,
+    "Cadastro concluído, mas não consegui gerar sua página agora."
+  );
+}
+
+const userAtualizado = {
+  ...usuarioCompleto,
+  raio_km: raio,
+  etapa: "menu",
+  onboarding_finalizado: true,
+};
   // 🔥 Atualiza o objeto local para a IA já receber o raio novo
   
 
