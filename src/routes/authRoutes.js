@@ -5,22 +5,47 @@ import { sendText } from "../services/whatsapp.js";
 
 const router = express.Router();
 
+function onlyDigits(value = "") {
+  return String(value || "").replace(/\D/g, "");
+}
+
 function normalizarTelefone(value = "") {
-  let digits = String(value).replace(/\D/g, "");
+  let digits = onlyDigits(value);
 
   if (!digits) return "";
 
-  if (digits.startsWith("55") && digits.length >= 12) {
-    return digits;
+  if (digits.startsWith("55")) {
+    digits = digits.slice(2);
   }
 
-  if (digits.length === 10 || digits.length === 11) {
-    return `55${digits}`;
+  const ddd = digits.slice(0, 2);
+  let numero = digits.slice(2);
+
+  // Se vier celular com 9 dígitos começando com 9,
+  // salva no padrão antigo do WhatsApp/banco: DDD + 8 dígitos
+  if (numero.length === 9 && numero.startsWith("9")) {
+    numero = numero.slice(1);
   }
 
-  return digits;
+  return `55${ddd}${numero}`;
 }
 
+function variantesTelefone(value = "") {
+  const principal = normalizarTelefone(value);
+  const digits = onlyDigits(principal);
+
+  if (!digits.startsWith("55") || digits.length < 12) {
+    return [principal].filter(Boolean);
+  }
+
+  const ddd = digits.slice(2, 4);
+  const numero = digits.slice(4);
+
+  const semNove = `55${ddd}${numero.length === 9 && numero.startsWith("9") ? numero.slice(1) : numero}`;
+  const comNove = `55${ddd}${numero.length === 8 ? `9${numero}` : numero}`;
+
+  return Array.from(new Set([principal, semNove, comNove].filter(Boolean)));
+}
 function gerarCodigo() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -49,7 +74,7 @@ router.post("/request-code", async (req, res) => {
     const { data: user, error: userError } = await supabase
       .from("usuarios")
       .select("id,nome,telefone")
-      .eq("telefone", telefone)
+      .in("telefone", variantesTelefone(req.body?.telefone))
       .maybeSingle();
 
     if (userError) {
@@ -122,7 +147,8 @@ router.post("/verify-code", async (req, res) => {
   try {
     const telefone = normalizarTelefone(req.body?.telefone);
     const codigo = String(req.body?.codigo || "").trim();
-
+const telefonesPossiveis = variantesTelefone(req.body?.telefone);
+const telefone = telefonesPossiveis[0];
     if (!telefone || !codigo) {
       return res.status(400).json({ error: "Telefone e código são obrigatórios." });
     }
@@ -132,7 +158,7 @@ router.post("/verify-code", async (req, res) => {
     const { data: codeData, error: codeError } = await supabase
       .from("login_codes")
       .select("*")
-      .eq("telefone", telefone)
+    .in("telefone", telefonesPossiveis)
       .eq("codigo", codigo)
       .eq("usado", false)
       .order("created_at", { ascending: false })
@@ -155,7 +181,7 @@ router.post("/verify-code", async (req, res) => {
     const { data: user, error: userError } = await supabase
       .from("usuarios")
       .select("id,nome,telefone,tipo,cidade,estado")
-      .eq("telefone", telefone)
+      .in("telefone", telefonesPossiveis)
       .maybeSingle();
 
     if (userError) {

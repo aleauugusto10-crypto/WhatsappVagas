@@ -21,7 +21,14 @@ function normalizePhone(value = "") {
   return `55${digits}`;
 
 }
+function maskPhoneBR(value = "") {
+  const digits = String(value).replace(/\D/g, "").slice(0, 11);
 
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 export default function Login() {
 
   const router = useRouter();
@@ -40,10 +47,12 @@ export default function Login() {
   try {
     setLoading(true);
 
+    const telefoneLimpo = telefone.replace(/\D/g, "");
+
     const res = await fetch(`${API_URL}/auth/request-code`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ telefone }),
+      body: JSON.stringify({ telefone: telefoneLimpo }),
     });
 
     const json = await res.json();
@@ -53,6 +62,7 @@ export default function Login() {
       return;
     }
 
+    setTelefoneNormalizado(normalizePhone(telefoneLimpo));
     setStep("code");
   } catch (err) {
     console.error("ERRO DE CONEXÃO:", err);
@@ -147,7 +157,7 @@ export default function Login() {
 
               value={telefone}
 
-              onChange={(e) => setTelefone(e.target.value)}
+              onChange={(e) => setTelefone(maskPhoneBR(e.target.value))}
 
             />
 
