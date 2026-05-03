@@ -615,6 +615,83 @@ async function ensureCarteira(usuarioId) {
 
   return data;
 }
+
+export async function createProfilePageSubscriptionPayment({ user, profile }) {
+  if (!user?.id) {
+    throw new Error("Usuário inválido.");
+  }
+
+  if (!profile?.id) {
+    throw new Error("Página profissional inválida.");
+  }
+
+  const valor = 19.9;
+
+  const { data: payment, error } = await supabase
+    .from("pagamentos_plataforma")
+    .insert({
+      usuario_id: user.id,
+      referencia_tipo: "profile_page_subscription",
+      plano_codigo: "profile_page_mensal",
+      status: "pendente",
+      valor,
+      metadata: {
+        titulo: "Assinatura mensal da página profissional RendaJá",
+        profile_page_id: profile.id,
+        profile_slug: profile.slug,
+        dias_assinatura: 30,
+      },
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("❌ erro ao criar pagamento da página:", error);
+    throw error;
+  }
+
+  return createMercadoPagoPixIntent(payment.id);
+}
+
+export async function activateProfilePageFromPayment(payment) {
+  if (payment.referencia_tipo !== "profile_page_subscription") return null;
+  if (payment.status !== "pago") return null;
+
+  const md = payment.metadata || {};
+  const profilePageId = md.profile_page_id;
+
+  if (!profilePageId) {
+    console.log("⚠️ pagamento de página sem profile_page_id");
+    return null;
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(now);
+  expiresAt.setDate(expiresAt.getDate() + Number(md.dias_assinatura || 30));
+
+  const { data, error } = await supabase
+    .from("profiles_pages")
+    .update({
+      is_active: true,
+      is_preview: false,
+      preview_expires_at: null,
+      subscription_status: "active",
+      subscription_started_at: now.toISOString(),
+      subscription_expires_at: expiresAt.toISOString(),
+      last_payment_id: payment.id,
+      updated_at: now.toISOString(),
+    })
+    .eq("id", profilePageId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("❌ erro ao ativar página profissional:", error);
+    return null;
+  }
+
+  return data;
+}
 export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const mpPayment = await getMercadoPagoPayment(mpPaymentId);
 
@@ -688,8 +765,9 @@ await publishMissionFromPayment(paid);
 console.log("💰 valor bloqueado para missão:", valorBloqueado);
   }
   await publishJobFromPayment(paid);
-  await publishProfessionalServiceFromPayment(paid);
-  await applyProfessionalHighlightFromPayment(paid);
+await publishProfessionalServiceFromPayment(paid);
+await applyProfessionalHighlightFromPayment(paid);
+await activateProfilePageFromPayment(paid);
 
-  return paid;
+return paid;
 }

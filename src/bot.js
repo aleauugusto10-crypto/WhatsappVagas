@@ -24,8 +24,8 @@ import {
   getPendingPaymentById,
   getMercadoPagoPayment,
   processApprovedMercadoPagoPayment,
+  createProfilePageSubscriptionPayment,
 } from "./services/payments.js";
-
 const processingUsers = new Set();
 
 async function getCategorias(contexto) {
@@ -323,7 +323,34 @@ if (text === "abrir_suporte" || text === "suporte") {
     if (text === "payment_check_status") {
       return handlePaymentCheckStatus(user, phone);
     }
+if (text === "comprar_pagina") {
+  const { data: profile } = await supabase
+    .from("profiles_pages")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
+  if (!profile) {
+    return sendText(phone, "Ainda não encontrei sua página profissional.");
+  }
+
+  const payment = await createProfilePageSubscriptionPayment({
+    user,
+    profile,
+  });
+
+  if (!payment?.qr_code) {
+    return sendText(phone, "Não consegui gerar o Pix agora. Tente novamente.");
+  }
+
+  return sendText(
+    phone,
+    `💎 *Ativar página profissional RendaJá*\n\n` +
+      `Valor: R$ 19,90/mês\n\n` +
+      `Pix copia e cola:\n${payment.qr_code}\n\n` +
+      `Depois do pagamento, toque em *Já paguei* para confirmar.`
+  );
+}
     if (text === "redefinir_perfil") {
       await updateUser({
         etapa: "tipo",

@@ -2,5 +2,8 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/login": "pages/login.js"
+  "/dashboard-preview": "pages/dashboard-preview.js",
+  "/api/reviews/[profileId]": "pages/api/reviews/[profileId].js",
+  "/dashboard": "pages/dashboard.js",
+  "/p/[slug]": "pages/p/[slug].js"
 }

@@ -11,7 +11,7 @@ import {
   getSubcategoriasByCategoria,
   replaceUserSubcategorias,
 } from "../lib/subcategories.js";
-
+import { createOrUpdateProfilePage } from "../lib/pageGenerator.js";
 function isValidEmail(value = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
     String(value).trim().toLowerCase()
@@ -205,7 +205,15 @@ function buildRaioList(phone) {
     },
   ]);
 }
-
+function getPublicBaseUrl() {
+  return (
+    process.env.PROFILE_PUBLIC_BASE_URL ||
+    process.env.FRONTEND_BASE_URL ||
+    process.env.APP_PUBLIC_URL ||
+    process.env.APP_BASE_URL ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+}
 export async function handleOnboarding({
   user,
   text,
@@ -743,47 +751,100 @@ return sendList(phone, "Selecione uma categoria:", [
 
     return buildRaioList(phone);
   }
-const { data: existing } = await supabase
-  .from("servicos")
-  .select("id")
-  .eq("usuario_id", user.id)
-  .maybeSingle();
 
-if (!existing) {
-  await supabase.from("servicos").insert({
-    usuario_id: user.id,
-    titulo: user.servico_principal || user.nome,
-    descricao: user.descricao_perfil || "Profissional disponível para serviços.",
-    categoria_chave: user.categoria_principal,
-    cidade: user.cidade,
-    estado: user.estado,
-    contato_whatsapp: user.telefone,
-    ativo: true,
-    nivel_visibilidade: 0
-  });
-}
-  if (user.etapa === "raio") {
-    if (!text.startsWith("raio_")) return false;
+if (user.etapa === "raio") {
+  if (!text.startsWith("raio_")) return false;
 
-    const raio = Number(text.replace("raio_", ""));
+  const raio = Number(text.replace("raio_", ""));
 
-    if (!raio) {
-      return sendText(phone, "Escolha o raio pela lista.");
-    }
-
-    await updateUser({
-      raio_km: raio,
-      etapa: "menu",
-      onboarding_finalizado: true,
-    });
-
-    await sendText(phone, "✅ Cadastro concluído com sucesso!");
-
-return sendActionButtons(phone, "Deseja fazer algo mais?", [
-  { id: "falar_atendente", title: "Falar com atendente" },
-  { id: "voltar_menu", title: "Ir para o menu" },
-]);
+  if (!raio) {
+    return sendText(phone, "Escolha o raio pela lista.");
   }
 
+  await updateUser({
+    raio_km: raio,
+    etapa: "menu",
+    onboarding_finalizado: true,
+  });
+
+  // 🔥 Atualiza o objeto local para a IA já receber o raio novo
+  const userAtualizado = {
+    ...user,
+    raio_km: raio,
+    etapa: "menu",
+    onboarding_finalizado: true,
+  };
+
+  // 🔥 Cria/atualiza serviço básico do profissional
+  const { data: existingService } = await supabase
+    .from("servicos")
+    .select("id")
+    .eq("usuario_id", user.id)
+    .maybeSingle();
+
+  if (!existingService) {
+    await supabase.from("servicos").insert({
+      usuario_id: user.id,
+      titulo: user.servico_principal || user.nome || "Profissional disponível",
+      descricao:
+        user.descricao_perfil ||
+        "Profissional disponível para serviços.",
+      categoria_chave: user.categoria_principal,
+      cidade: user.cidade,
+      estado: user.estado,
+      contato_whatsapp: user.telefone || phone,
+      ativo: true,
+      nivel_visibilidade: 0,
+    });
+  }
+
+  let profilePage = null;
+
+  try {
+    // 🧠 IA silenciosa criando a página pública
+    profilePage = await createOrUpdateProfilePage({
+      supabase,
+      user: userAtualizado,
+    });
+
+    if (profilePage?.id) {
+      await supabase
+        .from("profiles_pages")
+        .update({
+          is_active: false,
+          is_preview: true,
+          preview_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        })
+        .eq("id", profilePage.id);
+    }
+  } catch (err) {
+    console.error("❌ erro ao gerar página automática:", err);
+  }
+
+  await sendText(phone, "✅ Cadastro concluído com sucesso!");
+
+  if (profilePage?.slug) {
+    const baseUrl = getPublicBaseUrl();
+const pageLink = `${baseUrl}/p/${profilePage.slug}`;
+
+    await sendText(
+      phone,
+      `🚀 Criei uma prévia da sua página profissional automaticamente!\n\n` +
+        `Veja como ficou:\n${pageLink}\n\n` +
+        `Essa página fica disponível por alguns minutos como teste.\n\n` +
+        `Se gostar, você pode ativar sua página profissional e deixar ela online.`
+    );
+
+    return sendActionButtons(phone, "Deseja ativar sua página?", [
+      { id: "comprar_pagina", title: "Ativar página" },
+      { id: "voltar_menu", title: "Ver depois" },
+    ]);
+  }
+
+  return sendActionButtons(phone, "Deseja fazer algo mais?", [
+    { id: "falar_atendente", title: "Falar com atendente" },
+    { id: "voltar_menu", title: "Ir para o menu" },
+  ]);
+}
   return false;
 }
