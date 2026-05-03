@@ -671,16 +671,17 @@ export async function activateProfilePageFromPayment(payment) {
 
   const { data, error } = await supabase
     .from("profiles_pages")
-    .update({
-      is_active: true,
-      is_preview: false,
-      preview_expires_at: null,
-      subscription_status: "active",
-      subscription_started_at: now.toISOString(),
-      subscription_expires_at: expiresAt.toISOString(),
-      last_payment_id: payment.id,
-      updated_at: now.toISOString(),
-    })
+   .update({
+  is_active: true,
+  is_preview: false,
+  preview_expires_at: null,
+  subscription_status: "active",
+  subscription_started_at: now.toISOString(),
+  subscription_expires_at: expiresAt.toISOString(),
+  activated_at: now.toISOString(),
+  last_payment_id: payment.id,
+  updated_at: now.toISOString(),
+})
     .eq("id", profilePageId)
     .select()
     .single();

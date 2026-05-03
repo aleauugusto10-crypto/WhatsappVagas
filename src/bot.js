@@ -99,7 +99,36 @@ async function handlePaymentCheckStatus(user, phone) {
       const mpStatus = await getMercadoPagoPayment(payment.mp_payment_id);
 
       if (mpStatus?.status === "approved") {
-  await processApprovedMercadoPagoPayment(String(payment.mp_payment_id));
+  const paid = await processApprovedMercadoPagoPayment(String(payment.mp_payment_id));
+
+  await new Promise((resolve) => setTimeout(resolve, 800));
+
+  const { data: profileAtualizado, error: profileCheckError } = await supabase
+    .from("profiles_pages")
+    .select("id,is_active,subscription_status,subscription_expires_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (profileCheckError) {
+    console.error("❌ erro ao conferir ativação da página:", profileCheckError);
+  }
+
+  const paginaAtiva =
+    profileAtualizado?.is_active === true &&
+    profileAtualizado?.subscription_status === "active";
+
+  if (!paginaAtiva) {
+    console.log("⚠️ pagamento confirmado, mas página ainda não ativa:", {
+      paymentId: payment.id,
+      paidId: paid?.id,
+      profileAtualizado,
+    });
+
+    return sendText(
+      phone,
+      "✅ Pagamento confirmado!\n\nSua ativação está finalizando. Aguarde alguns segundos e toque em *Já paguei* novamente."
+    );
+  }
 
   const editarId =
     user.tipo === "empresa" ? "empresa_editar_pagina" : "prof_editar_pagina";
@@ -107,11 +136,12 @@ async function handlePaymentCheckStatus(user, phone) {
   const verId =
     user.tipo === "empresa" ? "empresa_ver_perfil" : "prof_ver_pagina";
 
-  await sendText(
-    phone,
-    `✅ *Pagamento confirmado!*\n\n` +
-      `Sua página agora está ativa e disponível para clientes 🚀`
-  );
+await sendText(
+  phone,
+  `✅ *Pagamento confirmado!*\n\n` +
+    `Sua página agora está ativa e disponível para clientes 🚀\n\n` +
+    `Agora você pode editar sua página e começar a receber clientes.`
+);
 
   return sendActionButtons(phone, "O que deseja fazer agora?", [
     { id: editarId, title: "Editar página" },
@@ -338,7 +368,7 @@ if (text === "abrir_suporte" || text === "suporte") {
     if (text === "prof_editar_pagina" || text === "empresa_editar_pagina") {
   const { data: profile, error } = await supabase
     .from("profiles_pages")
-    .select("id, slug, is_active, subscription_expires_at")
+    .select("id, slug, is_active, subscription_status, subscription_expires_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -350,9 +380,8 @@ if (text === "abrir_suporte" || text === "suporte") {
   }
 
   const assinaturaValida =
-    profile.is_active === true &&
-    (!profile.subscription_expires_at ||
-      new Date(profile.subscription_expires_at) > new Date());
+  profile.is_active === true &&
+  profile.subscription_status === "active";
 
   if (!assinaturaValida) {
     await sendText(
@@ -409,7 +438,22 @@ if (text === "comprar_pagina") {
       `📌 *PIX copia e cola:*`
   );
 
-  await sendText(phone, payment.qr_code);
+  await sendText(
+  phone,
+  `💳 *Pagamento seguro via RendaJá*\n\n` +
+    `🔐 O Pix pode aparecer no nome do responsável pela plataforma.\n` +
+    `Isso é normal — o pagamento é processado com segurança.\n\n` +
+    `📌 *PIX copia e cola:*`
+);
+
+await sendText(phone, payment.qr_code);
+
+if (payment.checkout_url) {
+  await sendText(
+    phone,
+    `🔗 *Ou pague pelo link:*\n${payment.checkout_url}`
+  );
+}
 
   if (payment.checkout_url) {
     await sendText(phone, `🔗 *Link de pagamento:*\n${payment.checkout_url}`);
