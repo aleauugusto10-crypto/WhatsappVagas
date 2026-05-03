@@ -658,38 +658,79 @@ export async function activateProfilePageFromPayment(payment) {
   if (payment.status !== "pago") return null;
 
   const md = payment.metadata || {};
-  const profilePageId = md.profile_page_id;
-
-  if (!profilePageId) {
-    console.log("⚠️ pagamento de página sem profile_page_id");
-    return null;
-  }
-
   const now = new Date();
   const expiresAt = new Date(now);
   expiresAt.setDate(expiresAt.getDate() + Number(md.dias_assinatura || 30));
 
+  console.log("🧾 ativando página pelo pagamento:", {
+    payment_id: payment.id,
+    usuario_id: payment.usuario_id,
+    profile_page_id_metadata: md.profile_page_id,
+    profile_slug: md.profile_slug,
+  });
+
+  let profile = null;
+
+  if (md.profile_page_id) {
+    const byId = await supabase
+      .from("profiles_pages")
+      .select("id,user_id,slug")
+      .eq("id", md.profile_page_id)
+      .maybeSingle();
+
+    if (!byId.error && byId.data) {
+      profile = byId.data;
+    } else {
+      console.log("⚠️ não achei profile pelo metadata, tentando por user_id:", byId.error);
+    }
+  }
+
+  if (!profile) {
+    const byUser = await supabase
+      .from("profiles_pages")
+      .select("id,user_id,slug")
+      .eq("user_id", payment.usuario_id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (byUser.error || !byUser.data) {
+      console.error("❌ não encontrei página para ativar:", byUser.error);
+      return null;
+    }
+
+    profile = byUser.data;
+  }
+
   const { data, error } = await supabase
     .from("profiles_pages")
-   .update({
-  is_active: true,
-  is_preview: false,
-  preview_expires_at: null,
-  subscription_status: "active",
-  subscription_started_at: now.toISOString(),
-  subscription_expires_at: expiresAt.toISOString(),
-  activated_at: now.toISOString(),
-  last_payment_id: payment.id,
-  updated_at: now.toISOString(),
-})
-    .eq("id", profilePageId)
-    .select()
+    .update({
+      is_active: true,
+      is_preview: false,
+      preview_expires_at: null,
+      subscription_status: "active",
+      subscription_started_at: now.toISOString(),
+      subscription_expires_at: expiresAt.toISOString(),
+      activated_at: now.toISOString(),
+      last_payment_id: payment.id,
+      updated_at: now.toISOString(),
+    })
+    .eq("id", profile.id)
+    .select("*")
     .single();
 
   if (error) {
     console.error("❌ erro ao ativar página profissional:", error);
     return null;
   }
+
+  console.log("✅ página ativada no banco:", {
+    id: data.id,
+    user_id: data.user_id,
+    is_active: data.is_active,
+    is_preview: data.is_preview,
+    subscription_status: data.subscription_status,
+  });
 
   return data;
 }
