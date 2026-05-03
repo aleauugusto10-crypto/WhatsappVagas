@@ -6,7 +6,7 @@ import {
   
 } from "../lib/monetization.js";
 import { createMercadoPagoPixIntent } from "../services/payments.js";
-
+import { createOrUpdateProfilePage } from "../lib/pageGenerator.js";
 
 
 
@@ -834,19 +834,42 @@ if (servicoError) {
 }
 
 user = { ...user, ...freshUser };
-await sendText(
-  phone,
-  "✅ *Perfil profissional criado com sucesso!*\n\nSeu perfil já está aparecendo gratuitamente nas buscas da sua categoria.\n\nSe quiser mais visibilidade, você pode contratar destaque."
-);
+
+let profilePage = null;
+
+try {
+  profilePage = await createOrUpdateProfilePage({
+    supabase,
+    user,
+  });
+} catch (err) {
+  console.error("❌ erro ao criar página pública profissional:", err);
+}
+
+let mensagemSucesso =
+  "✅ *Perfil profissional criado com sucesso!*\n\n" +
+  "Seu perfil já está aparecendo gratuitamente nas buscas da sua categoria.\n\n";
+
+if (profilePage?.slug) {
+  mensagemSucesso +=
+    "🚀 *Sua página pública também foi criada!*\n\n" +
+    `Veja aqui:\nhttps://rendaja.online/p/${profilePage.slug}\n\n`;
+}
+
+mensagemSucesso +=
+  "Se quiser mais visibilidade, você pode contratar destaque.";
+
+await sendText(phone, mensagemSucesso);
 
   await sendText(phone, buildProfessionalProfileResumo(user));
 
-  return sendActionButtons(phone, "O que deseja fazer agora?", [
-    { id: "prof_ver_perfil", title: "Ver meu perfil" },
+  await sendText(phone, mensagemSucesso);
 
-    { id: "prof_pacotes", title: "Destacar perfil" },
-    { id: "voltar_menu", title: "Voltar ao menu" },
-  ]);
+return sendActionButtons(phone, "Deseja ativar sua página profissional?", [
+  { id: "comprar_pagina", title: "Ativar página" },
+  { id: "prof_ver_perfil", title: "Ver perfil" },
+  { id: "voltar_menu", title: "Ver depois" },
+]);
 }
 
   // =====================
