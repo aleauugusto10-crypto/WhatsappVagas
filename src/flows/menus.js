@@ -40,7 +40,7 @@ export function sendMenuUsuario(phone) {
         { id: "prof_criar_perfil", title: "✨ Criar perfil" },
         { id: "prof_ver_perfil", title: "👤 Ver meu perfil" },
         { id: "prof_ver_pagina", title: "🌐 Ver página pública" },
-        { id: "prof_pacotes", title: "⭐ Destacar perfil" },
+        { id: "prof_editar_pagina", title: "✏️ Editar página" },
       ],
     },
     {
@@ -83,7 +83,6 @@ export function sendMenuEmpresa(phone) {
         { id: "empresa_minhas_vagas", title: "📋 Minhas vagas" },
         { id: "contratar_criar_missao", title: "📢 Criar missão" },
         { id: "contratar_minhas_missoes", title: "🗂️ Minhas missões" },
-        { id: "empresa_pacotes", title: "📦 Pacotes" },
       ],
     },
     {
@@ -91,6 +90,7 @@ export function sendMenuEmpresa(phone) {
       rows: [
         { id: "empresa_criar_perfil", title: "✨ Criar página" },
         { id: "empresa_ver_perfil", title: "👀 Ver página" },
+          { id: "empresa_editar_pagina", title: "✏️ Editar página" },
       ],
     },
     {

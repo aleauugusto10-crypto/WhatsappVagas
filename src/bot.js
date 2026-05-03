@@ -324,6 +324,18 @@ if (text === "abrir_suporte" || text === "suporte") {
     if (text === "payment_check_status") {
       return handlePaymentCheckStatus(user, phone);
     }
+    if (text === "prof_editar_pagina" || text === "empresa_editar_pagina") {
+  const dashboardUrl =
+    process.env.DASHBOARD_URL ||
+    "https://rendaja.online/dashboard/login";
+
+  return sendText(
+    phone,
+    `✏️ *Editar sua página*\n\n` +
+      `Acesse o painel abaixo e faça login com o mesmo número do seu WhatsApp:\n\n` +
+      `${dashboardUrl}`
+  );
+}
 if (text === "comprar_pagina") {
   const { data: profile, error: profileError } = await supabase
     .from("profiles_pages")
@@ -349,7 +361,7 @@ if (text === "comprar_pagina") {
     phone,
     `💎 *Ativar página profissional RendaJá*\n\n` +
       `📦 *Plano:* Página profissional mensal\n` +
-      `💵 *Valor:* R$ 19,90/mês\n\n` +
+      `💵 *Valor:* R$ 5,90/mês\n\n` +
       `ℹ️ O pagamento é processado com segurança pelo Mercado Pago.\n` +
       `Na hora do Pix, pode aparecer o nome do responsável pela conta de recebimento do RendaJá.\n\n` +
       `📌 *PIX copia e cola:*`

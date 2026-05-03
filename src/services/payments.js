@@ -625,7 +625,7 @@ export async function createProfilePageSubscriptionPayment({ user, profile }) {
     throw new Error("Página profissional inválida.");
   }
 
-  const valor = 19.9;
+  const valor = 5.9;
 
   const { data: payment, error } = await supabase
     .from("pagamentos_plataforma")
