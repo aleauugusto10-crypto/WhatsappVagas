@@ -528,21 +528,18 @@ async function adminExecutarSqlPerfil({ phone, text, supabase }) {
   if (!/^insert\s+into\s+profiles_pages\s*\(/i.test(sql)) {
     return sendText(
       phone,
-      "❌ Código inválido.\n\nEnvie apenas um INSERT começando com:\n\ninsert into profiles_pages (...)"
+      "❌ Código inválido. Envie apenas o INSERT completo do perfil."
     );
   }
 
   try {
-    const { error } = await supabase.rpc("admin_exec_profile_insert", {
+    const { data, error } = await supabase.rpc("admin_exec_profile_insert", {
       sql_text: sql,
     });
 
     if (error) {
       console.error("❌ erro ao criar perfil por SQL:", error);
-      return sendText(
-        phone,
-        `❌ Erro ao criar perfil:\n\n${error.message || "Erro desconhecido"}`
-      );
+      return sendText(phone, `❌ Erro ao criar perfil:\n\n${error.message}`);
     }
 
     await supabase
@@ -550,10 +547,25 @@ async function adminExecutarSqlPerfil({ phone, text, supabase }) {
       .update({ etapa: null })
       .eq("telefone", phone);
 
-    return sendActionButtons(phone, "✅ Perfil criado com sucesso!", [
-      { id: "admin_perfis", title: "Perfis" },
-      { id: "admin_menu", title: "Menu Admin" },
-    ]);
+    const created = Array.isArray(data) ? data[0] : data;
+    const slug = created?.slug;
+    const profileId = created?.profile_id;
+
+    if (!slug) {
+      return sendText(
+        phone,
+        "✅ Perfil criado, mas não consegui identificar o link automaticamente."
+      );
+    }
+
+    const link = `https://rendaja.online/p/${slug}`;
+
+    return sendText(
+      phone,
+      `✅ *Perfil criado com sucesso!*\n\n` +
+        `🆔 ID: ${profileId || "-"}\n` +
+        `🔗 Link:\n${link}`
+    );
   } catch (err) {
     console.error("❌ erro geral SQL perfil:", err);
     return sendText(phone, "❌ Erro inesperado ao criar perfil.");
