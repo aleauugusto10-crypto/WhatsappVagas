@@ -11,7 +11,7 @@ import {
   getSubcategoriasByCategoria,
   replaceUserSubcategorias,
 } from "../lib/subcategories.js";
-import { createOrUpdateProfilePage } from "../lib/pageGenerator.js";
+
 function isValidEmail(value = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
     String(value).trim().toLowerCase()
@@ -832,48 +832,11 @@ const userAtualizado = {
     });
   }
 
-  let profilePage = null;
-
-  try {
-    // 🧠 IA silenciosa criando a página pública
-    profilePage = await createOrUpdateProfilePage({
-      supabase,
-      user: userAtualizado,
-    });
-
-    if (profilePage?.id) {
-      await supabase
-        .from("profiles_pages")
-        .update({
-          is_active: false,
-          is_preview: true,
-          preview_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-        })
-        .eq("id", profilePage.id);
-    }
-  } catch (err) {
-    console.error("❌ erro ao gerar página automática:", err);
-  }
+  
 
   await sendText(phone, "✅ Cadastro concluído com sucesso!");
 
-  if (profilePage?.slug) {
-    const baseUrl = getPublicBaseUrl();
-const pageLink = `${baseUrl}/p/${profilePage.slug}`;
-
-    await sendText(
-      phone,
-      `🚀 Criei uma prévia da sua página profissional automaticamente!\n\n` +
-        `Veja como ficou:\n${pageLink}\n\n` +
-        `Essa página fica disponível por alguns minutos como teste.\n\n` +
-        `Se gostar, você pode ativar sua página profissional e deixar ela online.`
-    );
-
-    return sendActionButtons(phone, "Deseja ativar sua página?", [
-      { id: "comprar_pagina", title: "Ativar página" },
-      { id: "voltar_menu", title: "Ver depois" },
-    ]);
-  }
+  
 
   return sendActionButtons(phone, "Deseja fazer algo mais?", [
     { id: "falar_atendente", title: "Falar com atendente" },
