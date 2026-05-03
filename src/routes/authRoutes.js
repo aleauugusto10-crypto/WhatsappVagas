@@ -1,6 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
-import { supabase } from "../../rendaja-landpage/src/lib/supabase.js";
+import { supabaseAdmin as supabase } from "../lib/supabaseAdmin.js";
 import { sendText } from "../services/whatsapp.js";
 
 const router = express.Router();
