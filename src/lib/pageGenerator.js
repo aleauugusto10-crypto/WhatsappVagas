@@ -246,7 +246,11 @@ async function findImagesForProfile(user = {}) {
     (await findImage(terms[0])) ||
     (await findImage(terms[1])) ||
     "";
-
+const logo =
+  (await findImage(`${user.ramo_empresa || user.categoria_principal || user.area_principal || user.nome_empresa || user.nome} logo`)) ||
+  (await findImage(`${user.ramo_empresa || user.categoria_principal || user.area_principal || user.nome_empresa || user.nome} ícone`)) ||
+  hero ||
+  "";
   const about =
     (await findImage(terms[2])) ||
     hero ||
