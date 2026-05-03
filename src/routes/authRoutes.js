@@ -63,7 +63,8 @@ function gerarToken(user) {
 
 router.post("/request-code", async (req, res) => {
   try {
-    const telefone = normalizarTelefone(req.body?.telefone);
+    const telefonesPossiveis = variantesTelefone(req.body?.telefone);
+const telefone = telefonesPossiveis[0];
 
     if (!telefone) {
       return res.status(400).json({ error: "Telefone obrigatório." });
@@ -74,7 +75,7 @@ router.post("/request-code", async (req, res) => {
     const { data: user, error: userError } = await supabase
       .from("usuarios")
       .select("id,nome,telefone")
-      .in("telefone", variantesTelefone(req.body?.telefone))
+      .in("telefone", telefonesPossiveis)
       .maybeSingle();
 
     if (userError) {
@@ -145,10 +146,9 @@ if (!paginaAtiva) {
 
 router.post("/verify-code", async (req, res) => {
   try {
-    const telefone = normalizarTelefone(req.body?.telefone);
-    const codigo = String(req.body?.codigo || "").trim();
-const telefonesPossiveis = variantesTelefone(req.body?.telefone);
+    const telefonesPossiveis = variantesTelefone(req.body?.telefone);
 const telefone = telefonesPossiveis[0];
+const codigo = String(req.body?.codigo || "").trim();
     if (!telefone || !codigo) {
       return res.status(400).json({ error: "Telefone e código são obrigatórios." });
     }
