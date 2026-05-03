@@ -450,10 +450,6 @@ if (payment.checkout_url) {
   );
 }
 
-  if (payment.checkout_url) {
-    await sendText(phone, `🔗 *Link de pagamento:*\n${payment.checkout_url}`);
-  }
-
   return sendActionButtons(phone, "Depois do pagamento:", [
     { id: "payment_check_status", title: "Já paguei" },
     { id: user.tipo === "empresa" ? "empresa_ver_perfil" : "prof_ver_pagina", title: "Ver página" },
