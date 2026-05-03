@@ -35,7 +35,27 @@ function cleanText(value = "", fallback = "") {
   const text = String(value || "").trim();
   return text || fallback;
 }
+function removeCidadeDoServico(servico = "", cidade = "", estado = "") {
+  let text = String(servico || "").trim();
+  const city = String(cidade || "").trim();
+  const uf = String(estado || "").trim();
 
+  if (!text) return "";
+
+  if (city) {
+    const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text.replace(new RegExp(`\\s+em\\s+${escapedCity}\\b`, "gi"), "");
+    text = text.replace(new RegExp(`\\s+-\\s+${escapedCity}\\b`, "gi"), "");
+  }
+
+  if (uf) {
+    const escapedUf = uf.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text.replace(new RegExp(`\\s*/\\s*${escapedUf}\\b`, "gi"), "");
+    text = text.replace(new RegExp(`\\s*-\\s*${escapedUf}\\b`, "gi"), "");
+  }
+
+  return text.replace(/\s{2,}/g, " ").trim();
+}
 function pick(arr = []) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -450,7 +470,12 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
   const slug = normalizeSlug(ai.slug || nome);
   const cidade = cleanText(user.cidade, "");
   const estado = cleanText(user.estado, "");
+const servicoBase = cleanText(
+  ai.servico,
+  user.categoria_principal || user.area_principal || "Serviços profissionais"
+);
 
+const servicoLimpo = removeCidadeDoServico(servicoBase, cidade, estado);
   const servicesItems = Array.isArray(ai.services_items)
     ? ai.services_items.slice(0, 6).map((item, index) => ({
         id: item.id || `service-${index + 1}`,
@@ -499,7 +524,7 @@ return {
 
     slug,
     nome,
-    servico: cleanText(ai.servico, user.categoria_principal || user.area_principal || "Serviços profissionais"),
+    servico: servicoLimpo,
     cidade,
     estado,
     descricao: cleanText(ai.descricao, fallbackProfile(user, images).descricao),
