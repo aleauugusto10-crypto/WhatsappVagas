@@ -125,7 +125,20 @@ function removeCidadeDoServico(servico = "", cidade = "", estado = "") {
 function pick(arr = []) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
+function buildFakeLogoUrl(user = {}) {
+  const ramo =
+    user.ramo_empresa ||
+    user.categoria_principal ||
+    user.area_principal ||
+    user.servico_principal ||
+    user.nome_empresa ||
+    user.nome ||
+    "negócio local";
 
+  return `https://source.unsplash.com/512x512/?${encodeURIComponent(
+    `${ramo} logo icon`
+  )}`;
+}
 function normalizeImageUrl(value) {
   if (!value) return "";
   if (typeof value === "string") return value;
@@ -249,12 +262,11 @@ async function findImagesForProfile(user = {}) {
     about ||
     hero ||
     "";
-
-  return {
-    logo_url: "",
-    hero_image_url: normalizeImageUrl(hero),
-    about_image_url: normalizeImageUrl(about),
-    gallery: [
+return {
+  logo_url: normalizeImageUrl(logo),
+  hero_image_url: normalizeImageUrl(hero),
+  about_image_url: normalizeImageUrl(about),
+  gallery: [
       gallery1
         ? {
             id: "gallery-1",
