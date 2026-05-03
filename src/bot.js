@@ -324,13 +324,14 @@ if (text === "abrir_suporte" || text === "suporte") {
       return handlePaymentCheckStatus(user, phone);
     }
 if (text === "comprar_pagina") {
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles_pages")
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!profile) {
+  if (profileError || !profile) {
+    console.error("❌ página profissional não encontrada:", profileError);
     return sendText(phone, "Ainda não encontrei sua página profissional.");
   }
 
@@ -343,13 +344,26 @@ if (text === "comprar_pagina") {
     return sendText(phone, "Não consegui gerar o Pix agora. Tente novamente.");
   }
 
-  return sendText(
+  await sendText(
     phone,
     `💎 *Ativar página profissional RendaJá*\n\n` +
-      `Valor: R$ 19,90/mês\n\n` +
-      `Pix copia e cola:\n${payment.qr_code}\n\n` +
-      `Depois do pagamento, toque em *Já paguei* para confirmar.`
+      `📦 Plano: Página profissional mensal\n` +
+      `💵 Valor: R$ 19,90/mês\n\n` +
+      `📌 *Pix copia e cola:*\n${payment.qr_code}`
   );
+
+  if (payment.checkout_url) {
+    await sendText(
+      phone,
+      `🔗 *Link de pagamento:*\n${payment.checkout_url}`
+    );
+  }
+
+  return sendActionButtons(phone, "Depois do pagamento:", [
+    { id: "payment_check_status", title: "Já paguei" },
+    { id: "prof_ver_perfil", title: "Ver perfil" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
 }
     if (text === "redefinir_perfil") {
       await updateUser({
