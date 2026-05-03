@@ -3,102 +3,101 @@ import { sendButtons, sendList } from "../services/whatsapp.js";
 export function sendRootMenu(phone) {
   return sendButtons(
     phone,
-    "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n📢 Divulgar oportunidades\n\n🛟 Se precisar de ajuda, digite *suporte* a qualquer momento.\n\nComo você quer usar a plataforma?",
+    "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n🏢 Divulgar oportunidades\n\n🛟 Se precisar de ajuda, digite *suporte* a qualquer momento.\n\nComo você quer usar a plataforma?",
     [
-      { id: "tipo_usuario", title: "Quero trabalhar" },
-      { id: "tipo_contratante", title: "Buscar profissional" },
-      { id: "tipo_empresa", title: "Sou empresa" },
+      { id: "tipo_usuario", title: "💰 Quero trabalhar" },
+      { id: "tipo_contratante", title: "🔎 Buscar profissional" },
+      { id: "tipo_empresa", title: "🏢 Sou empresa" },
     ]
   );
 }
+
 export function sendEntradaInicial(phone) {
   return sendButtons(
     phone,
     "👋 Bem-vindo ao RendaJá!\n\nComo posso te ajudar agora?",
     [
-      { id: "iniciar_cadastro", title: "Iniciar cadastro" },
-      { id: "abrir_suporte", title: "Tirar dúvidas" },
+      { id: "iniciar_cadastro", title: "🚀 Iniciar cadastro" },
+      { id: "abrir_suporte", title: "🛟 Tirar dúvidas" },
     ]
   );
 }
+
 export function sendMenuUsuario(phone) {
-  return sendList(phone, "💼 Menu do trabalhador:", [
+  return sendList(phone, "💼 *Menu do trabalhador*", [
     {
-      title: "Buscar oportunidades",
+      title: "💰 Oportunidades",
       rows: [
-        { id: "user_ver_vagas", title: "📌 Vagas minha área" },
+        { id: "user_ver_vagas", title: "📌 Vagas da minha área" },
         { id: "user_explorar_vagas", title: "🌍 Todas as vagas" },
-        { id: "user_ver_missoes", title: "🔥 Missões" },
-        { id: "jobs_pacotes", title: "🔔 Notificações" },
+        { id: "user_ver_missoes", title: "🔥 Missões pagas" },
+        { id: "jobs_pacotes", title: "🔔 Alertas de vagas" },
       ],
     },
     {
-      title: "Perfil profissional",
+      title: "🧑‍🔧 Perfil profissional",
       rows: [
-        { id: "prof_criar_perfil", title: "Criar perfil" },
+        { id: "prof_criar_perfil", title: "✨ Criar perfil" },
+        { id: "prof_ver_perfil", title: "👤 Ver meu perfil" },
         { id: "prof_ver_pagina", title: "🌐 Ver página pública" },
-        { id: "prof_ver_perfil", title: "Ver meu perfil" },
-        { id: "prof_pacotes", title: "Pacotes divulgação" },
+        { id: "prof_pacotes", title: "⭐ Destacar perfil" },
       ],
     },
     {
-      title: "Perfil",
+      title: "👝 Conta",
       rows: [
-        { id: "user_carteira", title: "Minha carteira" },
-        { id: "redefinir_perfil", title: "Redefinir perfil" },
+        { id: "user_carteira", title: "💳 Minha carteira" },
+        { id: "redefinir_perfil", title: "🔄 Redefinir perfil" },
       ],
     },
   ]);
-
 }
 
 export function sendMenuContratante(phone) {
-  return sendList(phone, "🛠️ Menu de contratação:", [
+  return sendList(phone, "🛠️ *Menu de contratação*", [
     {
-      title: "Serviços",
+      title: "🔎 Serviços",
       rows: [
-        { id: "contratar_buscar_profissionais", title: "Buscar profissionais" },
-        { id: "contratar_criar_missao", title: "Criar missão" },
-        { id: "contratar_minhas_missoes", title: "Minhas missões" },
+        { id: "contratar_buscar_profissionais", title: "🧑‍🔧 Buscar profissionais" },
+        { id: "contratar_criar_missao", title: "📢 Criar missão" },
+        { id: "contratar_minhas_missoes", title: "📋 Minhas missões" },
       ],
     },
     {
-      title: "Perfil",
+      title: "👝 Conta",
       rows: [
-        { id: "user_carteira", title: "Minha carteira" },
-        { id: "redefinir_perfil", title: "Redefinir perfil" },
+        { id: "user_carteira", title: "💳 Minha carteira" },
+        { id: "redefinir_perfil", title: "🔄 Redefinir perfil" },
       ],
     },
   ]);
 }
 
 export function sendMenuEmpresa(phone) {
-  return sendList(phone, "🏢 Menu da empresa:", [
+  return sendList(phone, "🏢 *Menu da empresa*", [
     {
-      title: "Empresa",
+      title: "🏢 Empresa",
       rows: [
-        { id: "empresa_buscar_profissionais", title: "Buscar profissionais" },
-        { id: "empresa_criar_vaga", title: "Criar vaga" },
-        { id: "contratar_criar_missao", title: "Criar missão" },
-        { id: "contratar_minhas_missoes", title: "Minhas missões" },
-         
-        { id: "empresa_minhas_vagas", title: "Minhas vagas" },
-        { id: "empresa_pacotes", title: "Pacotes" },
-       
+        { id: "empresa_buscar_profissionais", title: "🔎 Buscar profissionais" },
+        { id: "empresa_criar_vaga", title: "💼 Criar vaga" },
+        { id: "empresa_minhas_vagas", title: "📋 Minhas vagas" },
+        { id: "contratar_criar_missao", title: "📢 Criar missão" },
+        { id: "contratar_minhas_missoes", title: "🗂️ Minhas missões" },
+        { id: "empresa_pacotes", title: "📦 Pacotes" },
       ],
     },
     {
-      title: "Perfil da empresa",
+      title: "🌐 Perfil da empresa",
       rows: [
-        { id: "empresa_criar_perfil", title: "🌐 Criar página da empresa" },
-        { id: "empresa_ver_perfil", title: "👀 Ver página da empresa" },
+        { id: "empresa_criar_perfil", title: "✨ Criar página" },
+        { id: "empresa_ver_perfil", title: "👀 Ver página" },
       ],
     },
     {
-      title: "Conta",
+      title: "👝 Conta",
       rows: [
-        { id: "user_carteira", title: "Minha carteira" },
-        { id: "redefinir_perfil", title: "Redefinir perfil" },
+        { id: "user_carteira", title: "💳 Minha carteira" },
+        { id: "redefinir_perfil", title: "🔄 Redefinir perfil" },
       ],
     },
   ]);
@@ -119,7 +118,7 @@ export function sendAreasPage(phone, areas = [], page = 1) {
 
   const rows = pageItems.map((area) => ({
     id: `area_${area.chave}`,
-    title: String(area.nome).slice(0, 24),
+    title: `📂 ${String(area.nome).slice(0, 21)}`,
   }));
 
   if (currentPage < totalPages) {
@@ -136,7 +135,7 @@ export function sendAreasPage(phone, areas = [], page = 1) {
     });
   }
 
-  return sendList(phone, `Escolha sua área de interesse (${currentPage}/${totalPages}):`, [
+  return sendList(phone, `📂 Escolha sua área de interesse (${currentPage}/${totalPages}):`, [
     {
       title: `Áreas ${currentPage}/${totalPages}`,
       rows,
