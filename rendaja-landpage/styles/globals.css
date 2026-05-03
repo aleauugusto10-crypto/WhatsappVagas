@@ -6048,3 +6048,724 @@ CSS DA HOME PRINCIPAL
   transform: translateY(-2px) scale(1.06);
   box-shadow: 0 18px 40px rgba(221, 42, 123, 0.5);
 }
+
+.mobileSearchResults {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.mobileSearchItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #06111d;
+  text-decoration: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+.mobileSearchAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f5d28b;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-weight: 900;
+}
+
+.mobileSearchAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobileSearchInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobileSearchInfo strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobileSearchInfo small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobileSearchItem em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+  color: #d9a84e;
+}
+
+.mobile-profile-search {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 10px 0 14px;
+}
+
+.mobile-profile-search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mobile-profile-search-row input {
+  flex: 1;
+  height: 44px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 14px;
+  padding: 0 14px;
+  outline: none;
+}
+
+.mobile-profile-search-row button {
+  height: 44px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 14px;
+  font-weight: 900;
+  background: var(--primary);
+  color: #06111d;
+}
+
+.mobile-profile-results {
+  display: grid;
+  gap: 10px;
+}
+
+.mobile-profile-results a {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.96);
+  color: #06111d;
+  text-decoration: none;
+}
+
+.mobile-profile-results strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.mobile-profile-results small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mobile-profile-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-profile-result-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--primary);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-weight: 900;
+}
+
+.mobile-profile-result-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-profile-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-profile-result-info strong,
+.mobile-profile-result-info small {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-profile-result-item em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--primary);
+}
+
+.profile-search-item,
+.mobile-profile-result-item {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none !important;
+  background: transparent;
+}
+
+.profile-search-item *,
+.mobile-profile-result-item * {
+  text-decoration: none !important;
+}
+
+.profile-search-item strong,
+.profile-search-item span,
+.profile-search-item em,
+.mobile-profile-result-item strong,
+.mobile-profile-result-item span,
+.mobile-profile-result-item small,
+.mobile-profile-result-item em {
+  text-decoration: none !important;
+}
+
+
+
+
+/* =========================
+   BUSCA PERFIL = PADRÃO HOME
+========================= */
+
+.profile-search-results {
+  width: 360px !important;
+  padding: 10px !important;
+  border-radius: 22px !important;
+  background: rgba(12, 12, 12, 0.96) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.35) !important;
+}
+
+.profile-search-item,
+.mobile-profile-result-item,
+.mobile-profile-results a {
+  display: grid !important;
+  grid-template-columns: 44px 1fr auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 11px !important;
+  border-radius: 16px !important;
+  background: transparent !important;
+  color: #fff !important;
+  text-decoration: none !important;
+}
+
+.profile-search-item:hover,
+.mobile-profile-result-item:hover,
+.mobile-profile-results a:hover {
+  background: rgba(255,255,255,0.08) !important;
+}
+
+.profile-search-avatar,
+.mobile-profile-result-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 15px !important;
+  overflow: hidden !important;
+  display: grid !important;
+  place-items: center !important;
+  background: #25d366 !important;
+  color: #061108 !important;
+  font-weight: 950 !important;
+  flex-shrink: 0 !important;
+}
+
+.profile-search-avatar img,
+.mobile-profile-result-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.profile-search-info strong,
+.mobile-profile-result-info strong,
+.mobile-profile-results a strong {
+  display: block !important;
+  font-size: 14px !important;
+  color: #fff !important;
+  font-weight: 950 !important;
+  text-decoration: none !important;
+}
+
+.profile-search-info span,
+.mobile-profile-result-info small,
+.mobile-profile-results a small {
+  display: block !important;
+  margin-top: 3px !important;
+  color: rgba(255,255,255,0.62) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  text-decoration: none !important;
+}
+
+.profile-search-item em,
+.mobile-profile-result-item em {
+  font-style: normal !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+  color: #d9a84e !important;
+  background: transparent !important;
+  padding: 0 !important;
+  text-decoration: none !important;
+}
+
+/* =========================
+   BUSCA DO PERFIL = CAIXA PADRÃO HOME
+========================= */
+
+.profile-search {
+  width: 42px !important;
+  height: 42px !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.profile-search.open {
+  width: 430px !important;
+}
+
+.profile-search-shell {
+  height: 42px !important;
+  border-radius: 999px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-columns: 42px 1fr auto !important;
+  align-items: center !important;
+  box-shadow: none !important;
+}
+
+.profile-search-trigger {
+  width: 42px !important;
+  height: 42px !important;
+  color: rgba(6, 17, 29, 0.55) !important;
+}
+
+.profile-search-input {
+  height: 42px !important;
+  opacity: 1 !important;
+  transform: none !important;
+  color: #121212 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  padding: 0 8px 0 0 !important;
+}
+
+.profile-search-input::placeholder {
+  color: rgba(21, 17, 10, 0.42) !important;
+}
+
+.profile-search-shell::after {
+  content: "Buscar";
+  height: 32px;
+  margin-right: 5px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--primary, #25d366);
+  color: #061108;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* fechado: mostra só a lupa */
+.profile-search:not(.open) .profile-search-shell {
+  grid-template-columns: 42px !important;
+  background: rgba(255,255,255,0.08) !important;
+}
+
+.profile-search:not(.open) .profile-search-input,
+.profile-search:not(.open) .profile-search-shell::after {
+  display: none !important;
+}
+
+.profile-search:not(.open) .profile-search-trigger {
+  color: #ffffff !important;
+}
+
+@media (max-width: 900px) {
+  .profile-search {
+    display: none !important;
+  }
+}
+
+/* =========================
+   AJUSTE FINAL: BUSCA PERFIL + GRADIENTE HERO
+========================= */
+
+.profile-search.open {
+  width: 360px !important;
+}
+
+.profile-search-shell {
+  height: 42px !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  display: grid !important;
+  grid-template-columns: 42px 1fr auto !important;
+}
+
+.profile-search-input {
+  height: 42px !important;
+  color: #15110a !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.profile-search-shell::after {
+  content: "Buscar";
+  height: 32px;
+  margin-right: 5px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: var(--primary, #25d366);
+  color: #061108;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 950;
+  pointer-events: none;
+}
+
+.profile-search:not(.open) {
+  width: 42px !important;
+}
+
+.profile-search:not(.open) .profile-search-shell {
+  background: rgba(255,255,255,0.08) !important;
+  grid-template-columns: 42px !important;
+}
+
+.profile-search:not(.open) .profile-search-input,
+.profile-search:not(.open) .profile-search-shell::after {
+  display: none !important;
+}
+
+.profile-search:not(.open) .profile-search-trigger {
+  color: #fff !important;
+}
+
+/* Gradiente menos agressivo: mais cor à esquerda, mais imagem à direita */
+.hero-photo-shade {
+  background:
+    linear-gradient(
+      90deg,
+      var(--hero-bg, #06111d) 0%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.96) 22%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.72) 38%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.34) 56%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.08) 74%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.08),
+      rgba(var(--hero-rgb, 6, 17, 29), 0.28)
+    ) !important;
+}
+
+/* =========================
+   HERO GRADIENTE MAIS CURTO
+========================= */
+
+.hero-photo-shade {
+  background:
+    linear-gradient(
+      90deg,
+      var(--hero-bg, #06111d) 0%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.95) 18%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.72) 32%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.42) 44%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.14) 52%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.04) 58%,
+      transparent 1%
+    ) !important;
+}
+/* =========================
+   HERO — SÓ GRADIENTE, SEM MEXER NA FOTO
+========================= */
+
+.site-hero {
+  /*
+    CONTROLE:
+    Mais pra ESQUERDA: diminua os valores.
+    Mais pra DIREITA: aumente os valores.
+  */
+--hero-grad-solid: 6%;
+--hero-grad-mid: 16%;
+--hero-grad-end: 28%;
+}
+
+.hero-photo {
+  position: relative !important;
+  opacity: 1 !important;
+}
+
+.hero-photo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  opacity: 1 !important;
+}
+
+.hero-photo-shade {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(
+      90deg,
+      var(--hero-bg, #06111d) 0%,
+      rgba(var(--hero-rgb, 6, 17, 29), 0.96) var(--hero-grad-solid),
+      rgba(var(--hero-rgb, 6, 17, 29), 0.48) var(--hero-grad-mid),
+      rgba(var(--hero-rgb, 6, 17, 29), 0.08) var(--hero-grad-end),
+      transparent calc(var(--hero-grad-end) + 8%)
+    ) !important;
+}
+
+/* =========================
+   AJUSTE ALTURA HERO PERFIL
+========================= */
+
+.site-hero {
+  min-height: 650px !important;
+}
+
+.hero-wrap {
+  min-height: 560px !important;
+}
+
+.hero-photo {
+  min-height: 560px !important;
+}
+
+.hero-photo img {
+  min-height: 560px !important;
+}
+
+/* =========================
+   HERO MOBILE PREMIUM
+   Cola no final do CSS
+========================= */
+
+@media (max-width: 900px) {
+  .site-hero {
+    min-height: auto !important;
+    overflow: hidden !important;
+  }
+
+  .hero-wrap {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    min-height: calc(100vh - 96px) !important;
+    padding: 120px 22px 34px !important;
+  }
+
+  .hero-photo {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    opacity: 1 !important;
+    z-index: 0 !important;
+  }
+
+  .hero-photo img {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    object-fit: cover !important;
+    object-position: center top !important;
+    filter: saturate(1.02) contrast(1.04) !important;
+  }
+
+  .hero-photo-shade {
+    position: absolute !important;
+    inset: 0 !important;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(16, 16, 16, 0.98) 0%,
+        rgba(16, 16, 16, 0.92) 36%,
+        rgba(16, 16, 16, 0.58) 62%,
+        rgba(16, 16, 16, 0.22) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(16, 16, 16, 0.78) 0%,
+        rgba(16, 16, 16, 0.24) 34%,
+        rgba(16, 16, 16, 0.9) 100%
+      ) !important;
+  }
+
+  .hero-copy {
+    position: relative !important;
+    z-index: 2 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .hero-kicker {
+    display: block !important;
+    max-width: 92% !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    letter-spacing: 0.2em !important;
+    margin-bottom: 14px !important;
+  }
+
+  .hero-copy h1 {
+    max-width: 92% !important;
+    margin: 0 0 18px !important;
+    font-size: clamp(42px, 14vw, 64px) !important;
+    line-height: 0.92 !important;
+    letter-spacing: -0.055em !important;
+  }
+
+  .hero-copy p {
+    max-width: 88% !important;
+    margin: 0 0 24px !important;
+    font-size: 17px !important;
+    line-height: 1.65 !important;
+    color: rgba(255, 255, 255, 0.84) !important;
+  }
+
+  .hero-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: min(390px, 100%) !important;
+    margin: 0 0 26px !important;
+  }
+
+  .main-cta,
+  .ghost-cta {
+    width: 100% !important;
+    min-height: 56px !important;
+    border-radius: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+    font-weight: 950 !important;
+  }
+
+  .hero-trust {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    margin-top: 6px !important;
+  }
+
+  .hero-trust div {
+    min-height: 82px !important;
+    padding: 14px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 18px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  .hero-trust span {
+    font-size: 24px !important;
+  }
+
+  .hero-trust strong {
+    font-size: 13px !important;
+  }
+
+  .hero-trust small {
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.68) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero-wrap {
+    min-height: calc(100vh - 92px) !important;
+    padding: 96px 18px 28px !important;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(39px, 13vw, 54px) !important;
+  }
+
+  .hero-copy p {
+    font-size: 16px !important;
+  }
+}
+
+/* =========================
+   FIX BUSCA HOME MOBILE
+   tira fundo branco dos resultados
+========================= */
+
+@media (max-width: 900px) {
+  .mobileSearchResults {
+    background: transparent !important;
+  }
+
+  .mobileSearchItem {
+    background: transparent !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+
+  .mobileSearchItem:hover,
+  .mobileSearchItem:active {
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .mobileSearchInfo strong {
+    color: #ffffff !important;
+    opacity: 1 !important;
+  }
+
+  .mobileSearchInfo small {
+    color: rgba(255, 255, 255, 0.78) !important;
+  }
+
+  .mobileSearchItem em {
+    color: #d9a84e !important;
+    background: transparent !important;
+  }
+
+  .mobileSearchAvatar {
+    background: rgba(255, 255, 255, 0.12) !important;
+  }
+}

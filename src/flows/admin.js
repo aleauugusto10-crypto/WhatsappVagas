@@ -31,6 +31,7 @@ async function sendAdminMenu(phone) {
       title: "Painel",
       rows: [
         { id: "admin_usuarios", title: "Usuários" },
+        { id: "admin_perfis", title: "Perfis profissionais" },
         { id: "admin_vagas", title: "Vagas" },
         { id: "admin_financeiro", title: "Financeiro" },
         { id: "admin_saques", title: "Saques" },
@@ -484,14 +485,96 @@ async function adminMissaoDetalhe({ phone, supabase, missaoId }) {
       `Descrição:\n${m.descricao || "-"}`
   );
 }
+function cleanSqlCode(text = "") {
+  return String(text || "")
+    .replace(/```sql/gi, "")
+    .replace(/```/g, "")
+    .trim();
+}
 
+async function adminPerfis({ phone }) {
+  return sendActionButtons(phone, "🧾 *Perfis profissionais*\n\nO que deseja fazer?", [
+    { id: "admin_perfil_criar", title: "Criar perfil" },
+    { id: "admin_menu", title: "Menu Admin" },
+  ]);
+}
+
+async function adminPerfilCriar({ phone, supabase }) {
+  await supabase
+    .from("usuarios")
+    .update({ etapa: "admin_aguardando_sql_perfil" })
+    .eq("telefone", phone);
+
+  return sendText(
+    phone,
+    "✅ Envie agora o código SQL do perfil profissional.\n\n" +
+      "Cole o `insert into profiles_pages (...) values (...)` completo.\n\n" +
+      "Para cancelar, envie: cancelar"
+  );
+}
+
+async function adminExecutarSqlPerfil({ phone, text, supabase }) {
+  const sql = cleanSqlCode(text);
+
+  if (sql.toLowerCase() === "cancelar") {
+    await supabase
+      .from("usuarios")
+      .update({ etapa: null })
+      .eq("telefone", phone);
+
+    return sendText(phone, "Criação de perfil cancelada.");
+  }
+
+  if (!/^insert\s+into\s+profiles_pages\s*\(/i.test(sql)) {
+    return sendText(
+      phone,
+      "❌ Código inválido.\n\nEnvie apenas um INSERT começando com:\n\ninsert into profiles_pages (...)"
+    );
+  }
+
+  try {
+    const { error } = await supabase.rpc("admin_exec_profile_insert", {
+      sql_text: sql,
+    });
+
+    if (error) {
+      console.error("❌ erro ao criar perfil por SQL:", error);
+      return sendText(
+        phone,
+        `❌ Erro ao criar perfil:\n\n${error.message || "Erro desconhecido"}`
+      );
+    }
+
+    await supabase
+      .from("usuarios")
+      .update({ etapa: null })
+      .eq("telefone", phone);
+
+    return sendActionButtons(phone, "✅ Perfil criado com sucesso!", [
+      { id: "admin_perfis", title: "Perfis" },
+      { id: "admin_menu", title: "Menu Admin" },
+    ]);
+  } catch (err) {
+    console.error("❌ erro geral SQL perfil:", err);
+    return sendText(phone, "❌ Erro inesperado ao criar perfil.");
+  }
+}
 export async function handleAdminMenu({ user, text, phone, supabase }) {
-  if (!user?.tipo_admin) return false;
 
+  if (!user?.tipo_admin) return false;
+if (user?.etapa === "admin_aguardando_sql_perfil") {
+  return adminExecutarSqlPerfil({ phone, text, supabase });
+}
   if (["admin_menu", "admin", "/admin"].includes(text)) {
     return sendAdminMenu(phone);
   }
+if (text === "admin_perfis") {
+  return adminPerfis({ phone });
+}
 
+if (text === "admin_perfil_criar") {
+  return adminPerfilCriar({ phone, supabase });
+}
   if (text === "admin_usuarios") {
     return adminUsuarios({ phone, supabase });
   }

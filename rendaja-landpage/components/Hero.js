@@ -31,7 +31,8 @@ export default function Hero({ profile }) {
   const accentColor = profile?.accent_color || buttonColor;
   const textColor = profile?.hero_text_color || "#ffffff";
   const overlayColor = profile?.hero_overlay_color || heroBg;
-  const kicker = profile?.hero_kicker || "Atendimento profissional com excelência";
+  const kicker =
+    profile?.hero_kicker || "Atendimento profissional com excelência";
 
   const showAbout = profile?.show_about !== false;
   const showServices = profile?.show_services !== false;
@@ -39,7 +40,9 @@ export default function Hero({ profile }) {
   const showReviews = profile?.show_reviews !== false;
   const showStore = profile?.show_store !== false;
 
-  const closeMenu = () => setMenuOpen(false);
+  function closeMenu() {
+    setMenuOpen(false);
+  }
 
   function goHome() {
     window.location.href = "https://rendaja.online";
@@ -51,23 +54,73 @@ export default function Hero({ profile }) {
       searchRef.current?.focus();
     }, 80);
   }
-useEffect(() => {
-  function handleClickOutside(event) {
-    if (!searchRef.current) return;
 
-    const box = searchRef.current.closest(".profile-search");
-    if (box && !box.contains(event.target)) {
-      setSearchOpen(false);
-      setSearch("");
-      setResults([]);
-    }
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearch("");
+    setResults([]);
   }
 
-  document.addEventListener("mousedown", handleClickOutside);
-  return () => document.removeEventListener("mousedown", handleClickOutside);
-}, []);
+  function goToProfile(slug) {
+    if (!slug) return;
+    window.location.href = `/p/${slug}`;
+  }
+
+  function SearchResultItem({ item, mobile = false }) {
+    const avatar = item.logo_url || item.hero_image_url || item.about_image_url || "";
+
+    return (
+      <button
+        type="button"
+        className={mobile ? "mobile-profile-result-item" : "profile-search-item"}
+        onClick={() => goToProfile(item.slug)}
+      >
+        <div
+          className={
+            mobile ? "mobile-profile-result-avatar" : "profile-search-avatar"
+          }
+        >
+          {avatar ? (
+            <img src={avatar} alt={item.nome || "Perfil"} />
+          ) : (
+            <span>{String(item.nome || "R").charAt(0)}</span>
+          )}
+        </div>
+
+        <div
+          className={
+            mobile ? "mobile-profile-result-info" : "profile-search-info"
+          }
+        >
+          <strong>{item.nome}</strong>
+          <span>
+            {item.servico || "Profissional"}
+            {item.cidade ? ` • ${item.cidade}` : ""}
+            {item.estado ? `/${item.estado}` : ""}
+          </span>
+        </div>
+
+        <em>Ver</em>
+      </button>
+    );
+  }
+
   useEffect(() => {
-    if (!searchOpen) return;
+    function handleClickOutside(event) {
+      if (!searchRef.current) return;
+
+      const box = searchRef.current.closest(".profile-search");
+      if (box && !box.contains(event.target)) {
+        closeSearch();
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!searchOpen && !menuOpen) return;
 
     const q = search.trim();
 
@@ -81,7 +134,10 @@ useEffect(() => {
       try {
         setSearching(true);
 
-        const res = await fetch(`/api/profiles/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(
+          `/api/profiles/search?q=${encodeURIComponent(q)}`
+        );
+
         const data = await res.json().catch(() => []);
 
         if (!res.ok) {
@@ -99,7 +155,7 @@ useEffect(() => {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [search, searchOpen]);
+  }, [search, searchOpen, menuOpen]);
 
   return (
     <header
@@ -138,83 +194,57 @@ useEffect(() => {
             {showReviews && <a href="#avaliacoes">Depoimentos</a>}
             <a href="#cta-final">Contato</a>
           </div>
-<div className={`profile-search ${searchOpen ? "open" : ""}`}>
-  <div className="profile-search-shell">
-    <button
-      type="button"
-      className="profile-search-trigger"
-      onClick={searchOpen ? () => setSearchOpen(false) : openSearch}
-      aria-label="Buscar profissionais"
-    >
-      <svg
-  width="18"
-  height="18"
-  viewBox="0 0 24 24"
-  fill="none"
-  aria-hidden="true"
->
-  <path
-    d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
-    stroke="currentColor"
-    strokeWidth="2.4"
-  />
-  <path
-    d="M16.2 16.2 21 21"
-    stroke="currentColor"
-    strokeWidth="2.4"
-    strokeLinecap="round"
-  />
-</svg>
-    </button>
 
-    <input
-      ref={searchRef}
-      className="profile-search-input"
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-      placeholder="Buscar profissional..."
-    />
-  </div>
+          <div className={`profile-search ${searchOpen ? "open" : ""}`}>
+            <div className="profile-search-shell">
+              <button
+                type="button"
+                className="profile-search-trigger"
+                onClick={searchOpen ? closeSearch : openSearch}
+                aria-label="Buscar profissionais"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                  />
+                  <path
+                    d="M16.2 16.2 21 21"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
 
-  {searchOpen && (searching || results.length > 0 || search.length >= 2) && (
-    <div className="profile-search-results">
-      {searching ? (
-        <span className="profile-search-empty">Buscando...</span>
-      ) : results.length === 0 ? (
-        <span className="profile-search-empty">
-          Nenhum perfil ativo encontrado
-        </span>
-      ) : (
-        results.map((item) => (
-  <a
-    key={item.id || item.slug}
-    href={`/p/${item.slug}`}
-    className="profile-search-item"
-  >
-    <div className="profile-search-avatar">
-      {item.logo_url ? (
-        <img src={item.logo_url} alt={item.nome} />
-      ) : (
-        <span>{String(item.nome || "R").charAt(0)}</span>
-      )}
-    </div>
+              <input
+                ref={searchRef}
+                className="profile-search-input"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={openSearch}
+                placeholder="Buscar profissional..."
+              />
+            </div>
 
-    <div className="profile-search-info">
-      <strong>{item.nome}</strong>
-      <span>
-        {item.servico || "Profissional"}
-        {item.cidade ? ` • ${item.cidade}` : ""}
-        {item.estado ? `/${item.estado}` : ""}
-      </span>
-    </div>
+            {searchOpen && (searching || results.length > 0 || search.length >= 2) && (
+              <div className="profile-search-results">
+                {searching ? (
+                  <span className="profile-search-empty">Buscando...</span>
+                ) : results.length === 0 ? (
+                  <span className="profile-search-empty">
+                    Nenhum perfil ativo encontrado
+                  </span>
+                ) : (
+                  results.map((item) => (
+                    <SearchResultItem key={item.id || item.slug} item={item} />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
 
-    <em>Ver</em>
-  </a>
-))
-      )}
-    </div>
-  )}
-</div>
           {whatsapp && (
             <a
               className="topbar-cta"
@@ -228,19 +258,54 @@ useEffect(() => {
           )}
 
           <button
-  type="button"
-  className={`mobile-menu-button ${menuOpen ? "active" : ""}`}
-  onClick={() => setMenuOpen((prev) => !prev)}
-  aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
->
-  <span className="menu-line menu-line-top" />
-  <span className="menu-line menu-line-middle" />
-  <span className="menu-line menu-line-bottom" />
-</button>
+            type="button"
+            className={`mobile-menu-button ${menuOpen ? "active" : ""}`}
+            onClick={() => setMenuOpen((prev) => !prev)}
+            aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+          >
+            <span className="menu-line menu-line-top" />
+            <span className="menu-line menu-line-middle" />
+            <span className="menu-line menu-line-bottom" />
+          </button>
         </div>
 
         {menuOpen && (
           <div className="mobile-menu-panel">
+            <div className="mobile-profile-search">
+              <div className="mobile-profile-search-row">
+                <input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  placeholder="Buscar profissionais..."
+                />
+
+                <button type="button" onClick={() => setSearchOpen(true)}>
+                  Buscar
+                </button>
+              </div>
+
+              {(searching || results.length > 0 || search.trim().length >= 2) && (
+                <div className="mobile-profile-results">
+                  {searching ? (
+                    <span>Buscando...</span>
+                  ) : results.length === 0 ? (
+                    <span>Nenhum perfil ativo encontrado</span>
+                  ) : (
+                    results.map((item) => (
+                      <SearchResultItem
+                        key={item.id || item.slug}
+                        item={item}
+                        mobile
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
             <a href="https://rendaja.online" onClick={closeMenu}>Início</a>
             {showAbout && <a href="#sobre" onClick={closeMenu}>Sobre</a>}
             {showServices && <a href="#servicos" onClick={closeMenu}>Serviços</a>}

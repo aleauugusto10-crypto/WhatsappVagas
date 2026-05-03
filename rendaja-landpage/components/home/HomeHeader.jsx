@@ -50,9 +50,8 @@ export default function HomeHeader() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!searchOpen) return;
-
+useEffect(() => {
+  if (!searchOpen && !menuOpen) return;
     const term = search.trim();
 
     if (term.length < 2) {
@@ -86,7 +85,7 @@ export default function HomeHeader() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [search, searchOpen]);
+  }, [search, searchOpen, menuOpen]);
 
   return (
     <header className="header">
@@ -219,7 +218,43 @@ export default function HomeHeader() {
 
             <button type="submit">Buscar</button>
           </form>
+{menuOpen && search.trim().length >= 2 && (
+  <div className="mobileSearchResults">
+    {searching ? (
+      <span>Buscando...</span>
+    ) : results.length === 0 ? (
+      <span>Nenhum perfil ativo encontrado</span>
+    ) : (
+      results.map((item) => (
+  <a
+    key={item.id || item.slug}
+    href={`/p/${item.slug}`}
+    className="mobileSearchItem"
+    onClick={() => setMenuOpen(false)}
+  >
+    <div className="mobileSearchAvatar">
+      {item.logo_url ? (
+        <img src={item.logo_url} alt={item.nome} />
+      ) : (
+        <span>{String(item.nome || "R").charAt(0)}</span>
+      )}
+    </div>
 
+    <div className="mobileSearchInfo">
+      <strong>{item.nome}</strong>
+      <small>
+        {item.servico || "Profissional"}
+        {item.cidade ? ` • ${item.cidade}` : ""}
+        {item.estado ? `/${item.estado}` : ""}
+      </small>
+    </div>
+
+    <em>Ver</em>
+  </a>
+))
+    )}
+  </div>
+)}
           <a href="#missoes" onClick={() => setMenuOpen(false)}>
             Missões
           </a>
