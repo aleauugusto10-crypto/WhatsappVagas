@@ -40,13 +40,14 @@ export function sendMenuUsuario(phone) {
         { id: "prof_pacotes", title: "Pacotes divulgação" },
       ],
     },
-    {
-      title: "Perfil",
-      rows: [
-        { id: "user_carteira", title: "Minha carteira" },
-        { id: "redefinir_perfil", title: "Redefinir perfil" },
-      ],
-    },
+ {
+  title: "Perfil",
+  rows: [
+    { id: "empresa_criar_perfil", title: "🌐 Criar página da empresa" },
+    { id: "user_carteira", title: "Minha carteira" },
+    { id: "redefinir_perfil", title: "Redefinir perfil" },
+  ],
+},
   ]);
 }
 

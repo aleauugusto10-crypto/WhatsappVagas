@@ -10,7 +10,7 @@ import {
   consumeCompanyJobCredit,
 } from "../services/payments.js";
 import { notifyUsersAboutNewJob } from "../services/jobNotifier.js";
-
+import { createOrUpdateProfilePage } from "../lib/pageGenerator.js";
 
 
 function shortTitle(value = "") {
@@ -334,7 +334,15 @@ async function publicarVagaComCredito({ supabase, user }) {
 
   return { vaga: data, credito: consumed };
 }
-
+function getPublicBaseUrl() {
+  return (
+    process.env.PROFILE_PUBLIC_BASE_URL ||
+    process.env.FRONTEND_BASE_URL ||
+    process.env.APP_PUBLIC_URL ||
+    process.env.APP_BASE_URL ||
+    "https://rendaja.online"
+  ).replace(/\/$/, "");
+}
 export async function handleCompanyMenu({
   user,
   text,
@@ -348,7 +356,60 @@ export async function handleCompanyMenu({
     await updateUser({ etapa: "menu" });
     return sendMenuEmpresa(phone);
   }
+if (text === "empresa_criar_perfil") {
+  const empresaUser = {
+    ...user,
 
+    // força a IA a tratar como empresa
+    nome: user.nome_empresa || user.nome,
+    nome_empresa: user.nome_empresa || user.nome,
+
+    tipo: "empresa",
+
+    // ajuda a IA a entender que é perfil empresarial
+    area_principal: user.area_principal || "empresa",
+    categoria_principal:
+      user.categoria_principal ||
+      user.vaga_titulo_temp ||
+      "empresa local",
+  };
+
+  let profilePage = null;
+
+  try {
+    profilePage = await createOrUpdateProfilePage({
+      supabase,
+      user: empresaUser,
+    });
+  } catch (err) {
+    console.error("❌ erro ao criar página pública da empresa:", err);
+  }
+
+  if (!profilePage?.slug) {
+    return sendText(
+      phone,
+      "Não consegui criar a prévia da página da empresa agora. Tente novamente."
+    );
+  }
+
+  const baseUrl = getPublicBaseUrl();
+  const pageLink = `${baseUrl}/p/${profilePage.slug}`;
+
+  await sendText(
+    phone,
+    `🚀 *Prévia da página da empresa criada!*\n\n` +
+      `Criei uma página pública baseada no nome da empresa:\n` +
+      `🏢 *${user.nome_empresa || user.nome || "Sua empresa"}*\n\n` +
+      `Veja como ficou:\n${pageLink}\n\n` +
+      `Essa página fica disponível por alguns minutos como teste.`
+  );
+
+  return sendActionButtons(phone, "Deseja ativar sua página empresarial?", [
+    { id: "comprar_pagina", title: "Ativar página" },
+    { id: "empresa_pacotes", title: "Ver pacotes" },
+    { id: "voltar_menu", title: "Ver depois" },
+  ]);
+}
   if (text === "empresa_pacotes") {
     await updateUser({ etapa: "menu" });
     return mostrarPacotesEmpresa(phone, supabase, user);
