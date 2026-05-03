@@ -1,0 +1,10 @@
+"use strict";(()=>{var e={};e.id=184,e.ids=[184],e.modules={145:e=>{e.exports=require("next/dist/compiled/next-server/pages-api.runtime.prod.js")},1309:e=>{e.exports=import("@supabase/supabase-js")},6249:(e,t)=>{Object.defineProperty(t,"l",{enumerable:!0,get:function(){return function e(t,a){return a in t?t[a]:"then"in t&&"function"==typeof t.then?t.then(t=>e(t,a)):"function"==typeof t&&"default"===a?t:void 0}}})},5064:(e,t,a)=>{a.a(e,async(e,r)=>{try{a.r(t),a.d(t,{config:()=>l,default:()=>c,routeModule:()=>d});var n=a(1802),i=a(7153),o=a(6249),s=a(4358),u=e([s]);s=(u.then?(await u)():u)[0];let c=(0,o.l)(s,"default"),l=(0,o.l)(s,"config"),d=new n.PagesAPIRouteModule({definition:{kind:i.x.PAGES_API,page:"/api/profiles/active",pathname:"/api/profiles/active",bundlePath:"",filename:""},userland:s});r()}catch(e){r(e)}})},4358:(e,t,a)=>{a.a(e,async(e,r)=>{try{a.r(t),a.d(t,{default:()=>o});var n=a(3802),i=e([n]);async function o(e,t){try{let{data:e,error:a}=await n.O.from("profiles_pages").select(`
+        id,
+        slug,
+        nome,
+        servico,
+        cidade,
+        estado,
+        logo_url,
+        hero_image_url
+      `).eq("is_active",!0).order("updated_at",{ascending:!1}).limit(20);if(a)throw a;return t.status(200).json(e||[])}catch(e){return console.error("Erro ao buscar perfis ativos:",e),t.status(500).json([])}}n=(i.then?(await i)():i)[0],r()}catch(e){r(e)}})},3802:(e,t,a)=>{a.a(e,async(e,r)=>{try{a.d(t,{O:()=>o});var n=a(1309),i=e([n]);n=(i.then?(await i)():i)[0];let o=(0,n.createClient)("https://ptbokznkrrvznyqfrogg.supabase.co","sb_publishable_VRix_dbTn8g9u0O9UDECgQ_FTkZeL4l");r()}catch(e){r(e)}})},7153:(e,t)=>{var a;Object.defineProperty(t,"x",{enumerable:!0,get:function(){return a}}),function(e){e.PAGES="PAGES",e.PAGES_API="PAGES_API",e.APP_PAGE="APP_PAGE",e.APP_ROUTE="APP_ROUTE"}(a||(a={}))},1802:(e,t,a)=>{e.exports=a(145)}};var t=require("../../../webpack-api-runtime.js");t.C(e);var a=t(t.s=5064);module.exports=a})();

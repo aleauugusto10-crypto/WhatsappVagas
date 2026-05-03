@@ -1,9 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/dashboard-preview": "pages/dashboard-preview.js",
-  "/api/reviews/[profileId]": "pages/api/reviews/[profileId].js",
-  "/dashboard": "pages/dashboard.js",
-  "/p/[slug]": "pages/p/[slug].js"
-}
+{"/_app":"pages/_app.js","/api/profiles/active":"pages/api/profiles/active.js","/api/reviews/admin/[id]":"pages/api/reviews/admin/[id].js","/_error":"pages/_error.js","/api/reviews/[profileId]":"pages/api/reviews/[profileId].js","/api/profiles/search":"pages/api/profiles/search.js","/api/reviews/admin":"pages/api/reviews/admin.js","/dashboard-preview":"pages/dashboard-preview.html","/":"pages/index.html","/login":"pages/login.html","/dashboard":"pages/dashboard.html","/api/reviews":"pages/api/reviews.js","/sitemap.xml":"pages/sitemap.xml.js","/p/[slug]":"pages/p/[slug].js","/_document":"pages/_document.js","/404":"pages/404.html"}

@@ -237,7 +237,23 @@ export async function handleOnboarding({
     etapa: "nome",
     onboarding_finalizado: false,
   });
+const { data: usuarioCompleto, error: userError } = await supabase
+  .from("usuarios")
+  .select("*")
+  .eq("id", user.id)
+  .single();
 
+if (userError || !usuarioCompleto) {
+  console.error("❌ erro ao buscar usuário completo:", userError);
+  return sendText(phone, "Cadastro concluído, mas não consegui gerar sua página agora.");
+}
+
+const userAtualizado = {
+  ...usuarioCompleto,
+  raio_km: raio,
+  etapa: "menu",
+  onboarding_finalizado: true,
+};
   return sendText(phone, randomize([
   "Qual seu nome e sobrenome?",
   "Me diz seu nome completo 👇",
@@ -768,12 +784,7 @@ if (user.etapa === "raio") {
   });
 
   // 🔥 Atualiza o objeto local para a IA já receber o raio novo
-  const userAtualizado = {
-    ...user,
-    raio_km: raio,
-    etapa: "menu",
-    onboarding_finalizado: true,
-  };
+  
 
   // 🔥 Cria/atualiza serviço básico do profissional
   const { data: existingService } = await supabase

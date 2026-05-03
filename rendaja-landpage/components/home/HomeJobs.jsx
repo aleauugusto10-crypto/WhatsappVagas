@@ -1,16 +1,19 @@
 export default function HomeJobs() {
-  const WHATSAPP = "https://wa.me/5579990000000";
+  const WHATSAPP = "https://wa.me/5579999033717";
 
   const jobs = [
     {
+      icon: "📍",
       title: "Vagas locais",
       text: "Encontre oportunidades perto de você, sem precisar sair procurando em vários lugares.",
     },
     {
+      icon: "💸",
       title: "Bicos e renda extra",
       text: "Trabalhos temporários e serviços rápidos para quem quer ganhar dinheiro no dia a dia.",
     },
     {
+      icon: "🔥",
       title: "Oportunidades reais",
       text: "Empresas e pessoas publicando demandas reais dentro da sua região.",
     },
@@ -32,6 +35,7 @@ export default function HomeJobs() {
       <div className="jobsGrid">
         {jobs.map((job) => (
           <div className="jobCard" key={job.title}>
+            <div className="jobIcon">{job.icon}</div>
             <h3>{job.title}</h3>
             <p>{job.text}</p>
           </div>

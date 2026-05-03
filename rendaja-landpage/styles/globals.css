@@ -2294,17 +2294,7 @@ CSS MODAL
   display: grid;
   grid-template-columns: 0.95fr 1.05fr;
   gap: 54px;
-  .section-about {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 78px max(24px, calc((100vw - 1120px) / 2));
-  background: var(--about-bg, var(--background));
-  display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
-  gap: 54px;
- align-items: start;
-}
+  align-items: start;
 }
 
 /* AVALIAÇÕES ocupa a largura inteira */
@@ -5233,4 +5223,828 @@ CSS DA HOME PRINCIPAL
     padding: 52px 22px;
     border-radius: 32px;
   }
+}
+
+/* =========================
+   HOME HERO OVERRIDE FINAL
+========================= */
+
+.homeHero {
+  position: relative;
+  overflow: hidden;
+  min-height: 720px;
+  padding: 96px 42px 88px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: center;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(37, 211, 102, 0.14), transparent 28%),
+    radial-gradient(circle at 78% 22%, rgba(217, 168, 78, 0.2), transparent 30%),
+    linear-gradient(135deg, #060806 0%, #10120d 48%, #070707 100%);
+  color: #fff;
+}
+/* Ajuste card clientes direto no Hero */
+.homeHero .floatingCardTwo {
+  top: 70px !important;
+  right: -6px !important;
+}
+.homeHero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,0.54), transparent 52%),
+    radial-gradient(circle at 65% 45%, rgba(37,211,102,0.08), transparent 34%);
+  pointer-events: none;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 5;
+  max-width: 760px;
+}
+
+.heroContent h1 {
+  margin: 0;
+  font-size: clamp(48px, 6.3vw, 88px);
+  line-height: 0.93;
+  letter-spacing: -4px;
+  font-weight: 950;
+}
+
+.heroContent h1 strong {
+  display: block;
+  color: #d9a84e;
+}
+
+.heroContent p {
+  margin: 26px 0 0;
+  max-width: 640px;
+  color: rgba(255,255,255,0.72);
+  font-size: 19px;
+  line-height: 1.75;
+}
+
+.heroVisual {
+  position: relative;
+  z-index: 4;
+  min-height: 610px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* imagem real agora vira fundo premium, não bloco solto */
+.heroPerson {
+  position: absolute !important;
+  inset: 34px 100px 70px 0 !important;
+  z-index: 1 !important;
+  border-radius: 38px !important;
+  overflow: hidden !important;
+  opacity: 1 !important;
+  filter: none !important;
+  box-shadow: 0 34px 90px rgba(0,0,0,0.34);
+}
+
+.heroPerson img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroPerson::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(7,8,6,0.72), rgba(7,8,6,0.18)),
+    linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.54));
+}
+
+/* celular fica por cima e mais à direita */
+.phoneMockup {
+  position: relative !important;
+  z-index: 4 !important;
+  width: min(330px, 80vw);
+  min-height: 560px;
+  margin-left: auto;
+  margin-right: 22px;
+  transform: rotate(1.5deg);
+  border-radius: 44px;
+  background:
+    linear-gradient(#101010, #101010) padding-box,
+    linear-gradient(140deg, rgba(217,168,78,0.95), rgba(37,211,102,0.7)) border-box;
+  border: 2px solid transparent;
+  box-shadow: 0 40px 110px rgba(0,0,0,0.58);
+}
+
+/* cards reposicionados */
+.floatingCard {
+  position: absolute !important;
+  z-index: 6 !important;
+  width: 190px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(12,12,12,0.76);
+  border: 1px solid rgba(255,255,255,0.13);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.38);
+}
+
+.floatingCardOne {
+  top: 90px;
+  left: 10px;
+}
+
+.floatingCardTwo {
+  top: 260px;
+  right: 0;
+}
+
+.floatingCardThree {
+  left: 46px;
+  bottom: 96px;
+}
+
+.floatingCard strong {
+  color: #d9a84e;
+}
+
+.heroStats div {
+  backdrop-filter: none !important;
+}
+
+/* mobile */
+@media (max-width: 980px) {
+  .homeHero {
+    grid-template-columns: 1fr;
+    padding: 72px 20px 58px;
+    min-height: auto;
+  }
+
+  .heroContent h1 {
+    font-size: clamp(42px, 14vw, 64px);
+    letter-spacing: -2.4px;
+  }
+
+  .heroVisual {
+    min-height: 600px;
+    margin-top: 20px;
+  }
+
+  .heroPerson {
+    inset: 20px !important;
+    opacity: 0.48 !important;
+  }
+
+  .phoneMockup {
+    margin: 0 auto;
+    transform: none;
+    width: min(330px, 88vw);
+  }
+
+  .floatingCard {
+    display: none !important;
+  }
+}
+
+
+.headerSearch {
+  position: relative;
+  overflow: visible !important;
+}
+
+.headerSearchResults {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  padding: 10px;
+  border-radius: 22px;
+  background: rgba(12, 12, 12, 0.96);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+  z-index: 9999;
+}
+
+.headerSearchItem {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px;
+  border-radius: 16px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.headerSearchItem:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.headerSearchAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #25d366;
+  color: #061108;
+  font-weight: 950;
+}
+
+.headerSearchAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.headerSearchItem strong {
+  display: block;
+  font-size: 14px;
+}
+
+.headerSearchItem small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(255,255,255,0.62);
+  font-size: 12px;
+}
+
+.headerSearchItem em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 950;
+  color: #d9a84e;
+}
+
+.headerSearchEmpty {
+  display: block;
+  padding: 14px;
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.homeSearchResults {
+  max-width: 920px;
+  margin: 26px auto 0;
+  display: grid;
+  gap: 12px;
+}
+
+.homeSearchResultCard {
+  display: grid;
+  grid-template-columns: 58px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(21, 17, 10, 0.08);
+  box-shadow: 0 18px 45px rgba(42, 29, 8, 0.08);
+  color: #15110a;
+  text-decoration: none;
+}
+
+.homeSearchResultAvatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #15110a;
+  color: #d9a84e;
+  font-weight: 950;
+  font-size: 20px;
+}
+
+.homeSearchResultAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.homeSearchResultCard strong {
+  display: block;
+  font-size: 17px;
+}
+
+.homeSearchResultCard p {
+  margin: 4px 0 0;
+  color: rgba(21, 17, 10, 0.58);
+  font-size: 14px;
+}
+
+.homeSearchResultCard em {
+  font-style: normal;
+  padding: 10px 13px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #061108;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.homeSearchStatus {
+  padding: 22px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px dashed rgba(21, 17, 10, 0.12);
+  text-align: center;
+  color: rgba(21, 17, 10, 0.62);
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .homeSearchResultCard {
+    grid-template-columns: 52px 1fr;
+  }
+
+  .homeSearchResultCard em {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+}
+
+.logoCarouselItem {
+  text-decoration: none;
+}
+
+.logoMark {
+  overflow: hidden;
+}
+
+.logoMark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.logoCarouselTrack {
+  width: max-content;
+  display: flex;
+  gap: 18px;
+  animation: logoSlide 150s linear infinite;
+}
+
+@keyframes logoSlide {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+
+/* =========================
+   HOW IT WORKS - OVERRIDE PREMIUM CORRIGIDO
+========================= */
+
+.homeHowItWorks {
+  position: relative;
+  overflow: hidden;
+  padding: 110px 42px;
+  background:
+    radial-gradient(circle at 18% 15%, rgba(217, 168, 78, 0.18), transparent 28%),
+    radial-gradient(circle at 82% 45%, rgba(37, 211, 102, 0.08), transparent 30%),
+    linear-gradient(180deg, #080808 0%, #11100c 100%) !important;
+  color: #fff;
+}
+
+.homeHowItWorks::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+  background-size: 72px 72px;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.howWrapper {
+  position: relative;
+  z-index: 2;
+  max-width: 1260px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(380px, 0.82fr);
+  gap: 42px;
+  align-items: center;
+}
+
+.howContent {
+  min-width: 0;
+}
+
+.homeHowItWorks .howHeader {
+  max-width: 820px;
+  margin: 0 0 34px;
+  text-align: left;
+}
+
+.homeHowItWorks .sectionLabel.dark {
+  display: inline-flex;
+  margin-bottom: 18px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: rgba(217, 168, 78, 0.16);
+  color: #e4bd65;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+}
+
+.homeHowItWorks .howHeader h2 {
+  margin: 0;
+  max-width: 820px;
+  font-size: clamp(42px, 5.2vw, 72px);
+  line-height: 0.92;
+  letter-spacing: -3px;
+  color: #fff;
+}
+
+.homeHowItWorks .howHeader p {
+  max-width: 690px;
+  margin: 20px 0 0;
+  color: rgba(255,255,255,0.66);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.homeHowItWorks .howSteps {
+  max-width: none;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(185px, 1fr));
+  gap: 18px;
+}
+
+.homeHowItWorks .howStepCard {
+  position: relative;
+  min-height: 275px;
+  padding: 26px 22px;
+  border-radius: 30px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.04));
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.homeHowItWorks .howStepCard::before {
+  content: "";
+  position: absolute;
+  width: 82px;
+  height: 160px;
+  right: -26px;
+  bottom: -30px;
+  border-radius: 999px;
+  background: rgba(217, 168, 78, 0.16);
+  transform: rotate(22deg);
+}
+
+.homeHowItWorks .howStepCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(217,168,78,0.08), transparent 42%);
+  pointer-events: none;
+}
+
+.homeHowItWorks .howStepCard span {
+  position: relative;
+  z-index: 2;
+  width: 54px;
+  height: 54px;
+  margin: 0 0 28px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f2c76a, #d9a84e);
+  color: #17120b;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 950;
+  box-shadow: 0 16px 34px rgba(217,168,78,0.22);
+}
+
+.homeHowItWorks .howStepCard h3 {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.05;
+  letter-spacing: -0.9px;
+  color: #fff;
+}
+
+.homeHowItWorks .howStepCard p {
+  position: relative;
+  z-index: 2;
+  margin: 14px 0 0;
+  color: rgba(255,255,255,0.64);
+  font-size: 14px;
+  line-height: 1.58;
+}
+
+.howImage {
+  position: relative;
+  min-height: 430px;
+  border-radius: 38px;
+  overflow: hidden;
+  box-shadow:
+    0 34px 90px rgba(0,0,0,0.32),
+    0 0 0 1px rgba(255,255,255,0.08);
+}
+
+.howImage::before {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  z-index: 2;
+  border-radius: 30px;
+  border: 1px solid rgba(255,255,255,0.16);
+  pointer-events: none;
+}
+
+.howImage::after {
+  content: "Cadastro simples pelo WhatsApp";
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  z-index: 3;
+  padding: 12px 15px;
+  border-radius: 999px;
+  background: rgba(10,10,10,0.72);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.howImage img {
+  width: 100%;
+  height: 100%;
+  min-height: 430px;
+  object-fit: cover;
+  border-radius: 38px;
+  filter: saturate(1.02) contrast(1.04);
+}
+
+@media (max-width: 1180px) {
+  .howWrapper {
+    grid-template-columns: 1fr;
+  }
+
+  .homeHowItWorks .howHeader {
+    text-align: center;
+    margin: 0 auto 34px;
+  }
+
+  .homeHowItWorks .howHeader p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .homeHowItWorks .howSteps {
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+  }
+
+  .howImage {
+    order: -1;
+    min-height: 360px;
+  }
+
+  .howImage img {
+    min-height: 360px;
+  }
+}
+
+@media (max-width: 860px) {
+  .homeHowItWorks {
+    padding: 78px 20px;
+  }
+
+  .homeHowItWorks .howSteps {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .homeHowItWorks .howStepCard {
+    min-height: 230px;
+  }
+}
+
+@media (max-width: 520px) {
+  .homeHowItWorks .howSteps {
+    grid-template-columns: 1fr;
+  }
+
+  .homeHowItWorks .howHeader h2 {
+    font-size: 42px;
+    letter-spacing: -2px;
+  }
+
+  .howImage {
+    min-height: 300px;
+    border-radius: 28px;
+  }
+
+  .howImage img {
+    min-height: 300px;
+    border-radius: 28px;
+  }
+}
+
+.jobIcon {
+  font-size: 26px;
+  margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 52px;
+  height: 52px;
+
+  border-radius: 16px;
+
+  background: linear-gradient(135deg, #f2c76a, #d9a84e);
+  color: #17120b;
+
+  box-shadow: 0 12px 28px rgba(217,168,78,0.25);
+}
+
+.profileShowcaseAvatar {
+  overflow: hidden;
+}
+
+.profileShowcaseAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profileShowcaseBtn {
+  width: calc(100% - 36px);
+  height: 48px;
+  margin: 0 18px 18px;
+  border-radius: 16px;
+  background: #25d366;
+  color: #061108;
+  font-weight: 950;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* PADRONIZA CAPA DOS CARDS DA VITRINE */
+.profileShowcaseCover {
+  height: 150px !important;
+  max-height: 150px !important;
+  min-height: 150px !important;
+  overflow: hidden !important;
+  border-radius: 30px 30px 0 0;
+  background: #111;
+}
+
+.profileShowcaseCover img {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 150px !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block;
+}
+
+.profileShowcaseCard {
+  overflow: hidden !important;
+}
+
+/* =========================
+   PROFILES CAROUSEL - FINAL
+========================= */
+
+.homeProfilesShowcase {
+  position: relative;
+  overflow: hidden;
+}
+
+/* CONTAINER */
+.profilesCarouselShell {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* TRACK (ANIMAÇÃO) */
+.profilesGrid {
+  display: flex;
+  gap: 24px;
+  width: max-content;
+  animation: profilesSlide 25s linear infinite;
+  will-change: transform;
+}
+
+/* PAUSA NO HOVER */
+.homeProfilesShowcase:hover .profilesGrid {
+  animation-play-state: paused;
+}
+
+/* CARD */
+.profileShowcaseCard {
+  flex: 0 0 280px;
+  overflow: hidden;
+}
+
+/* FADE LATERAL (igual logo) */
+.profilesCarouselFade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.profilesCarouselFade.left {
+  left: 0;
+  background: linear-gradient(90deg, #0b0b0b 0%, transparent 100%);
+}
+
+.profilesCarouselFade.right {
+  right: 0;
+  background: linear-gradient(-90deg, #0b0b0b 0%, transparent 100%);
+}
+
+/* ANIMAÇÃO INFINITA */
+@keyframes profilesSlide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* =========================
+   RESPONSIVO
+========================= */
+
+@media (max-width: 900px) {
+  .profileShowcaseCard {
+    flex: 0 0 240px;
+  }
+}
+
+@media (max-width: 600px) {
+  .profileShowcaseCard {
+    flex: 0 0 200px;
+  }
+
+  .profilesCarouselFade {
+    width: 70px;
+  }
+}
+
+.btn-instagram {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+
+  background: linear-gradient(
+    135deg,
+    #f58529,
+    #dd2a7b,
+    #8134af,
+    #515bd4
+  );
+
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(221, 42, 123, 0.35);
+
+  transition: all 0.25s ease;
+}
+
+.btn-instagram svg {
+  width: 20px;
+  height: 20px;
+}
+
+.btn-instagram:hover {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 18px 40px rgba(221, 42, 123, 0.5);
 }

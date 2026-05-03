@@ -1,5 +1,5 @@
 export default function HomeHero() {
-  const WHATSAPP = "https://wa.me/5579990000000";
+  const WHATSAPP = "https://wa.me/5579999033717";
 
   return (
     <section className="homeHero">
@@ -52,15 +52,20 @@ export default function HomeHero() {
       </div>
 
       <div className="heroVisual">
+        <div className="heroPerson">
+          <img
+            src="https://images.unsplash.com/photo-1556761175-4b46a572b786?q=80&w=1000&auto=format&fit=crop"
+            alt="Profissional trabalhando"
+          />
+        </div>
+
         <div className="phoneMockup">
           <div className="phoneTop" />
 
           <div className="profilePreview">
             <div className="profileCover" />
 
-            <div className="profileAvatar">
-              RJ
-            </div>
+            <div className="profileAvatar">RJ</div>
 
             <h3>João Pedreiro</h3>
             <p>Construção • Reformas • Acabamento</p>
@@ -70,7 +75,9 @@ export default function HomeHero() {
               <span>Itabaiana-SE</span>
             </div>
 
-            <button>Chamar no WhatsApp</button>
+            <a href={WHATSAPP}>
+              <button type="button">Chamar no WhatsApp</button>
+            </a>
           </div>
         </div>
 

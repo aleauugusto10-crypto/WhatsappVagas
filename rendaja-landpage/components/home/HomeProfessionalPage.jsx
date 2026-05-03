@@ -1,5 +1,5 @@
 export default function HomeProfessionalPage() {
-  const WHATSAPP = "https://wa.me/5579990000000";
+  const WHATSAPP = "https://wa.me/5579999033717";
 
   return (
     <section className="homeProfessionalPage">
@@ -75,11 +75,12 @@ export default function HomeProfessionalPage() {
               </div>
             </div>
 
-            <button>Chamar no WhatsApp</button>
+            <a href={WHATSAPP}>
+              <button>Chamar no WhatsApp</button>
+            </a>
           </div>
         </div>
       </div>
     </section>
   );
 }
-

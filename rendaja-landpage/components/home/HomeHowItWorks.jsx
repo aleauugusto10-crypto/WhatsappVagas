@@ -24,25 +24,40 @@ export default function HomeHowItWorks() {
 
   return (
     <section className="homeHowItWorks" id="como-funciona">
-      <div className="howHeader">
-        <span className="sectionLabel dark">Como funciona</span>
+      <div className="howWrapper">
+        
+        {/* TEXTO */}
+        <div className="howContent">
+          <div className="howHeader">
+            <span className="sectionLabel dark">Como funciona</span>
 
-        <h2>Do WhatsApp para sua presença online.</h2>
+            <h2>Do WhatsApp para sua presença online.</h2>
 
-        <p>
-          O RendaJá simplifica o caminho para quem quer divulgar seu trabalho,
-          encontrar oportunidades ou contratar profissionais.
-        </p>
-      </div>
-
-      <div className="howSteps">
-        {steps.map((step) => (
-          <div className="howStepCard" key={step.number}>
-            <span>{step.number}</span>
-            <h3>{step.title}</h3>
-            <p>{step.text}</p>
+            <p>
+              O RendaJá simplifica o caminho para quem quer divulgar seu trabalho,
+              encontrar oportunidades ou contratar profissionais.
+            </p>
           </div>
-        ))}
+
+          <div className="howSteps">
+            {steps.map((step) => (
+              <div className="howStepCard" key={step.number}>
+                <span>{step.number}</span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* IMAGEM */}
+        <div className="howImage">
+          <img
+            src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?q=80&w=1000&auto=format&fit=crop"
+            alt="Profissional usando celular para trabalho"
+          />
+        </div>
+
       </div>
     </section>
   );

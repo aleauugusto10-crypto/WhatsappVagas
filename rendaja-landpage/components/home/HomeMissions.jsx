@@ -1,5 +1,5 @@
 export default function HomeMissions() {
-  const WHATSAPP = "https://wa.me/5579990000000";
+  const WHATSAPP = "https://wa.me/5579999033717";
 
   const missions = [
     {

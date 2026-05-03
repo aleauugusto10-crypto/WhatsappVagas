@@ -1,44 +1,49 @@
-export default function HomeProfilesShowcase() {
-  const WHATSAPP = "https://wa.me/5579990000000";
+import { useEffect, useMemo, useState } from "react";
 
-  const profiles = [
-    {
-      initials: "JP",
-      name: "João Pedreiro",
-      category: "Construção e reformas",
-      city: "Itabaiana-SE",
-    },
-    {
-      initials: "SB",
-      name: "Studio Bella",
-      category: "Beleza e estética",
-      city: "Aracaju-SE",
-    },
-    {
-      initials: "PF",
-      name: "Paulo Fretes",
-      category: "Fretes e mudanças",
-      city: "Itabaiana-SE",
-    },
-    {
-      initials: "DL",
-      name: "Dona Limpeza",
-      category: "Diarista e organização",
-      city: "Nossa Senhora Aparecida-SE",
-    },
-  ];
+export default function HomeProfilesShowcase() {
+  const WHATSAPP = "https://wa.me/5579999033717";
+
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadProfiles() {
+      try {
+        const res = await fetch("/api/profiles/active");
+        const data = await res.json().catch(() => []);
+
+        setProfiles(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Erro ao carregar perfis:", err);
+        setProfiles([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProfiles();
+  }, []);
+
+  const carouselProfiles = useMemo(() => {
+  if (!profiles.length) return [];
+
+  const minItems = 30;
+  const repeatTimes = Math.max(6, Math.ceil(minItems / profiles.length));
+
+  return Array.from({ length: repeatTimes }).flatMap(() => profiles);
+}, [profiles]);
 
   return (
     <section className="homeProfilesShowcase" id="perfis">
       <div className="profilesShowcaseHeader">
-        <span className="sectionLabel dark">Vitrine de perfis</span>
+        <span className="sectionLabel dark">Catálogo local</span>
 
-        <h2>Um catálogo elegante para encontrar profissionais e empresas.</h2>
+        <h2>Catálogo de profissionais e empresas.</h2>
 
         <p>
-          Essa área já fica pronta para evoluir como uma vitrine organizada,
-          onde qualquer pessoa poderá buscar, filtrar e encontrar perfis ativos
-          no RendaJá.
+          Encontre profissionais, empresas e serviços ativos na sua região.
+          Veja perfis públicos, conheça o trabalho de cada um e fale direto pelo
+          WhatsApp.
         </p>
 
         <div className="profilesActions">
@@ -52,26 +57,73 @@ export default function HomeProfilesShowcase() {
         </div>
       </div>
 
-      <div className="profilesGrid">
-        {profiles.map((profile) => (
-          <article className="profileShowcaseCard" key={profile.name}>
-            <div className="profileShowcaseCover" />
+      <div className="profilesCarouselShell">
+        <div className="profilesCarouselFade left" />
+        <div className="profilesCarouselFade right" />
 
-            <div className="profileShowcaseAvatar">
-              {profile.initials}
-            </div>
+        <div className="profilesGrid">
+          {loading ? (
+            <article className="profileShowcaseCard">
+              <div className="profileShowcaseCover" />
+              <div className="profileShowcaseAvatar">RJ</div>
+              <h3>Carregando perfis...</h3>
+              <p>Buscando perfis ativos no RendaJá</p>
+              <div className="profileShowcaseMeta">
+                <span>Online</span>
+                <span>Aguarde</span>
+              </div>
+              <button type="button">Carregando</button>
+            </article>
+          ) : profiles.length === 0 ? (
+            <article className="profileShowcaseCard">
+              <div className="profileShowcaseCover" />
+              <div className="profileShowcaseAvatar">RJ</div>
+              <h3>Perfis em breve</h3>
+              <p>Os perfis ativos aparecerão aqui automaticamente.</p>
+              <div className="profileShowcaseMeta">
+                <span>RendaJá</span>
+                <span>Perfil ativo</span>
+              </div>
+              <button type="button">Em breve</button>
+            </article>
+          ) : (
+            carouselProfiles.map((profile, index) => (
+              <article
+                className="profileShowcaseCard"
+                key={`${profile.id || profile.slug}-${index}`}
+              >
+                <div className="profileShowcaseCover">
+                  {profile.hero_image_url && (
+                    <img src={profile.hero_image_url} alt={profile.nome} />
+                  )}
+                </div>
 
-            <h3>{profile.name}</h3>
-            <p>{profile.category}</p>
+                <div className="profileShowcaseAvatar">
+                  {profile.logo_url ? (
+                    <img src={profile.logo_url} alt={profile.nome} />
+                  ) : (
+                    String(profile.nome || "RJ").slice(0, 2).toUpperCase()
+                  )}
+                </div>
 
-            <div className="profileShowcaseMeta">
-              <span>{profile.city}</span>
-              <span>Perfil ativo</span>
-            </div>
+                <h3>{profile.nome}</h3>
+                <p>{profile.servico || "Profissional"}</p>
 
-            <button type="button">Ver perfil</button>
-          </article>
-        ))}
+                <div className="profileShowcaseMeta">
+                  <span>
+                    {profile.cidade || "Cidade"}
+                    {profile.estado ? `-${profile.estado}` : ""}
+                  </span>
+                  <span>Perfil ativo</span>
+                </div>
+
+                <a href={`/p/${profile.slug}`} className="profileShowcaseBtn">
+                  Ver perfil
+                </a>
+              </article>
+            ))
+          )}
+        </div>
       </div>
     </section>
   );
