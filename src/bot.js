@@ -367,6 +367,50 @@ if (text === "comprar_pagina") {
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
+
+if (text === "prof_ver_pagina") {
+  const { data: profile, error } = await supabase
+    .from("profiles_pages")
+    .select("slug,is_active,is_preview,preview_expires_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error || !profile) {
+    return sendText(
+      phone,
+      "Você ainda não tem uma página pública criada. Primeiro crie seu perfil profissional."
+    );
+  }
+
+  const baseUrl =
+    process.env.PROFILE_PUBLIC_BASE_URL ||
+    process.env.FRONTEND_BASE_URL ||
+    process.env.APP_PUBLIC_URL ||
+    process.env.APP_BASE_URL ||
+    "https://rendaja.online";
+
+  const link = `${baseUrl.replace(/\/$/, "")}/p/${profile.slug}`;
+
+  const previewValida =
+    profile.is_preview &&
+    profile.preview_expires_at &&
+    new Date(profile.preview_expires_at) > new Date();
+
+  if (profile.is_active || previewValida) {
+    await sendText(phone, `🌐 Sua página pública:\n${link}`);
+  } else {
+    await sendText(
+      phone,
+      `🌐 Sua página já foi criada, mas a prévia expirou.\n\nLink:\n${link}\n\nPara deixar online novamente, ative a página.`
+    );
+  }
+
+  return sendActionButtons(phone, "O que deseja fazer?", [
+    { id: "comprar_pagina", title: "Ativar página" },
+    { id: "prof_criar_perfil", title: "Editar perfil" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
     if (text === "redefinir_perfil") {
       await updateUser({
         etapa: "tipo",
