@@ -12,6 +12,7 @@ import {
 import { notifyUsersAboutNewJob } from "../services/jobNotifier.js";
 import { createOrUpdateProfilePage } from "../lib/pageGenerator.js";
 
+import { createProfilePageSubscriptionPayment } from "../services/payments.js";
 
 function shortTitle(value = "") {
   const text = String(value || "").trim();
@@ -356,6 +357,85 @@ export async function handleCompanyMenu({
     await updateUser({ etapa: "menu" });
     return sendMenuEmpresa(phone);
   }
+  if (text === "empresa_criar_perfil") {
+  const profile = await createOrUpdateProfilePage({
+    supabase,
+    user: {
+      ...user,
+      nome: user.nome_empresa || "Empresa",
+    },
+  });
+
+  if (!profile?.slug) {
+    return sendText(phone, "Não consegui criar sua página agora.");
+  }
+
+  const baseUrl =
+    process.env.PROFILE_PUBLIC_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    "http://localhost:3000";
+
+  const link = `${baseUrl}/p/${profile.slug}`;
+
+  return sendText(
+    phone,
+    `🚀 Página criada com sucesso!\n\nVeja sua página:\n${link}`
+  );
+}
+
+if (text === "empresa_ver_perfil") {
+  const { data: profile } = await supabase
+    .from("profiles_pages")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!profile?.slug) {
+    return sendText(phone, "Você ainda não criou sua página.");
+  }
+
+  const baseUrl =
+    process.env.PROFILE_PUBLIC_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    "http://localhost:3000";
+
+  const link = `${baseUrl}/p/${profile.slug}`;
+
+  return sendText(phone, `🌐 Sua página:\n${link}`);
+}
+
+if (text === "empresa_pacotes_perfil") {
+  const { data: profile } = await supabase
+    .from("profiles_pages")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!profile) {
+    return sendText(phone, "Crie sua página antes de ativar.");
+  }
+
+  const payment = await createProfilePageSubscriptionPayment({
+    user,
+    profile,
+  });
+
+  if (!payment?.qr_code) {
+    return sendText(phone, "Erro ao gerar pagamento.");
+  }
+
+  await sendText(
+    phone,
+    `💎 *Ativar página da empresa*\n\nValor: R$ 19,90/mês`
+  );
+
+  await sendText(phone, payment.qr_code);
+
+  return sendActionButtons(phone, "Depois do pagamento:", [
+    { id: "payment_check_status", title: "Já paguei" },
+    { id: "voltar_menu", title: "Voltar ao menu" },
+  ]);
+}
 if (text === "empresa_criar_perfil") {
   const empresaUser = {
     ...user,
@@ -378,9 +458,12 @@ if (text === "empresa_criar_perfil") {
 
   try {
     profilePage = await createOrUpdateProfilePage({
-      supabase,
-      user: empresaUser,
-    });
+  supabase,
+  user: {
+    ...user,
+    nome: user.nome_empresa, // 🔥 AQUI está o segredo
+  },
+});
   } catch (err) {
     console.error("❌ erro ao criar página pública da empresa:", err);
   }
