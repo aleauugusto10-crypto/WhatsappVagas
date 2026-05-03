@@ -357,30 +357,77 @@ export async function handleCompanyMenu({
     await updateUser({ etapa: "menu" });
     return sendMenuEmpresa(phone);
   }
-  if (text === "empresa_criar_perfil") {
-  const profile = await createOrUpdateProfilePage({
-    supabase,
-    user: {
-      ...user,
-      nome: user.nome_empresa || "Empresa",
-    },
+  
+  // =====================
+// CRIAR PERFIL EMPRESA (NOVO FLUXO)
+// =====================
+
+if (text === "empresa_criar_perfil") {
+  await updateUser({
+    etapa: "empresa_perfil_ramo",
   });
-
-  if (!profile?.slug) {
-    return sendText(phone, "Não consegui criar sua página agora.");
-  }
-
-  const baseUrl =
-    process.env.PROFILE_PUBLIC_BASE_URL ||
-    process.env.APP_BASE_URL ||
-    "http://localhost:3000";
-
-  const link = `${baseUrl}/p/${profile.slug}`;
 
   return sendText(
     phone,
-    `🚀 Página criada com sucesso!\n\nVeja sua página:\n${link}`
+    "🏢 Vamos criar a página da sua empresa.\n\nQual é o ramo da empresa?\n\nExemplos:\n• Hamburgueria\n• Loja de roupas\n• Oficina mecânica\n• Salão de beleza"
   );
+}
+
+if (user.etapa === "empresa_perfil_ramo") {
+  const ramo = String(text || "").trim();
+
+  if (!ramo || ramo.length < 3) {
+    return sendText(
+      phone,
+      "Digite um ramo válido.\nEx: Hamburgueria artesanal"
+    );
+  }
+
+  await updateUser({
+    categoria_principal: ramo,
+    etapa: "menu",
+  });
+
+  const empresaUser = {
+    ...user,
+    nome: user.nome_empresa || user.nome,
+    nome_empresa: user.nome_empresa || user.nome,
+    tipo: "empresa",
+    categoria_principal: ramo,
+    area_principal: ramo,
+  };
+
+  let profilePage = null;
+
+  try {
+    profilePage = await createOrUpdateProfilePage({
+      supabase,
+      user: empresaUser,
+    });
+  } catch (err) {
+    console.error("❌ erro ao criar página:", err);
+  }
+
+  if (!profilePage?.slug) {
+    return sendText(phone, "Erro ao criar página. Tente novamente.");
+  }
+
+  const baseUrl = getPublicBaseUrl();
+  const link = `${baseUrl}/p/${profilePage.slug}`;
+
+  await sendText(
+    phone,
+    `🚀 Página criada com sucesso!\n\n` +
+      `🏢 Empresa: ${empresaUser.nome_empresa}\n` +
+      `📌 Ramo: ${ramo}\n\n` +
+      `Veja sua página:\n${link}`
+  );
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    { id: "empresa_ver_perfil", title: "Ver página" },
+    { id: "comprar_pagina", title: "Ativar página" },
+    { id: "voltar_menu", title: "Menu" },
+  ]);
 }
 
 if (text === "empresa_ver_perfil") {
@@ -436,63 +483,8 @@ if (text === "empresa_pacotes_perfil") {
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
-if (text === "empresa_criar_perfil") {
-  const empresaUser = {
-    ...user,
 
-    // força a IA a tratar como empresa
-    nome: user.nome_empresa || user.nome,
-    nome_empresa: user.nome_empresa || user.nome,
 
-    tipo: "empresa",
-
-    // ajuda a IA a entender que é perfil empresarial
-    area_principal: user.area_principal || "empresa",
-    categoria_principal:
-      user.categoria_principal ||
-      user.vaga_titulo_temp ||
-      "empresa local",
-  };
-
-  let profilePage = null;
-
-  try {
-    profilePage = await createOrUpdateProfilePage({
-  supabase,
-  user: {
-    ...user,
-    nome: user.nome_empresa, // 🔥 AQUI está o segredo
-  },
-});
-  } catch (err) {
-    console.error("❌ erro ao criar página pública da empresa:", err);
-  }
-
-  if (!profilePage?.slug) {
-    return sendText(
-      phone,
-      "Não consegui criar a prévia da página da empresa agora. Tente novamente."
-    );
-  }
-
-  const baseUrl = getPublicBaseUrl();
-  const pageLink = `${baseUrl}/p/${profilePage.slug}`;
-
-  await sendText(
-    phone,
-    `🚀 *Prévia da página da empresa criada!*\n\n` +
-      `Criei uma página pública baseada no nome da empresa:\n` +
-      `🏢 *${user.nome_empresa || user.nome || "Sua empresa"}*\n\n` +
-      `Veja como ficou:\n${pageLink}\n\n` +
-      `Essa página fica disponível por alguns minutos como teste.`
-  );
-
-  return sendActionButtons(phone, "Deseja ativar sua página empresarial?", [
-    { id: "comprar_pagina", title: "Ativar página" },
-    { id: "empresa_pacotes", title: "Ver pacotes" },
-    { id: "voltar_menu", title: "Ver depois" },
-  ]);
-}
   if (text === "empresa_pacotes") {
     await updateUser({ etapa: "menu" });
     return mostrarPacotesEmpresa(phone, supabase, user);
