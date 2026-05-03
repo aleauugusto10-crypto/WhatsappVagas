@@ -35,6 +35,72 @@ function cleanText(value = "", fallback = "") {
   const text = String(value || "").trim();
   return text || fallback;
 }
+function getSafeHeroPalette(user = {}, ai = {}) {
+  const categoria = String(
+    user.categoria_principal ||
+    user.area_principal ||
+    ai.servico ||
+    ""
+  ).toLowerCase();
+
+  if (
+    categoria.includes("hamb") ||
+    categoria.includes("lanche") ||
+    categoria.includes("food") ||
+    categoria.includes("restaurante") ||
+    categoria.includes("pizz")
+  ) {
+    return {
+      primary_color: "#f97316",
+      secondary_color: "#120807",
+      accent_color: "#facc15",
+      hero_bg_color: "#160807",
+      topbar_bg_color: "#0b0504",
+      hero_overlay_color: "rgba(22, 8, 7, 0.74)",
+    };
+  }
+
+  if (
+    categoria.includes("beleza") ||
+    categoria.includes("salão") ||
+    categoria.includes("salao") ||
+    categoria.includes("estet")
+  ) {
+    return {
+      primary_color: "#d946ef",
+      secondary_color: "#16051a",
+      accent_color: "#f5d0fe",
+      hero_bg_color: "#1a071f",
+      topbar_bg_color: "#0f0312",
+      hero_overlay_color: "rgba(26, 7, 31, 0.72)",
+    };
+  }
+
+  if (
+    categoria.includes("constru") ||
+    categoria.includes("pedreiro") ||
+    categoria.includes("reforma") ||
+    categoria.includes("obra")
+  ) {
+    return {
+      primary_color: "#d9a84e",
+      secondary_color: "#11100c",
+      accent_color: "#f5d28b",
+      hero_bg_color: "#12100b",
+      topbar_bg_color: "#080806",
+      hero_overlay_color: "rgba(18, 16, 11, 0.74)",
+    };
+  }
+
+  return {
+    primary_color: "#25d366",
+    secondary_color: "#06111d",
+    accent_color: "#d9a84e",
+    hero_bg_color: "#06111d",
+    topbar_bg_color: "#030812",
+    hero_overlay_color: "rgba(6, 17, 29, 0.74)",
+  };
+}
 function removeCidadeDoServico(servico = "", cidade = "", estado = "") {
   let text = String(servico || "").trim();
   const city = String(cidade || "").trim();
@@ -476,6 +542,7 @@ const servicoBase = cleanText(
 );
 
 const servicoLimpo = removeCidadeDoServico(servicoBase, cidade, estado);
+const safePalette = getSafeHeroPalette(user, ai);
   const servicesItems = Array.isArray(ai.services_items)
     ? ai.services_items.slice(0, 6).map((item, index) => ({
         id: item.id || `service-${index + 1}`,
@@ -570,15 +637,16 @@ return {
     hero_image_url: images.hero_image_url || "",
     about_image_url: images.about_image_url || "",
 
-    primary_color: cleanText(ai.primary_color, "#d9a84e"),
-    secondary_color: cleanText(ai.secondary_color, "#06111d"),
-    accent_color: cleanText(ai.accent_color, "#f5d28b"),
+    primary_color: safePalette.primary_color,
+secondary_color: safePalette.secondary_color,
+accent_color: safePalette.accent_color,
     background_color: cleanText(ai.background_color, "#f7f3ed"),
     text_color: cleanText(ai.text_color, "#07111f"),
 
+    
     hero_bg_color: cleanText(ai.hero_bg_color, ai.secondary_color || "#06111d"),
-    topbar_bg_color: cleanText(ai.topbar_bg_color, ai.secondary_color || "#06111d"),
-    hero_overlay_color: cleanText(ai.hero_overlay_color, ai.hero_bg_color || "#06111d"),
+topbar_bg_color: cleanText(ai.topbar_bg_color, ai.secondary_color || "#06111d"),
+hero_overlay_color: cleanText(ai.hero_overlay_color, ai.hero_bg_color || "#06111d"),
     about_bg_color: cleanText(ai.about_bg_color, ai.background_color || "#f7f3ed"),
     portfolio_bg_color: cleanText(ai.portfolio_bg_color, ai.secondary_color || "#06111d"),
     reviews_bg_color: cleanText(ai.reviews_bg_color, ai.background_color || "#f7f3ed"),
