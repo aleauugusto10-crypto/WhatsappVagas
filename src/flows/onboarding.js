@@ -75,7 +75,7 @@ function isValidCNPJ(cnpj = "") {
 
 function shortTitle(value = "") {
   const text = String(value || "").trim();
-  return text.length > 24 ? `${text.slice(0, 21)}...` : text;
+  return text.length > 20 ? text.slice(0, 20) : text;
 }
 const UF_SET = new Set([
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
@@ -237,20 +237,6 @@ export async function handleOnboarding({
     etapa: "nome",
     onboarding_finalizado: false,
   });
-if (user.etapa === "tipo") {
-  if (!["tipo_usuario", "tipo_contratante", "tipo_empresa"].includes(text)) {
-    return false;
-  }
-
-  let tipo = "usuario";
-  if (text === "tipo_contratante") tipo = "contratante";
-  if (text === "tipo_empresa") tipo = "empresa";
-
-  await updateUser({
-    tipo,
-    etapa: "nome",
-    onboarding_finalizado: false,
-  });
 
   return sendText(phone, randomize([
     "Qual seu nome e sobrenome?",
@@ -258,13 +244,6 @@ if (user.etapa === "tipo") {
     "Como posso te chamar?"
   ]));
 }
-  return sendText(phone, randomize([
-  "Qual seu nome e sobrenome?",
-  "Me diz seu nome completo 👇",
-  "Como posso te chamar?"
-]));
-}
-
   if (user.etapa === "nome") {
     if (!text || text.length < 3) {
       return sendText(phone, "Digite seu nome e sobrenome:");
