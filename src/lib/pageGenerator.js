@@ -759,3 +759,173 @@ const { data, error } = await supabase
 
   return data;
 }
+
+export async function updateProfilePageFields({ supabase, userId, slug, patch = {} }) {
+  if (!supabase) {
+    throw new Error("Supabase não informado.");
+  }
+
+  if (!userId && !slug) {
+    throw new Error("Informe userId ou slug para corrigir a página.");
+  }
+
+  const allowedFields = [
+    "slug",
+    "nome",
+    "servico",
+    "cidade",
+    "estado",
+    "whatsapp",
+    "descricao",
+
+    "logo_url",
+    "hero_image_url",
+    "about_image_url",
+
+    "primary_color",
+    "secondary_color",
+    "accent_color",
+    "background_color",
+    "text_color",
+
+    "hero_bg_color",
+    "topbar_bg_color",
+    "hero_overlay_color",
+    "about_bg_color",
+    "portfolio_bg_color",
+    "reviews_bg_color",
+    "store_bg_color",
+    "store_text_color",
+    "services_bg_color",
+    "services_text_color",
+    "cta_bg_color",
+
+    "hero_kicker",
+    "about_title",
+    "about_text",
+
+    "services_title",
+    "services_text",
+    "services_items",
+
+    "gallery",
+
+    "store_title",
+    "store_text",
+    "store_categories",
+    "store_items",
+
+    "cta_title",
+    "cta_text",
+    "cta_button_text",
+    "cta_action_type",
+    "cta_custom_link",
+
+    "seo_title",
+    "seo_description",
+    "seo_content",
+    "seo_keywords",
+    "seo_tags",
+
+    "show_about",
+    "show_services",
+    "show_portfolio",
+    "show_reviews",
+    "show_store",
+    "show_booking",
+    "show_final_cta",
+
+    "is_active",
+    "is_preview",
+    "preview_expires_at",
+    "subscription_expires_at",
+  ];
+
+  const cleanPatch = {};
+
+  for (const [key, value] of Object.entries(patch || {})) {
+    if (allowedFields.includes(key)) {
+      cleanPatch[key] = value;
+    }
+  }
+
+  if (!Object.keys(cleanPatch).length) {
+    throw new Error("Nenhum campo permitido foi enviado para correção.");
+  }
+
+  cleanPatch.updated_at = new Date().toISOString();
+
+  let query = supabase.from("profiles_pages").update(cleanPatch);
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  } else {
+    query = query.eq("slug", slug);
+  }
+
+  const { data, error } = await query.select("*").single();
+
+  if (error) {
+    console.error("Erro ao corrigir profiles_pages:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function updateAnyTableRow({
+  supabase,
+  table,
+  match = {},
+  patch = {},
+}) {
+  if (!supabase) {
+    throw new Error("Supabase não informado.");
+  }
+
+  if (!table) {
+    throw new Error("Tabela não informada.");
+  }
+
+  if (!Object.keys(match).length) {
+    throw new Error("Informe pelo menos uma condição em match.");
+  }
+
+  if (!Object.keys(patch).length) {
+    throw new Error("Informe pelo menos um campo em patch.");
+  }
+
+  const allowedTables = [
+    "usuarios",
+    "profiles_pages",
+    "servicos",
+    "categorias",
+    "areas",
+    "vagas",
+    "candidaturas",
+  ];
+
+  if (!allowedTables.includes(table)) {
+    throw new Error(`Tabela não permitida para correção: ${table}`);
+  }
+
+  const finalPatch = {
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+
+  let query = supabase.from(table).update(finalPatch);
+
+  for (const [field, value] of Object.entries(match)) {
+    query = query.eq(field, value);
+  }
+
+  const { data, error } = await query.select("*");
+
+  if (error) {
+    console.error(`Erro ao corrigir tabela ${table}:`, error);
+    throw error;
+  }
+
+  return data;
+}
