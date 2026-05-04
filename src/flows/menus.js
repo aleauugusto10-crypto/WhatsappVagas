@@ -6,7 +6,7 @@ export function sendRootMenu(phone) {
     "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n🏢 Divulgar oportunidades\n\n🛟 Se precisar de ajuda, digite *suporte* a qualquer momento.\n\nComo você quer usar a plataforma?",
     [
       { id: "tipo_usuario", title: "💰 Quero trabalhar" },
-      { id: "tipo_contratante", title: "🔎 Buscar profissional" },
+      { id: "tipo_contratante", title: "🔎 Profissional" },
       { id: "tipo_empresa", title: "🏢 Sou empresa" },
     ]
   );
@@ -58,7 +58,7 @@ export function sendMenuContratante(phone) {
     {
       title: "🔎 Serviços",
       rows: [
-        { id: "contratar_buscar_profissionais", title: "🧑‍🔧 Buscar profissionais" },
+        { id: "contratar_buscar_profissionais", title: "🔎 Profissionais" },
         { id: "contratar_criar_missao", title: "📢 Criar missão" },
         { id: "contratar_minhas_missoes", title: "📋 Minhas missões" },
       ],
@@ -78,7 +78,7 @@ export function sendMenuEmpresa(phone) {
     {
       title: "🏢 Empresa",
       rows: [
-        { id: "empresa_buscar_profissionais", title: "🔎 Buscar profissionais" },
+        { id: "empresa_buscar_profissionais", title: "🔎 Profissionais" },
         { id: "empresa_criar_vaga", title: "💼 Criar vaga" },
         { id: "empresa_minhas_vagas", title: "📋 Minhas vagas" },
         { id: "contratar_criar_missao", title: "📢 Criar missão" },
