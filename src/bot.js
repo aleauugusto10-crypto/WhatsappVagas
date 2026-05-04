@@ -432,7 +432,7 @@ if (text === "comprar_pagina") {
     phone,
     `💎 *Ativar página profissional RendaJá*\n\n` +
       `📦 *Plano:* Página profissional mensal\n` +
-      `💵 *Valor:* R$ 5,90/mês\n\n` +
+      `💵 *Valor:* R$ 19,90/mês\n\n` +
       `💳 *Pagamento seguro via RendaJá*\n\n` +
     `🔐 O Pix pode aparecer no nome do responsável pela plataforma.\n` +
     `Isso é normal — o pagamento é processado com segurança.\n\n` +
