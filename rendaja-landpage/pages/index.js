@@ -16,6 +16,10 @@ export default function Home() {
   return (
     <>
       <Head>
+        <meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+/>
         <title>RendaJá — Perfis, vagas, missões e oportunidades</title>
         <meta
           name="description"

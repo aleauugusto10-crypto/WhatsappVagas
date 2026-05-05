@@ -69,7 +69,39 @@ function getMenuByTipo(tipo, phone) {
   if (tipo === "contratante") return sendMenuContratante(phone);
   return sendMenuUsuario(phone);
 }
+function normalizeBRPhone(phone = "") {
+  let digits = String(phone || "").replace(/\D/g, "");
 
+  if (!digits) return "";
+
+  if (!digits.startsWith("55")) {
+    digits = `55${digits}`;
+  }
+
+  const country = digits.slice(0, 2);
+  const ddd = digits.slice(2, 4);
+  let number = digits.slice(4);
+
+  if (country === "55" && ddd.length === 2 && number.length === 8) {
+    number = `9${number}`;
+  }
+
+  return `${country}${ddd}${number}`;
+}
+
+function getBRPhoneCandidates(phone = "") {
+  const normalized = normalizeBRPhone(phone);
+  const digits = String(phone || "").replace(/\D/g, "");
+
+  const candidates = new Set([normalized, digits]);
+
+  if (normalized.startsWith("55") && normalized.length === 13) {
+    const withoutNine = `${normalized.slice(0, 4)}${normalized.slice(5)}`;
+    candidates.add(withoutNine);
+  }
+
+  return [...candidates].filter(Boolean);
+}
 async function getLastUserPayment(userId) {
   const { data, error } = await supabase
     .from("pagamentos_plataforma")
@@ -172,8 +204,10 @@ await sendText(
 
 export async function handleMessage(msg) {
   
-  const phone = msg?.from;
-  if (!phone) return;
+  const rawPhone = msg?.from;
+const phone = normalizeBRPhone(rawPhone);
+
+if (!phone) return;
 
   if (processingUsers.has(phone)) {
     console.log("⏳ ignorado:", phone);
@@ -189,11 +223,28 @@ export async function handleMessage(msg) {
       msg?.text?.body?.toLowerCase().trim() ||
       "";
 
-    let { data: user } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("telefone", phone)
-      .maybeSingle();
+    const phoneCandidates = getBRPhoneCandidates(rawPhone);
+
+let { data: user } = await supabase
+  .from("usuarios")
+  .select("*")
+  .in("telefone", phoneCandidates)
+  .order("created_at", { ascending: true })
+  .limit(1)
+  .maybeSingle();
+
+if (user && user.telefone !== phone) {
+  const { data: normalizedUser, error: normalizeError } = await supabase
+    .from("usuarios")
+    .update({ telefone: phone })
+    .eq("id", user.id)
+    .select()
+    .single();
+
+  if (!normalizeError && normalizedUser) {
+    user = normalizedUser;
+  }
+}
 
     if (!user) {
       const { data: created } = await supabase

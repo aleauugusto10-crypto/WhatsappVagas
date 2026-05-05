@@ -153,7 +153,7 @@ export default function Login() {
 
               style={styles.input}
 
-              placeholder="Ex: (79) 99819-2216"
+              placeholder="Ex: (79) 99999-9999"
 
               value={telefone}
 

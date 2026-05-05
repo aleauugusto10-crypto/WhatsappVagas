@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { supabase } from "../src/lib/supabase";
 
 function money(value = 0) {
@@ -93,7 +93,13 @@ export default function StoreSection({ profile }) {
   }, [hasProducts, hasServices]);
 
   const [cart, setCart] = useState([]);
-  const [filter, setFilter] = useState("all");
+  const [variantModalOpen, setVariantModalOpen] = useState(false);
+const [variantProduct, setVariantProduct] = useState(null);
+const [selectedVariants, setSelectedVariants] = useState({});
+const [filter, setFilter] = useState("all");
+const [searchOpen, setSearchOpen] = useState(false);
+const [searchTerm, setSearchTerm] = useState("");
+const searchRef = useRef(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [customer, setCustomer] = useState({
     firstName: "",
@@ -102,12 +108,55 @@ export default function StoreSection({ profile }) {
     note: "",
   });
 
-  const visibleItems = useMemo(() => {
-    if (filter === "all") return items;
-    if (filter === "service") return items.filter(isService);
-    if (filter === "product") return items.filter(isProduct);
-    return items.filter((item) => item.category_id === filter);
-  }, [items, filter]);
+  const categoryMap = useMemo(() => {
+  return new Map(categories.map((category) => [category.id, category]));
+}, [categories]);
+useEffect(() => {
+  function handleClickOutside(event) {
+    if (!searchRef.current) return;
+
+    if (!searchRef.current.contains(event.target)) {
+      setSearchOpen(false);
+    }
+  }
+
+  document.addEventListener("mousedown", handleClickOutside);
+  document.addEventListener("touchstart", handleClickOutside);
+
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+    document.removeEventListener("touchstart", handleClickOutside);
+  };
+}, []);
+const visibleItems = useMemo(() => {
+  const term = searchTerm.trim().toLowerCase();
+
+  return items.filter((item) => {
+    const matchFilter =
+      filter === "all" ||
+      (filter === "service" && isService(item)) ||
+      (filter === "product" && isProduct(item)) ||
+      item.category_id === filter;
+
+    const category = categoryMap.get(item.category_id);
+
+    const searchableText = [
+      item.title,
+      item.name,
+      item.description,
+      item.type,
+      item.price_type,
+      category?.name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const matchSearch = !term || searchableText.includes(term);
+
+    return matchFilter && matchSearch;
+  });
+}, [items, filter, searchTerm, categoryMap]);
 
   const visibleCategoryGroups = useMemo(() => {
     return categories
@@ -136,7 +185,66 @@ export default function StoreSection({ profile }) {
   function updateCustomer(field, value) {
     setCustomer((prev) => ({ ...prev, [field]: value }));
   }
+  function productHasVariants(item) {
+  return item?.variants_enabled === true &&
+    Array.isArray(item?.variants) &&
+    item.variants.length > 0;
+}
+function handleAddItem(item) {
+  if (productHasVariants(item)) {
+    setVariantProduct(item);
+    setSelectedVariants({});
+    setVariantModalOpen(true);
+    return;
+  }
 
+  addToCart(item);
+}
+function selectVariant(variantId, option) {
+  setSelectedVariants((prev) => ({
+    ...prev,
+    [variantId]: option,
+  }));
+}
+function allVariantsSelected() {
+  if (!variantProduct?.variants) return true;
+
+  return variantProduct.variants.every((variant) => {
+    if (variant.required === false) return true;
+    return selectedVariants[variant.id];
+  });
+}
+function confirmVariantSelection() {
+  if (!allVariantsSelected()) {
+    alert("Selecione todas as opções obrigatórias.");
+    return;
+  }
+
+  const variantSummary = Object.values(selectedVariants).map((opt) => ({
+  id: opt.id,
+  label: opt.label,
+  variant_name: opt.variant_name,
+  image_url: opt.image_url || "",
+}));
+
+  addToCart({
+    ...variantProduct,
+    selected_variants: variantSummary,
+  });
+
+  setVariantModalOpen(false);
+  setVariantProduct(null);
+  setSelectedVariants({});
+}
+function getVariantImage() {
+  const options = Object.values(selectedVariants);
+
+  const withImage = options
+    .map((opt) => opt.image_url)
+    .filter(Boolean);
+
+  return withImage.at(-1) || variantProduct?.image_url;
+}
   function addToCart(item) {
     setCart((prev) => {
       const exists = prev.find((cartItem) => cartItem.id === item.id);
@@ -221,16 +329,20 @@ export default function StoreSection({ profile }) {
     message += `👤 Cliente: ${customerName}\n`;
     message += `📞 WhatsApp: ${customerPhone}\n\n`;
     message += `🛍️ Itens solicitados:\n`;
+cart.forEach((item) => {
+  const typeLabel = isProduct(item) ? "Produto" : "Serviço";
+  const priceLabel = isQuote(item)
+    ? "Sob orçamento"
+    : money(Number(item.price || 0) * item.qty);
 
-    cart.forEach((item) => {
-      const typeLabel = isProduct(item) ? "Produto" : "Serviço";
-      const priceLabel = isQuote(item)
-        ? "Sob orçamento"
-        : money(Number(item.price || 0) * item.qty);
+  message += `• ${item.qty}x ${typeLabel}: ${item.title} — ${priceLabel}\n`;
 
-      message += `• ${item.qty}x ${typeLabel}: ${item.title} — ${priceLabel}\n`;
+  if (Array.isArray(item.selected_variants) && item.selected_variants.length > 0) {
+    item.selected_variants.forEach((variant) => {
+      message += `   ↳ ${variant.variant_name}: ${variant.label}\n`;
     });
-
+  }
+});
     if (!cartHasQuote) {
       message += `\n💰 Total estimado: ${money(total)}\n`;
     } else {
@@ -273,15 +385,21 @@ export default function StoreSection({ profile }) {
       return;
     }
 
-    const orderItems = cart.map((item) => ({
-      id: item.id,
-      type: item.type || "service",
-      title: item.title || item.name || "Item",
-      qty: item.qty || 1,
-      price: isQuote(item) ? null : Number(item.price || 0),
-      price_type: item.price_type || "fixed",
-      category_id: item.category_id || "",
-    }));
+  const orderItems = cart.map((item) => ({
+  id: item.id,
+  type: item.type || "service",
+  title: item.title || item.name || "Item",
+  qty: item.qty || 1,
+  price: isQuote(item) ? null : Number(item.price || 0),
+  price_type: item.price_type || "fixed",
+  category_id: item.category_id || "",
+
+  image_url: item.image_url || "",
+
+  selected_variants: Array.isArray(item.selected_variants)
+    ? item.selected_variants
+    : [],
+}));
 
     const { error } = await supabase.from("profile_orders").insert({
       profile_page_id: profile.id,
@@ -349,9 +467,9 @@ export default function StoreSection({ profile }) {
           <div className="store-card-bottom">
             <strong>{getItemPriceLabel(item)}</strong>
 
-            <button type="button" onClick={() => addToCart(item)}>
-              Adicionar
-            </button>
+            <button type="button" onClick={() => handleAddItem(item)}>
+  Adicionar
+</button>
           </div>
         </div>
       </article>
@@ -394,58 +512,97 @@ export default function StoreSection({ profile }) {
           <div className="store-layout">
             <div className="store-content">
               {(hasServices || hasProducts || categories.length > 0) && (
-                <div className="store-filters">
-                  {(hasServices && hasProducts) || categories.length > 0 ? (
-                    <button
-                      type="button"
-                      className={filter === "all" ? "active" : ""}
-                      onClick={() => setFilter("all")}
-                    >
-                      Todos
-                    </button>
-                  ) : null}
+                <div className="store-filters-row">
+  <div className="store-filters">
+    {(hasServices && hasProducts) || categories.length > 0 ? (
+      <button
+        type="button"
+        className={filter === "all" ? "active" : ""}
+        onClick={() => setFilter("all")}
+      >
+        Todos
+      </button>
+    ) : null}
 
-                  {hasServices && (
-                    <button
-                      type="button"
-                      className={filter === "service" ? "active" : ""}
-                      onClick={() => setFilter("service")}
-                    >
-                      Serviços
-                    </button>
-                  )}
+    {hasServices && (
+      <button
+        type="button"
+        className={filter === "service" ? "active" : ""}
+        onClick={() => setFilter("service")}
+      >
+        Serviços
+      </button>
+    )}
 
-                  {hasProducts && (
-                    <button
-                      type="button"
-                      className={filter === "product" ? "active" : ""}
-                      onClick={() => setFilter("product")}
-                    >
-                      Produtos
-                    </button>
-                  )}
+    {hasProducts && (
+      <button
+        type="button"
+        className={filter === "product" ? "active" : ""}
+        onClick={() => setFilter("product")}
+      >
+        Produtos
+      </button>
+    )}
 
-                  {categories
-                    .filter((category) =>
-                      items.some((item) => item.category_id === category.id)
-                    )
-                    .map((category) => (
-                      <button
-                        key={category.id}
-                        type="button"
-                        className={filter === category.id ? "active" : ""}
-                        onClick={() => setFilter(category.id)}
-                      >
-                        {category.name}
-                      </button>
-                    ))}
-                </div>
+    {categories
+      .filter((category) =>
+        items.some((item) => item.category_id === category.id)
+      )
+      .map((category) => (
+        <button
+          key={category.id}
+          type="button"
+          className={filter === category.id ? "active" : ""}
+          onClick={() => setFilter(category.id)}
+        >
+          {category.name}
+        </button>
+      ))}
+  </div>
+
+  <div
+  ref={searchRef}
+  className={`store-filter-search ${searchOpen ? "open" : ""}`}
+>
+    <button
+      type="button"
+      className="store-filter-search-toggle"
+      onClick={() => setSearchOpen((prev) => !prev)}
+      aria-label="Buscar"
+    >
+      🔎
+    </button>
+
+    <input
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      placeholder="Buscar..."
+    />
+
+    {searchTerm && (
+      <button
+        type="button"
+        className="store-filter-search-clear"
+        onClick={() => setSearchTerm("")}
+        aria-label="Limpar busca"
+      >
+        ×
+      </button>
+    )}
+  </div>
+</div>
               )}
 
               {visibleItems.length === 0 ? (
                 <div className="store-empty">
-                  <strong>Nenhum item cadastrado ainda</strong>
-                  <p>Em breve novas opções estarão disponíveis nesta página.</p>
+                  <strong>
+  {searchTerm ? "Nenhum resultado encontrado" : "Nenhum item cadastrado ainda"}
+</strong>
+<p>
+  {searchTerm
+    ? "Tente buscar por outro nome, serviço ou categoria."
+    : "Em breve novas opções estarão disponíveis nesta página."}
+</p>
                 </div>
               ) : (
                 <div className="store-category-stack">
@@ -511,6 +668,11 @@ export default function StoreSection({ profile }) {
                       <div key={item.id} className="cart-item">
                         <div>
                           <strong>{item.title}</strong>
+                          {item.selected_variants && (
+  <small>
+    {item.selected_variants.map(v => `${v.variant_name}: ${v.label}`).join(" • ")}
+  </small>
+)}
                           <small>
                             {quote
                               ? "Sob orçamento"
@@ -550,7 +712,7 @@ export default function StoreSection({ profile }) {
                   Itens sob orçamento serão combinados pelo WhatsApp.
                 </p>
               )}
-
+              
               {cartHasBookableService ? (
                 <button
                   type="button"
@@ -577,6 +739,68 @@ export default function StoreSection({ profile }) {
         </div>
       </section>
 
+{variantModalOpen && variantProduct && (
+  <div className="booking-modal-backdrop">
+    <div className="booking-modal variant-modal-clean">
+      <button
+        type="button"
+        className="variant-modal-x"
+        onClick={() => setVariantModalOpen(false)}
+      >
+        ×
+      </button>
+
+      <div className="variant-modal-cover">
+        <img src={getVariantImage()} alt={variantProduct.title || "Produto"} />
+      </div>
+
+      <div className="variant-modal-content">
+        <h3>{variantProduct.title}</h3>
+
+        {variantProduct.description && (
+          <p>{variantProduct.description}</p>
+        )}
+
+        {variantProduct.variants.map((variant) => (
+          <div key={variant.id} className="variant-modal-group">
+            <strong>{variant.name}</strong>
+
+            <div className="variant-modal-options">
+              {variant.options.map((option) => {
+                const active =
+                  selectedVariants[variant.id]?.id === option.id;
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={active ? "active" : ""}
+                    onClick={() =>
+                      selectVariant(variant.id, {
+                        ...option,
+                        variant_name: variant.name,
+                      })
+                    }
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          className="variant-modal-add"
+          onClick={confirmVariantSelection}
+        >
+          Adicionar à sacola
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {showCheckoutModal && (
         <div className="booking-modal-backdrop" role="presentation">
           <div className="booking-modal" role="dialog" aria-modal="true">

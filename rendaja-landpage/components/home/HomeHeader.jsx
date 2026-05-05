@@ -205,7 +205,7 @@ useEffect(() => {
       </button>
 
       {menuOpen && (
-        <div className="mobile-menu">
+        <div className="mobile-menu" role="dialog">
           <form className="mobileSearch" onSubmit={handleSearchSubmit}>
             <input
               value={search}
@@ -267,9 +267,9 @@ useEffect(() => {
             Perfis
           </a>
 
-          <a href={WHATSAPP} className="btn-whatsapp">
-            WhatsApp
-          </a>
+          <a href={WHATSAPP} className="mobileWhatsappBtn">
+  WhatsApp
+</a>
         </div>
       )}
     </header>

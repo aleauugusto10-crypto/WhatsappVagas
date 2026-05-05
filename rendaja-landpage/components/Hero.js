@@ -65,45 +65,56 @@ export default function Hero({ profile }) {
     if (!slug) return;
     window.location.href = `/p/${slug}`;
   }
+function SearchResultItem({ item, mobile = false }) {
+  const avatar = item.logo_url || item.hero_image_url || item.about_image_url || "";
+  const href = item?.slug ? `/p/${item.slug}` : "#";
 
-  function SearchResultItem({ item, mobile = false }) {
-    const avatar = item.logo_url || item.hero_image_url || item.about_image_url || "";
+  function handleClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
 
-    return (
-      <button
-        type="button"
-        className={mobile ? "mobile-profile-result-item" : "profile-search-item"}
-        onClick={() => goToProfile(item.slug)}
-      >
-        <div
-          className={
-            mobile ? "mobile-profile-result-avatar" : "profile-search-avatar"
-          }
-        >
-          {avatar ? (
-            <img src={avatar} alt={item.nome || "Perfil"} />
-          ) : (
-            <span>{String(item.nome || "R").charAt(0)}</span>
-          )}
-        </div>
+    if (!item?.slug) return;
 
-        <div
-          className={
-            mobile ? "mobile-profile-result-info" : "profile-search-info"
-          }
-        >
-          <strong>{item.nome}</strong>
-          <span>
-            {item.servico || "Profissional"}
-            {item.cidade ? ` • ${item.cidade}` : ""}
-            {item.estado ? `/${item.estado}` : ""}
-          </span>
-        </div>
-
-        <em>Ver</em>
-      </button>
-    );
+    window.location.assign(`/p/${item.slug}`);
   }
+
+  return (
+    <a
+      href={href}
+      className={mobile ? "mobile-profile-result-item" : "profile-search-item"}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onClick={handleClick}
+    >
+      <div
+        className={
+          mobile ? "mobile-profile-result-avatar" : "profile-search-avatar"
+        }
+      >
+        {avatar ? (
+          <img src={avatar} alt={item.nome || "Perfil"} />
+        ) : (
+          <span>{String(item.nome || "R").charAt(0)}</span>
+        )}
+      </div>
+
+      <div
+        className={
+          mobile ? "mobile-profile-result-info" : "profile-search-info"
+        }
+      >
+        <strong>{item.nome}</strong>
+        <span>
+          {item.servico || "Profissional"}
+          {item.cidade ? ` • ${item.cidade}` : ""}
+          {item.estado ? `/${item.estado}` : ""}
+        </span>
+      </div>
+
+      <em>Ver</em>
+    </a>
+  );
+}
 
   useEffect(() => {
     function handleClickOutside(event) {

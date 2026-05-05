@@ -577,11 +577,9 @@ export default function Page({ profile, isPreview }) {
         {normalizedProfile.show_services && (
           <ServicesSection profile={safeProfile} />
         )}
-
-        {normalizedProfile.show_store && (
-          <StoreSection profile={safeProfile} />
-        )}
-
+{normalizedProfile.show_store && (
+  <StoreSection profile={safeProfile} />
+)}
         {normalizedProfile.show_booking && (
           <BookingSection profile={safeProfile} />
         )}

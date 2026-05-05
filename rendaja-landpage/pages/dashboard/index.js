@@ -844,7 +844,7 @@ function ServicesEditor({ profile, setField }) {
 }
 function OrdersPanel({ orders, loading, reload }) {
   const [statusFilter, setStatusFilter] = useState("all");
-
+  const [expandedImage, setExpandedImage] = useState(null);
   const counts = {
     all: orders.length,
     pending: orders.filter((item) => item.status === "pending").length,
@@ -957,15 +957,45 @@ function OrdersPanel({ orders, loading, reload }) {
                 <div className="booking-admin-services">
                   {items.length > 0 ? (
                     items.map((item, index) => (
-                      <div key={`${order.id}-${index}`}>
-                        <strong>{item.title || item.name || "Item"}</strong>
-                        <span>
-                          {item.qty || 1}x •{" "}
-                          {item.price_type === "quote"
-                            ? "Sob orçamento"
-                            : money(Number(item.price || 0) * Number(item.qty || 1))}
-                        </span>
-                      </div>
+                    <div key={`${order.id}-${index}`} className="order-clean-item">
+  {item.image_url && (
+    <button
+      type="button"
+      className="order-clean-image"
+      onClick={() =>
+        setExpandedImage({
+          url: item.image_url,
+          title: item.title || item.name || "Produto",
+        })
+      }
+    >
+      <img src={item.image_url} alt={item.title || "Produto"} />
+    </button>
+  )}
+
+  <div className="order-clean-content">
+    <strong>{item.title || item.name || "Item"}</strong>
+
+    {Array.isArray(item.selected_variants) &&
+      item.selected_variants.length > 0 && (
+        <div className="order-clean-variants">
+          {item.selected_variants.map((variant, vIndex) => (
+            <span key={`${item.id}-${vIndex}`}>
+              {variant.image_url && <img src={variant.image_url} alt={variant.label} />}
+              <b>{variant.variant_name}:</b> {variant.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+    <small>
+      {item.qty || 1}x •{" "}
+      {item.price_type === "quote"
+        ? "Sob orçamento"
+        : money(Number(item.price || 0) * Number(item.qty || 1))}
+    </small>
+  </div>
+</div>
                     ))
                   ) : (
                     <div>
@@ -1016,6 +1046,19 @@ function OrdersPanel({ orders, loading, reload }) {
           })}
         </div>
       )}
+      {expandedImage && (
+  <div className="order-image-modal-backdrop" onClick={() => setExpandedImage(null)}>
+    <div className="order-image-modal" onClick={(e) => e.stopPropagation()}>
+      <button type="button" onClick={() => setExpandedImage(null)}>
+        ×
+      </button>
+
+      <img src={expandedImage.url} alt={expandedImage.title} />
+
+      <strong>{expandedImage.title}</strong>
+    </div>
+  </div>
+)}
     </div>
   );
 }
@@ -1721,7 +1764,117 @@ const filteredItems = items.filter((item) => {
     end: 18,
     interval: 1,
   };
+function productHasVariants(item) {
+  return item?.variants_enabled === true;
+}
 
+function getItemVariants(item) {
+  return Array.isArray(item?.variants) ? item.variants : [];
+}
+
+function addVariant(itemId) {
+  const item = items.find((i) => i.id === itemId);
+  const variants = getItemVariants(item);
+
+  updateItem(itemId, "variants", [
+    ...variants,
+    {
+      id: `variant-${Date.now()}`,
+      name: "Nova variação",
+      required: true,
+      options: [],
+    },
+  ]);
+}
+
+function updateVariant(itemId, variantId, field, value) {
+  const item = items.find((i) => i.id === itemId);
+  const variants = getItemVariants(item);
+
+  updateItem(
+    itemId,
+    "variants",
+    variants.map((variant) =>
+      variant.id === variantId ? { ...variant, [field]: value } : variant
+    )
+  );
+}
+
+function removeVariant(itemId, variantId) {
+  const item = items.find((i) => i.id === itemId);
+  const variants = getItemVariants(item);
+
+  updateItem(
+    itemId,
+    "variants",
+    variants.filter((variant) => variant.id !== variantId)
+  );
+}
+
+function addVariantOption(itemId, variantId) {
+  const item = items.find((i) => i.id === itemId);
+  const variants = getItemVariants(item);
+
+  updateItem(
+    itemId,
+    "variants",
+    variants.map((variant) => {
+      if (variant.id !== variantId) return variant;
+
+      return {
+        ...variant,
+        options: [
+          ...(Array.isArray(variant.options) ? variant.options : []),
+          {
+            id: `option-${Date.now()}`,
+            label: "Nova opção",
+            image_url: "",
+          },
+        ],
+      };
+    })
+  );
+}
+
+function updateVariantOption(itemId, variantId, optionId, field, value) {
+  const item = items.find((i) => i.id === itemId);
+  const variants = getItemVariants(item);
+
+  updateItem(
+    itemId,
+    "variants",
+    variants.map((variant) => {
+      if (variant.id !== variantId) return variant;
+
+      return {
+        ...variant,
+        options: (variant.options || []).map((option) =>
+          option.id === optionId ? { ...option, [field]: value } : option
+        ),
+      };
+    })
+  );
+}
+
+function removeVariantOption(itemId, variantId, optionId) {
+  const item = items.find((i) => i.id === itemId);
+  const variants = getItemVariants(item);
+
+  updateItem(
+    itemId,
+    "variants",
+    variants.map((variant) => {
+      if (variant.id !== variantId) return variant;
+
+      return {
+        ...variant,
+        options: (variant.options || []).filter(
+          (option) => option.id !== optionId
+        ),
+      };
+    })
+  );
+}
   function updateWorkingHours(field, value) {
     setField("working_hours", {
       ...workingHours,
@@ -1770,18 +1923,20 @@ const filteredItems = items.filter((item) => {
     const firstCategory = categories[0];
 
     const newItem = {
-      id: `item-${Date.now()}`,
-      type: "service",
-      title: "Novo serviço",
-      description: "",
-      price: 0,
-      price_type: "fixed",
-      image_url: "",
-      category_id: firstCategory?.id || "",
-      active: true,
-      booking_enabled: false,
-      duration_minutes: 60,
-    };
+  id: `item-${Date.now()}`,
+  type: "service",
+  title: "Novo serviço",
+  description: "",
+  price: 0,
+  price_type: "fixed",
+  image_url: "",
+  category_id: firstCategory?.id || "",
+  active: true,
+  booking_enabled: false,
+  duration_minutes: 60,
+  variants_enabled: false,
+  variants: [],
+};
 
     setField("store_items", [...items, newItem]);
   }
@@ -1796,13 +1951,17 @@ const filteredItems = items.filter((item) => {
       };
 
       if (field === "type" && value === "product") {
-        updated.booking_enabled = false;
-        updated.duration_minutes = null;
-      }
+  updated.booking_enabled = false;
+  updated.duration_minutes = null;
+  updated.variants_enabled = updated.variants_enabled || false;
+  updated.variants = Array.isArray(updated.variants) ? updated.variants : [];
+}
 
       if (field === "type" && value === "service") {
-        updated.duration_minutes = updated.duration_minutes || 60;
-      }
+  updated.duration_minutes = updated.duration_minutes || 60;
+  updated.variants_enabled = false;
+  updated.variants = [];
+}
 
       if (field === "price_type" && value === "quote") {
         updated.price = 0;
@@ -2195,7 +2354,190 @@ const filteredItems = items.filter((item) => {
                         Produto não usa agenda. Ele aparece no carrinho.
                       </div>
                     )}
+{isProduct && (
+  <div className="product-variants-editor">
+    <ToggleField
+      label="Este produto tem variações"
+      value={item.variants_enabled === true}
+      onChange={(v) => {
+        updateItem(item.id, "variants_enabled", v);
 
+        if (v && !Array.isArray(item.variants)) {
+          updateItem(item.id, "variants", []);
+        }
+      }}
+    />
+
+    {item.variants_enabled === true && (
+      <div className="dash-card product-variants-box">
+        <div className="store-editor-head">
+          <div>
+            <span className="card-label">Variações do produto</span>
+            <h3>Opções selecionáveis</h3>
+            <p>
+              Crie variações como Tamanho, Cor, Modelo, Sabor ou Voltagem.
+              Imagem por opção é opcional.
+            </p>
+          </div>
+
+          <button type="button" onClick={() => addVariant(item.id)}>
+            + Variação
+          </button>
+        </div>
+
+        {getItemVariants(item).length === 0 ? (
+          <div className="store-empty">
+            <strong>Nenhuma variação criada</strong>
+            <p>Adicione uma variação, exemplo: Tamanho ou Cor.</p>
+          </div>
+        ) : (
+          <div className="variants-list">
+  {getItemVariants(item).map((variant) => (
+    <div key={variant.id} className="variant-editor-card">
+      <div className="store-item-editor-head">
+        <div>
+          <span>Variação</span>
+          <strong>{variant.name || "Variação sem nome"}</strong>
+        </div>
+
+        <button
+          type="button"
+          className="danger-button"
+          onClick={() => removeVariant(item.id, variant.id)}
+        >
+          Remover
+        </button>
+      </div>
+
+      <div className="variant-card-scroll">
+        <div className="form-grid">
+          <Field label="Nome da variação">
+            <input
+              value={variant.name || ""}
+              onChange={(e) =>
+                updateVariant(item.id, variant.id, "name", e.target.value)
+              }
+              placeholder="Ex: Tamanho, Cor, Sabor"
+            />
+          </Field>
+
+          <ToggleField
+            label="Obrigatória"
+            value={variant.required !== false}
+            onChange={(v) =>
+              updateVariant(item.id, variant.id, "required", v)
+            }
+          />
+        </div>
+
+        <div className="variant-options-head">
+          <strong>Opções</strong>
+
+          <button
+            type="button"
+            onClick={() => addVariantOption(item.id, variant.id)}
+          >
+            + Opção
+          </button>
+        </div>
+
+        {(variant.options || []).length === 0 ? (
+          <div className="dashboard-note">
+            Nenhuma opção criada. Exemplo: P, M, G ou Preto, Branco.
+          </div>
+        ) : (
+          <div className="variant-options-list">
+            {(variant.options || []).map((option) => (
+              <div key={option.id} className="variant-option-row">
+                <Field label="Nome da opção">
+                  <input
+                    value={option.label || ""}
+                    onChange={(e) =>
+                      updateVariantOption(
+                        item.id,
+                        variant.id,
+                        option.id,
+                        "label",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex: P, M, Preto, Azul"
+                  />
+                </Field>
+
+                <Field label="Imagem opcional da opção">
+                  <div className="upload-inline">
+                    {option.image_url && (
+                      <img
+                        src={option.image_url}
+                        alt={option.label || "Opção"}
+                        style={{
+                          width: 70,
+                          height: 70,
+                          objectFit: "cover",
+                          borderRadius: 10,
+                          marginBottom: 8,
+                        }}
+                      />
+                    )}
+
+                    <label className="upload-button">
+                      Enviar imagem
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          uploadImage(e, "store_items", (url) => {
+                            updateVariantOption(
+                              item.id,
+                              variant.id,
+                              option.id,
+                              "image_url",
+                              url
+                            );
+                          })
+                        }
+                      />
+                    </label>
+
+                    <input
+                      value={option.image_url || ""}
+                      onChange={(e) =>
+                        updateVariantOption(
+                          item.id,
+                          variant.id,
+                          option.id,
+                          "image_url",
+                          e.target.value
+                        )
+                      }
+                      placeholder="https://..."
+                    />
+                  </div>
+                </Field>
+
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={() =>
+                    removeVariantOption(item.id, variant.id, option.id)
+                  }
+                >
+                  Remover opção
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  ))}
+</div>
+        )}
+      </div>
+    )}
+  </div>
+)}
                     {isQuote && (
                       <div className="dashboard-note">
                         Este item será exibido como “Sob orçamento”.
