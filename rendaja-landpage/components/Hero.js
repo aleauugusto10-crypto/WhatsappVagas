@@ -199,6 +199,7 @@ function SearchResultItem({ item, mobile = false }) {
 
           <div className="nav-links">
             <a href="https://rendaja.online">Início</a>
+            <a href="https://shop.rendaja.online">Shopping</a>
             {showAbout && <a href="#sobre">Sobre</a>}
             {showServices && <a href="#servicos">Serviços</a>}
             {showStore && <a href="#loja">Loja</a>}
@@ -319,6 +320,7 @@ function SearchResultItem({ item, mobile = false }) {
             </div>
 
             <a href="https://rendaja.online" onClick={closeMenu}>Início</a>
+            <a href="https://shop.rendaja.online" onClick={closeMenu}>Shopping</a>
             {showAbout && <a href="#sobre" onClick={closeMenu}>Sobre</a>}
             {showServices && <a href="#servicos" onClick={closeMenu}>Serviços</a>}
             {showStore && <a href="#loja" onClick={closeMenu}>Loja</a>}

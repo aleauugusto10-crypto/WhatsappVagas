@@ -2615,3 +2615,515 @@
     height: 250px !important;
   }
 }
+
+/* =========================================================
+   SHOPPING TOPBAR — CSS LIMPO DO ZERO
+========================================================= */
+
+.shoppingTopbar {
+  --shop-logo-height: 110px;
+  --shop-logo-scale: 2.00;
+
+  width: min(1180px, calc(100% - 32px));
+  height: 78px;
+
+  margin: 16px auto 12px;
+  padding: 0 18px;
+
+  position: sticky;
+  top: 12px;
+  z-index: 100;
+
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  align-items: center;
+
+  border-radius: 26px;
+
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(18px);
+
+  box-shadow:
+    0 14px 40px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* LOGO CENTRAL MAIOR */
+.shoppingTopbarBrand {
+  justify-self: center;
+
+  height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: visible;
+}
+
+.shoppingTopbarBrand img {
+  height: var(--shop-logo-height);
+  width: auto;
+  display: block;
+  object-fit: contain;
+
+  transform: scale(var(--shop-logo-scale));
+  transform-origin: center;
+
+  position: relative;
+  top: 6px;
+}
+
+/* BOTÃO LOCALIZAÇÃO PREMIUM E MENOR */
+.shoppingTopbarLocation {
+  justify-self: start;
+
+  height: 46px;
+  min-width: 190px;
+  padding: 0 13px;
+
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 10px 26px rgba(15, 23, 42, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  transition: 0.2s ease;
+}
+
+.shoppingTopbarLocation:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 34px rgba(15, 23, 42, 0.12);
+}
+
+.shoppingTopbarLocation > span {
+  width: 32px;
+  height: 32px;
+
+  flex: 0 0 32px;
+
+  border-radius: 50%;
+  background: linear-gradient(135deg, #60ef8b, #20d761);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 0;
+  color: #062411;
+
+  box-shadow:
+    0 8px 18px rgba(32, 215, 97, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.shoppingTopbarLocation > span::before {
+  content: "";
+
+  width: 15px;
+  height: 15px;
+
+  display: block;
+  background-color: currentColor;
+
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 2.25C8.272 2.25 5.25 5.272 5.25 9c0 4.86 5.086 10.44 6.32 11.72a.6.6 0 0 0 .86 0C13.664 19.44 18.75 13.86 18.75 9c0-3.728-3.022-6.75-6.75-6.75Zm0 9.25A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 2.25C8.272 2.25 5.25 5.272 5.25 9c0 4.86 5.086 10.44 6.32 11.72a.6.6 0 0 0 .86 0C13.664 19.44 18.75 13.86 18.75 9c0-3.728-3.022-6.75-6.75-6.75Zm0 9.25A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
+.shoppingTopbarLocation div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.05;
+}
+
+.shoppingTopbarLocation strong {
+  font-size: 13px;
+  font-weight: 900;
+    color: #0f172a;
+  letter-spacing: -0.03em;
+}
+
+.shoppingTopbarLocation small {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+/* CTA PREMIUM VERDE */
+.shoppingTopbarCta {
+  justify-self: end;
+
+  height: 48px;
+  min-width: 230px;
+  padding: 0 20px;
+
+  border-radius: 999px;
+
+  background: linear-gradient(135deg, #60ef8b, #20d761);
+  color: #062411;
+
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  text-decoration: none;
+
+  box-shadow:
+    0 14px 32px rgba(32, 215, 97, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+
+  transition: 0.2s ease;
+}
+
+.shoppingTopbarCta:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 44px rgba(32, 215, 97, 0.38);
+}
+
+.shoppingTopbarCta span {
+  font-size: 13px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.shoppingTopbarCta small {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(6, 36, 17, 0.72);
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .shoppingTopbar {
+    --shop-logo-height: 64px;
+    --shop-logo-scale: 1.35;
+
+    width: calc(100% - 24px);
+    height: auto;
+
+    padding: 12px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+
+    border-radius: 22px;
+  }
+
+  .shoppingTopbarBrand {
+    height: 68px;
+    order: 1;
+  }
+
+  .shoppingTopbarLocation {
+    order: 2;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .shoppingTopbarCta {
+    order: 3;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+
+/* =========================================================
+   POPUP LOCALIZAÇÃO — SHOPPING RENDAJÁ
+========================================================= */
+
+.shoppingLocationOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+
+  display: grid;
+  place-items: center;
+
+  padding: 22px;
+
+  background:
+    radial-gradient(circle at top left, rgba(96, 239, 139, 0.16), transparent 32%),
+    rgba(2, 6, 23, 0.68);
+
+  backdrop-filter: blur(14px);
+  animation: shoppingLocationFade .22s ease;
+}
+
+.shoppingLocationModal {
+  position: relative;
+  width: min(500px, 100%);
+  padding: 32px;
+
+  border-radius: 34px;
+  overflow: hidden;
+
+  background:
+    radial-gradient(circle at top right, rgba(96, 239, 139, 0.18), transparent 34%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  border: 1px solid rgba(15, 23, 42, 0.08);
+
+  box-shadow:
+    0 34px 100px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255,255,255,0.9);
+
+  animation: shoppingLocationUp .26s ease;
+}
+
+.shoppingLocationModal::after {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  right: -90px;
+  bottom: -100px;
+  border-radius: 999px;
+  background: rgba(96, 239, 139, 0.13);
+  pointer-events: none;
+}
+
+.shoppingLocationClose {
+  position: absolute;
+  top: 17px;
+  right: 17px;
+  z-index: 3;
+
+  width: 42px;
+  height: 42px;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: rgba(15, 23, 42, 0.07);
+  color: #0f172a;
+
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.shoppingLocationClose:hover {
+  background: rgba(15, 23, 42, 0.12);
+  transform: scale(1.04);
+}
+.shoppingLocationModal > span {
+  position: relative;
+  z-index: 2;
+
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 14px;
+  padding: 8px 13px;
+
+  border-radius: 999px;
+
+
+  background: rgba(96, 239, 139, 0.18);
+  color: #166534;
+
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.shoppingLocationModal h2 {
+  position: relative;
+  z-index: 2;
+
+  margin: 0 0 10px;
+
+  color: #0f172a;
+
+  font-size: 38px;
+  line-height: .95;
+  letter-spacing: -.065em;
+}
+
+.shoppingLocationModal p {
+  position: relative;
+  z-index: 2;
+
+  margin: 0 0 24px;
+
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 750;
+}
+
+.shoppingLocationDetect {
+  position: relative;
+  z-index: 2;
+
+  width: 100%;
+  height: 56px;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: linear-gradient(135deg, #60ef8b, #20d761);
+  color: #062411;
+
+  font-size: 15px;
+  font-weight: 950;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 16px 38px rgba(32, 215, 97, 0.28),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+
+  transition: .22s ease;
+}
+
+.shoppingLocationDetect:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 22px 48px rgba(32, 215, 97, 0.38);
+}
+
+.shoppingLocationFields {
+  position: relative;
+  z-index: 2;
+
+  display: grid;
+  grid-template-columns: 1fr 92px;
+  gap: 12px;
+
+  margin: 20px 0 14px;
+}
+
+.shoppingLocationFields label {
+  display: grid;
+  gap: 8px;
+
+  color: #334155;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.shoppingLocationFields input {
+  height: 54px;
+  width: 100%;
+
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 18px;
+
+  background: #ffffff;
+  color: #0f172a;
+
+  padding: 0 16px;
+
+  font-size: 14px;
+  font-weight: 850;
+
+  outline: none;
+
+  box-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.02);
+  transition: .2s ease;
+}
+
+.shoppingLocationFields input:focus {
+  border-color: rgba(32, 215, 97, 0.65);
+  box-shadow:
+    0 0 0 4px rgba(32, 215, 97, 0.13);
+}
+
+.shoppingLocationSave {
+  position: relative;
+  z-index: 2;
+
+  width: 100%;
+  height: 56px;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: #0f172a;
+  color: #fff;
+
+  font-size: 15px;
+  font-weight: 950;
+
+  cursor: pointer;
+
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.2);
+  transition: .22s ease;
+}
+
+.shoppingLocationSave:hover {
+  transform: translateY(-2px);
+  background: #020617;
+}
+
+@keyframes shoppingLocationFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shoppingLocationUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .shoppingLocationModal {
+    padding: 28px 20px;
+    border-radius: 30px;
+  }
+
+  .shoppingLocationModal h2 {
+    font-size: 31px;
+  }
+
+  .shoppingLocationModal p {
+    font-size: 14px;
+  }
+
+  .shoppingLocationFields {
+    grid-template-columns: 1fr;
+  }
+
+  .shoppingLocationClose {
+    top: 14px;
+    right: 14px;
+  }
+}

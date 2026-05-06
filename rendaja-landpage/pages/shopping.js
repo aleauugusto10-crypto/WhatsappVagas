@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import ShoppingJobsSection from "../components/shopping/ShoppingJobsSection";
 import ShoppingMissionsSection from "../components/shopping/ShoppingMissionsSection";
 import NotificationPackages from "../components/shopping/NotificationPackages";
-
+import ShoppingTopbar from "../components/shopping/ShoppingTopbar";
 import {
   ShoppingSearchBar,
   ShoppingCategoryRail,
@@ -133,12 +133,12 @@ function filterProductsByQuery(products = [], query = "") {
 function hasProducts(products = []) {
   return Array.isArray(products) && products.length > 0;
 }
-
 export default function ShoppingPage() {
   const [profiles, setProfiles] = useState([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("todos");
   const [loading, setLoading] = useState(true);
+  const [shoppingLocation, setShoppingLocation] = useState(null);
 
   const isSearching = query.trim().length > 0;
 
@@ -172,6 +172,51 @@ export default function ShoppingPage() {
     return () => {
       alive = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("shopping_location");
+
+    if (saved) {
+      try {
+        setShoppingLocation(JSON.parse(saved));
+        return;
+      } catch {}
+    }
+
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+
+          const res = await fetch(
+            `/api/location/reverse?lat=${latitude}&lng=${longitude}`
+          );
+
+          const data = await res.json().catch(() => null);
+
+          if (res.ok && data?.city) {
+            const next = {
+              city: data.city,
+              state: data.state,
+            };
+
+            localStorage.setItem("shopping_location", JSON.stringify(next));
+            setShoppingLocation(next);
+          }
+        } catch (err) {
+          console.error("Erro ao detectar localização:", err);
+        }
+      },
+      () => {},
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 1000 * 60 * 10,
+      }
+    );
   }, []);
 
   const filteredProfiles = useMemo(() => {
@@ -208,9 +253,13 @@ export default function ShoppingPage() {
 
       const matchesQuery = !q || profileText.includes(q);
 
-      return matchesCategory && matchesQuery;
+      const matchesLocation =
+        !shoppingLocation?.city ||
+        normalizeText(profile.cidade) === normalizeText(shoppingLocation.city);
+
+      return matchesCategory && matchesQuery && matchesLocation;
     });
-  }, [profiles, query, category]);
+  }, [profiles, query, category, shoppingLocation]);
 
   const allProductsFromFilteredProfiles = useMemo(
     () => buildProductsFromProfiles(filteredProfiles),
@@ -231,7 +280,6 @@ export default function ShoppingPage() {
     () => shuffleArray(filteredProducts),
     [filteredProducts]
   );
-
   return (
     <>
       <Head>
@@ -243,6 +291,10 @@ export default function ShoppingPage() {
       </Head>
 
       <main className={`shoppingPage ${isSearching ? "isSearching" : ""}`}>
+        <ShoppingTopbar
+  location={shoppingLocation}
+  onLocationChange={setShoppingLocation}
+/>
         {!isSearching && (
           <ShoppingOutdoor profiles={randomProfiles} products={randomProducts} />
         )}

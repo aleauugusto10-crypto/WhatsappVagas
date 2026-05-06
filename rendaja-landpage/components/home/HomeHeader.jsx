@@ -167,9 +167,10 @@ useEffect(() => {
           )}
         </form>
 
-        <a href="#missoes">Missões</a>
-        <a href="#empresas">Empresas</a>
-        <a href="#perfis">Perfis</a>
+        <a href="https://shop.rendaja.online">Shopping</a>
+<a href="#missoes">Missões</a>
+<a href="#empresas">Empresas</a>
+<a href="#perfis">Perfis</a>
       </nav>
 <div className="actions">
   <a
@@ -254,7 +255,12 @@ useEffect(() => {
 ))
     )}
   </div>
-)}
+)}<a
+  href="https://shop.rendaja.online"
+  onClick={() => setMenuOpen(false)}
+>
+  Shopping
+</a>
           <a href="#missoes" onClick={() => setMenuOpen(false)}>
             Missões
           </a>
