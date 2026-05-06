@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import { supabase } from "../src/lib/supabase";
+
 
 function money(value = 0) {
   return Number(value || 0).toLocaleString("pt-BR", {
@@ -400,37 +400,42 @@ cart.forEach((item) => {
     ? item.selected_variants
     : [],
 }));
+const res = await fetch("/api/profile-orders", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    profile_page_id: profile.id,
+    customer_name: customerName,
+    customer_phone: phone,
+    note: customer.note.trim(),
+    items: orderItems,
+    total,
+    has_quote: cartHasQuote,
+  }),
+});
 
-    const { error } = await supabase.from("profile_orders").insert({
-      profile_page_id: profile.id,
-      customer_name: customerName,
-      customer_phone: phone,
-      note: customer.note.trim(),
-      items: orderItems,
-      total,
-      has_quote: cartHasQuote,
-      status: "pending",
-      updated_at: new Date().toISOString(),
-    });
+const data = await res.json().catch(() => ({}));
 
-    if (error) {
-      console.error("Erro ao salvar pedido:", error);
-      alert(error.message || "Não foi possível salvar o pedido.");
-      return;
-    }
+if (!res.ok) {
+  console.error("Erro ao salvar pedido:", data);
+  alert(data?.error || "Não foi possível salvar o pedido.");
+  return;
+}
 
-    window.open(buildWhatsAppLink(), "_blank", "noopener,noreferrer");
+window.open(buildWhatsAppLink(), "_blank", "noopener,noreferrer");
 
-    setShowCheckoutModal(false);
-    setCart([]);
-    setCustomer({
-      firstName: "",
-      lastName: "",
-      phone: "",
-      note: "",
-    });
+setShowCheckoutModal(false);
+setCart([]);
+setCustomer({
+  firstName: "",
+  lastName: "",
+  phone: "",
+  note: "",
+});
 
-    alert("Pedido enviado com sucesso!");
+alert("Pedido enviado com sucesso!");
   }
 
   function renderItemCard(item) {

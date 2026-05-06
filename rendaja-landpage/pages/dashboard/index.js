@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../../src/lib/supabase";
 import Hero from "../../components/Hero";
@@ -96,7 +96,21 @@ store_text: "Veja as opções disponíveis e solicite direto pelo WhatsApp.",
     end: 18,
     interval: 1,
   },
+business_hours: {
+  monday: [],
+  tuesday: [],
+  wednesday: [],
+  thursday: [],
+  friday: [],
+  saturday: [],
+  sunday: [],
+},
 
+delivery_enabled: false,
+pickup_enabled: false,
+home_service_enabled: false,
+free_delivery: false,
+delivery_fee: "",
   instagram_url: "",
   youtube_url: "",
   facebook_url: "",
@@ -138,6 +152,12 @@ const [bookings, setBookings] = useState([]);
 const [loadingBookings, setLoadingBookings] = useState(false);
 const [orders, setOrders] = useState([]);
 const [loadingOrders, setLoadingOrders] = useState(false);
+const [alertsEnabled, setAlertsEnabled] = useState(false);
+const [dashboardAlert, setDashboardAlert] = useState(null);
+
+const alertsEnabledRef = useRef(false);
+const alertAudioRef = useRef(null);
+
   const publicUrl = useMemo(() => {
     if (!profile.slug) return "";
     return `/p/${profile.slug}`;
@@ -164,6 +184,60 @@ useEffect(() => {
 
   return () => clearTimeout(timer);
 }, [profile]);
+useEffect(() => {
+  alertsEnabledRef.current = alertsEnabled;
+}, [alertsEnabled]);
+useEffect(() => {
+  if (!profile?.id) return;
+
+  console.log("🧩 DASHBOARD PROFILE ID:", profile.id);
+
+  const channel = supabase
+    .channel(`dashboard-profile-${profile.id}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "profile_orders",
+        filter: `profile_page_id=eq.${profile.id}`,
+      },
+      async (payload) => {
+        console.log("📦 NOVO PEDIDO REALTIME:", payload);
+
+        await loadOrders(profile.id);
+
+        if (alertsEnabledRef.current) {
+          playDashboardAlert("order");
+        }
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "profile_bookings",
+        filter: `profile_page_id=eq.${profile.id}`,
+      },
+      async (payload) => {
+        console.log("📅 NOVO AGENDAMENTO REALTIME:", payload);
+
+        await loadBookings(profile.id);
+
+        if (alertsEnabledRef.current) {
+          playDashboardAlert("booking");
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("🔥 REALTIME STATUS:", status);
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [profile?.id]);
   async function loadProfile() {
     setLoading(true);
 
@@ -289,7 +363,42 @@ async function loadOrders(profileId) {
 
   setLoadingOrders(false);
 }
+function playDashboardAlert(type = "order") {
+  try {
+    const audio = alertAudioRef.current || new Audio("/sounds/dashboard-alert.mp3");
 
+    alertAudioRef.current = audio;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = 1;
+
+    audio.play().catch((err) => {
+      console.warn("🔇 Navegador bloqueou o áudio:", err);
+    });
+  } catch (err) {
+    console.warn("Erro ao tocar alerta:", err);
+  }
+
+  setDashboardAlert({
+    type,
+    title:
+      type === "booking"
+        ? "Novo agendamento recebido!"
+        : type === "test"
+        ? "Alertas ativados!"
+        : "Novo pedido recebido!",
+    text:
+      type === "booking"
+        ? "Um cliente acabou de solicitar um agendamento."
+        : type === "test"
+        ? "Agora o painel vai avisar quando chegar pedido ou agendamento."
+        : "Um cliente acabou de fazer um novo pedido.",
+  });
+
+  setTimeout(() => {
+    setDashboardAlert(null);
+  }, 9000);
+}
 
 async function loadReviewsAdmin(profileId) {
   if (!profileId) return;
@@ -371,9 +480,20 @@ async function loadReviewsAdmin(profileId) {
       </div>
     );
   }
+return (
+  <main className="dashboard-shell">
+    {dashboardAlert && (
+      <div className={`dashboard-live-alert ${dashboardAlert.type}`}>
+        <div>
+          <strong>{dashboardAlert.title}</strong>
+          <span>{dashboardAlert.text}</span>
+        </div>
 
-  return (
-    <main className="dashboard-shell">
+        <button type="button" onClick={() => setDashboardAlert(null)}>
+          ×
+        </button>
+      </div>
+    )}
       <aside className="dashboard-sidebar">
         <div className="dashboard-brand">
           <div className="dashboard-brand-icon">
@@ -429,6 +549,17 @@ async function loadReviewsAdmin(profileId) {
           </div>
 
 <div className="dashboard-header-actions">
+  <button
+    type="button"
+    className={`dashboard-alert-toggle ${alertsEnabled ? "active" : ""}`}
+    onClick={() => {
+      setAlertsEnabled(true);
+      playDashboardAlert("test");
+    }}
+  >
+    {alertsEnabled ? "🔔 Alertas ativos" : "🔕 Ativar alertas"}
+  </button>
+
   {publicUrl && (
     <a
       href={publicUrl}
@@ -857,32 +988,100 @@ function OrdersPanel({ orders, loading, reload }) {
     statusFilter === "all"
       ? orders
       : orders.filter((item) => item.status === statusFilter);
+function getWhatsappPhone(phone = "") {
+  const raw = String(phone || "").replace(/\D/g, "");
+  if (!raw) return "";
+  return raw.startsWith("55") ? raw : `55${raw}`;
+}
 
-  async function updateOrderStatus(id, status) {
-    const { error } = await supabase
-      .from("profile_orders")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
+function buildWhatsappUrl(phone, message) {
+  const phoneBR = getWhatsappPhone(phone);
+  if (!phoneBR) return "#";
+  return `https://wa.me/${phoneBR}?text=${encodeURIComponent(message)}`;
+}
 
-    if (error) {
-      console.error("Erro ao atualizar pedido:", error);
-      alert(error.message || "Erro ao atualizar pedido.");
-      return;
-    }
+function shortText(text = "", limit = 140) {
+  const clean = String(text || "").trim();
+  if (clean.length <= limit) return clean;
+  return `${clean.slice(0, limit)}...`;
+}
 
-    await reload();
+function buildWhatsappConfirmUrl(order) {
+  return buildWhatsappUrl(
+    order.customer_phone,
+    `Olá, ${order.customer_name || "tudo bem"}!
 
-    alert(
-      status === "confirmed"
-        ? "Pedido confirmado!"
-        : status === "delivered"
-        ? "Pedido marcado como entregue!"
-        : "Pedido cancelado!"
-    );
+Recebemos seu pedido e ele já foi confirmado.
+
+Agora vamos dar andamento ao processamento e qualquer novidade te avisamos por aqui.
+
+Obrigado por comprar com a gente!`
+  );
+}
+
+function buildWhatsappDeliveredUrl(order) {
+  return buildWhatsappUrl(
+    order.customer_phone,
+    `Olá, ${order.customer_name || "tudo bem"}!
+
+Passando para avisar que seu pedido foi finalizado/entregue com sucesso.
+
+Muito obrigado pela preferência! Qualquer coisa, estamos à disposição.`
+  );
+}
+
+function buildWhatsappNoteUrl(order) {
+  const note = shortText(order.note || "");
+
+  return buildWhatsappUrl(
+    order.customer_phone,
+    `Olá, ${order.customer_name || "tudo bem"}!
+
+Sobre sua observação:
+
+"${note}"
+
+`
+  );
+}
+
+async function updateOrderStatus(order, status) {
+  if (!order?.id) return;
+
+  const { error } = await supabase
+    .from("profile_orders")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id);
+
+  if (error) {
+    console.error("Erro ao atualizar pedido:", error);
+    alert(error.message || "Erro ao atualizar pedido.");
+    return;
   }
+
+  await reload();
+}
+
+async function deleteOrder(order) {
+  const ok = confirm("Excluir este pedido? Use isso apenas para trote, teste ou pedido inválido.");
+  if (!ok) return;
+
+  const { error } = await supabase
+    .from("profile_orders")
+    .delete()
+    .eq("id", order.id);
+
+  if (error) {
+    console.error("Erro ao excluir pedido:", error);
+    alert(error.message || "Erro ao excluir pedido.");
+    return;
+  }
+
+  await reload();
+}
 
   return (
     <div className="dash-panel">
@@ -1015,32 +1214,62 @@ function OrdersPanel({ orders, loading, reload }) {
                     </a>
                   )}
 
-                  {order.note && <span>Obs: {order.note}</span>}
+                  {order.note && order.customer_phone && (
+  <a
+    href={buildWhatsappNoteUrl(order)}
+    target="_blank"
+    rel="noreferrer"
+  >
+    Obs: {order.note}
+  </a>
+)}
+
+{order.note && !order.customer_phone && <span>Obs: {order.note}</span>}
                 </div>
 
-                <div className="booking-admin-actions">
-                  {order.status !== "confirmed" && (
-                    <button type="button" onClick={() => updateOrderStatus(order.id, "confirmed")}>
-                      Confirmar
-                    </button>
-                  )}
+               <div className="booking-admin-actions">
+  {order.status !== "confirmed" && (
+    <a
+      href={buildWhatsappConfirmUrl(order)}
+      target="_blank"
+      rel="noreferrer"
+      className="confirm-button"
+      onClick={() => updateOrderStatus(order, "confirmed")}
+    >
+      Confirmar
+    </a>
+  )}
 
-                  {order.status !== "delivered" && (
-                    <button type="button" onClick={() => updateOrderStatus(order.id, "delivered")}>
-                      Entregue
-                    </button>
-                  )}
+  {order.status !== "delivered" && (
+ <a
+  href={buildWhatsappDeliveredUrl(order)}
+  target="_blank"
+  rel="noreferrer"
+  className="delivered-button"
+  onClick={() => updateOrderStatus(order, "delivered")}
+>
+  Entregue
+</a>
+  )}
 
-                  {order.status !== "cancelled" && (
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={() => updateOrderStatus(order.id, "cancelled")}
-                    >
-                      Cancelar
-                    </button>
-                  )}
-                </div>
+  {order.status !== "cancelled" && (
+    <button
+      type="button"
+      className="danger-button"
+      onClick={() => updateOrderStatus(order, "cancelled")}
+    >
+      Cancelar
+    </button>
+  )}
+
+  <button
+    type="button"
+    className="danger-button"
+    onClick={() => deleteOrder(order)}
+  >
+    Excluir
+  </button>
+</div>
               </div>
             );
           })}
@@ -1273,8 +1502,16 @@ function OverviewPanel({
     Seções
 
   </button>
+  <button
+  className={overviewTab === "availability" ? "active" : ""}
+  onClick={() => setOverviewTab("availability")}
+>
+  Funcionamento
+</button>
           </div>
-
+{overviewTab === "availability" && (
+  <AvailabilityPanel profile={profile} setField={setField} />
+)}
           {overviewTab === "data" && (
             <div className="form-grid">
               <Field label="Slug da página">
@@ -1727,12 +1964,217 @@ function SectionsEditor({ profile, setField, uploadImage }) {
     </div>
   );
 }
+
+const WEEK_DAYS_CONFIG = [
+  { key: "monday", label: "Segunda" },
+  { key: "tuesday", label: "Terça" },
+  { key: "wednesday", label: "Quarta" },
+  { key: "thursday", label: "Quinta" },
+  { key: "friday", label: "Sexta" },
+  { key: "saturday", label: "Sábado" },
+  { key: "sunday", label: "Domingo" },
+];
+
+function AvailabilityPanel({ profile, setField }) {
+  const businessHours = profile.business_hours || {};
+
+  function getDayPeriods(dayKey) {
+    return Array.isArray(businessHours[dayKey])
+      ? businessHours[dayKey]
+      : [];
+  }
+
+  function setDayPeriods(dayKey, periods) {
+    setField("business_hours", {
+      ...businessHours,
+      [dayKey]: periods,
+    });
+  }
+
+  function toggleDay(dayKey) {
+    const periods = getDayPeriods(dayKey);
+
+    setDayPeriods(
+      dayKey,
+      periods.length > 0 ? [] : [{ open: "08:00", close: "18:00" }]
+    );
+  }
+
+  function updatePeriod(dayKey, index, field, value) {
+    const periods = getDayPeriods(dayKey);
+
+    setDayPeriods(
+      dayKey,
+      periods.map((period, pIndex) =>
+        pIndex === index ? { ...period, [field]: value } : period
+      )
+    );
+  }
+
+  function addSecondPeriod(dayKey) {
+    const periods = getDayPeriods(dayKey);
+    if (periods.length >= 2) return;
+
+    setDayPeriods(dayKey, [
+      ...periods,
+      { open: "14:00", close: "18:00" },
+    ]);
+  }
+
+  function removePeriod(dayKey, index) {
+    const periods = getDayPeriods(dayKey);
+
+    setDayPeriods(
+      dayKey,
+      periods.filter((_, pIndex) => pIndex !== index)
+    );
+  }
+
+  return (
+    <div className="overview-stack">
+      <SectionTitle
+        title="Funcionamento e entrega"
+        text="Configure quando sua empresa aparece como aberta e quais formas de entrega, busca ou atendimento oferece."
+      />
+
+      <div className="dash-card">
+        <span className="card-label">Horário comercial</span>
+        <h3>Dias e horários de atendimento</h3>
+        <p>
+          Use um período para atendimento direto ou dois períodos para intervalo.
+        </p>
+
+        <div className="business-hours-editor">
+          {WEEK_DAYS_CONFIG.map((day) => {
+            const periods = getDayPeriods(day.key);
+            const enabled = periods.length > 0;
+
+            return (
+              <div key={day.key} className="business-day-row">
+                <button
+                  type="button"
+                  className={`business-day-toggle ${enabled ? "active" : ""}`}
+                  onClick={() => toggleDay(day.key)}
+                >
+                  <strong>{day.label}</strong>
+                  <span>{enabled ? "Aberto" : "Fechado"}</span>
+                </button>
+
+                {enabled && (
+                  <div className="business-periods">
+                    {periods.map((period, index) => (
+                      <div
+                        key={`${day.key}-${index}`}
+                        className="business-period-row"
+                      >
+                        <Field label="Abertura">
+                          <input
+                            type="time"
+                            value={period.open || ""}
+                            onChange={(e) =>
+                              updatePeriod(day.key, index, "open", e.target.value)
+                            }
+                          />
+                        </Field>
+
+                        <Field label="Fechamento">
+                          <input
+                            type="time"
+                            value={period.close || ""}
+                            onChange={(e) =>
+                              updatePeriod(day.key, index, "close", e.target.value)
+                            }
+                          />
+                        </Field>
+
+                        {periods.length > 1 && (
+                          <button
+                            type="button"
+                            className="danger-button"
+                            onClick={() => removePeriod(day.key, index)}
+                          >
+                            Remover
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {periods.length < 2 && (
+                      <button
+                        type="button"
+                        className="ghost-admin-button"
+                        onClick={() => addSecondPeriod(day.key)}
+                      >
+                        + Adicionar segundo período
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="dash-card">
+        <span className="card-label">Entrega e deslocamento</span>
+        <h3>Como você atende o cliente?</h3>
+
+        <div className="toggle-grid clean">
+          <ToggleField
+            label="Faz entrega"
+            value={profile.delivery_enabled === true}
+            onChange={(v) => setField("delivery_enabled", v)}
+          />
+
+          <ToggleField
+            label="Frete grátis"
+            value={profile.free_delivery === true}
+            onChange={(v) => setField("free_delivery", v)}
+          />
+
+          <ToggleField
+            label="Busca produto/equipamento no cliente"
+            value={profile.pickup_enabled === true}
+            onChange={(v) => setField("pickup_enabled", v)}
+          />
+
+          <ToggleField
+            label="Atende em domicílio"
+            value={profile.home_service_enabled === true}
+            onChange={(v) => setField("home_service_enabled", v)}
+          />
+        </div>
+
+        {!profile.free_delivery && profile.delivery_enabled && (
+          <div className="form-grid">
+            <Field label="Valor fixo da entrega/deslocamento">
+              <input
+                type="number"
+                min="0"
+                value={profile.delivery_fee || ""}
+                onChange={(e) => setField("delivery_fee", e.target.value)}
+                placeholder="Ex: 10"
+              />
+            </Field>
+          </div>
+        )}
+
+        <p className="dashboard-note">
+          Se não oferecer entrega, busca ou atendimento externo, nenhuma pílula
+          será exibida no shopping.
+        </p>
+      </div>
+    </div>
+  );
+}
 function StoreItemsEditor({ profile, setField, uploadImage }) {
   const items = Array.isArray(profile.store_items) ? profile.store_items : [];
   const [itemSearch, setItemSearch] = useState("");
 const [itemTypeFilter, setItemTypeFilter] = useState("all");
 const [categoryFilter, setCategoryFilter] = useState("all");
 const [editingItemId, setEditingItemId] = useState(null);
+
 const filteredItems = items.filter((item) => {
   const search = itemSearch.toLowerCase();
 
@@ -2746,7 +3188,70 @@ function BookingsPanel({ bookings, loading, reload }) {
         : "Agendamento cancelado!"
     );
   }
+function getWhatsappPhone(phone = "") {
+  const raw = String(phone || "").replace(/\D/g, "");
+  if (!raw) return "";
+  return raw.startsWith("55") ? raw : `55${raw}`;
+}
 
+function buildWhatsappUrl(phone, message) {
+  const phoneBR = getWhatsappPhone(phone);
+  if (!phoneBR) return "#";
+  return `https://wa.me/${phoneBR}?text=${encodeURIComponent(message)}`;
+}
+
+function shortText(text = "", limit = 140) {
+  const clean = String(text || "").trim();
+  if (clean.length <= limit) return clean;
+  return `${clean.slice(0, limit)}...`;
+}
+
+function buildBookingConfirmUrl(booking) {
+  return buildWhatsappUrl(
+    booking.customer_phone,
+    `Olá, ${booking.customer_name || "tudo bem"}!
+
+Seu agendamento foi confirmado.
+
+Data: ${formatBookingDate(booking.date)}
+Horário: ${booking.time}
+
+Qualquer dúvida, pode falar por aqui.`
+  );
+}
+
+function buildBookingNoteUrl(booking) {
+  const note = shortText(booking.note || "");
+
+  return buildWhatsappUrl(
+    booking.customer_phone,
+    `Olá, ${booking.customer_name || "tudo bem"}!
+
+Sobre sua observação no agendamento:
+
+"${note}"
+
+`
+  );
+}
+
+async function deleteBooking(booking) {
+  const ok = confirm("Excluir este agendamento? Use isso apenas para trote, teste ou solicitação inválida.");
+  if (!ok) return;
+
+  const { error } = await supabase
+    .from("profile_bookings")
+    .delete()
+    .eq("id", booking.id);
+
+  if (error) {
+    console.error("Erro ao excluir agendamento:", error);
+    alert(error.message || "Erro ao excluir agendamento.");
+    return;
+  }
+
+  await reload();
+}
   return (
     <div className="dash-panel">
       <div className="bookings-panel-head">
@@ -2862,29 +3367,50 @@ function BookingsPanel({ bookings, loading, reload }) {
                     </a>
                   )}
 
-                  {booking.note && <span>Obs: {booking.note}</span>}
+                  {booking.note && booking.customer_phone && (
+  <a
+    href={buildBookingNoteUrl(booking)}
+    target="_blank"
+    rel="noreferrer"
+  >
+    Obs: {booking.note}
+  </a>
+)}
+
+{booking.note && !booking.customer_phone && <span>Obs: {booking.note}</span>}
                 </div>
 
                 <div className="booking-admin-actions">
-                  {booking.status !== "confirmed" && (
-                    <button
-                      type="button"
-                      onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                    >
-                      Confirmar
-                    </button>
-                  )}
+  {booking.status !== "confirmed" && (
+    <a
+      href={buildBookingConfirmUrl(booking)}
+      target="_blank"
+      rel="noreferrer"
+      className="confirm-button"
+      onClick={() => updateBookingStatus(booking.id, "confirmed")}
+    >
+      Confirmar
+    </a>
+  )}
 
-                  {booking.status !== "cancelled" && (
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={() => updateBookingStatus(booking.id, "cancelled")}
-                    >
-                      Cancelar
-                    </button>
-                  )}
-                </div>
+  {booking.status !== "cancelled" && (
+    <button
+      type="button"
+      className="danger-button"
+      onClick={() => updateBookingStatus(booking.id, "cancelled")}
+    >
+      Cancelar
+    </button>
+  )}
+
+  <button
+    type="button"
+    className="danger-button"
+    onClick={() => deleteBooking(booking)}
+  >
+    Excluir
+  </button>
+</div>
               </div>
             );
           })}

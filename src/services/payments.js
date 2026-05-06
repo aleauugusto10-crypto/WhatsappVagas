@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { supabase } from "../supabase.js";
+import { sendText } from "../services/whatsapp.js";
 
 const MP_BASE_URL = "https://api.mercadopago.com";
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
@@ -734,6 +735,93 @@ export async function activateProfilePageFromPayment(payment) {
 
   return data;
 }
+
+export async function activateAlertPlanFromPayment(payment) {
+  if (payment.referencia_tipo !== "pacote_alertas_whatsapp") return null;
+  if (payment.status !== "pago") return null;
+
+  const md = payment.metadata || {};
+  const now = new Date();
+  const expiresAt = new Date(now);
+
+  expiresAt.setDate(expiresAt.getDate() + Number(md.dias || 30));
+
+  const assinaturaId = md.alerta_assinatura_id || null;
+
+  let query = supabase
+    .from("alerta_planos_usuarios")
+    .update({
+      status: "ativo",
+      activated_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      receber_vagas: md.receber_vagas !== false,
+      receber_missoes: md.receber_missoes !== false,
+    });
+
+  if (assinaturaId) {
+    query = query.eq("id", assinaturaId);
+  } else {
+    query = query
+      .eq("usuario_id", payment.usuario_id)
+      .eq("plano_codigo", payment.plano_codigo)
+      .eq("status", "pendente");
+  }
+
+  const { data, error } = await query.select().single();
+
+  if (error) {
+    console.error("❌ erro ao ativar plano de alertas:", error);
+    return null;
+  }
+
+  console.log("✅ plano de alertas ativado:", {
+  assinatura_id: data.id,
+  usuario_id: data.usuario_id,
+  plano_codigo: data.plano_codigo,
+  expires_at: data.expires_at,
+});
+
+await sendAlertPlanWelcomeMessage(data);
+
+return data;
+}
+
+async function sendAlertPlanWelcomeMessage(subscription) {
+  if (!subscription?.usuario_id) return;
+
+  const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("*")
+    .eq("id", subscription.usuario_id)
+    .maybeSingle();
+
+  if (!usuario?.telefone) return;
+
+  const telefone = String(usuario.telefone).replace(/\D/g, "");
+
+  let mensagem = "";
+
+  mensagem += "🚀 *Plano ativado com sucesso!*\n\n";
+
+  mensagem +=
+    "Agora você começará a receber oportunidades diretamente no WhatsApp.\n\n";
+
+  if (subscription.receber_vagas) {
+    mensagem += "💼 Vagas de emprego\n";
+  }
+
+  if (subscription.receber_missoes) {
+    mensagem += "🎯 Missões e oportunidades rápidas\n";
+  }
+
+  mensagem += "\n📲 O RendaJá irá avisar automaticamente quando surgirem novas oportunidades perto de você.";
+
+  try {
+    await sendText(telefone, mensagem);
+  } catch (err) {
+    console.error("❌ erro ao enviar mensagem de boas-vindas:", err);
+  }
+}
 export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const mpPayment = await getMercadoPagoPayment(mpPaymentId);
 
@@ -766,8 +854,9 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   console.log("🔁 pagamento já marcado como pago, garantindo efeitos...");
 
   await activateProfilePageFromPayment(internalPayment);
-  await activateSubscriptionFromPayment(internalPayment);
-  await activateCompanyJobCreditsFromPayment(internalPayment);
+await activateSubscriptionFromPayment(internalPayment);
+await activateAlertPlanFromPayment(internalPayment);
+await activateCompanyJobCreditsFromPayment(internalPayment);
   await publishJobFromPayment(internalPayment);
   await publishProfessionalServiceFromPayment(internalPayment);
   await applyProfessionalHighlightFromPayment(internalPayment);
@@ -787,8 +876,9 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   if (!paid) return null;
 
   await activateSubscriptionFromPayment(paid);
-  
-  await activateCompanyJobCreditsFromPayment(paid);
+await activateAlertPlanFromPayment(paid);
+
+await activateCompanyJobCreditsFromPayment(paid);
   if (paid.referencia_tipo === "usuario_vagas_avulso_24h") {
   const unlockAte = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 

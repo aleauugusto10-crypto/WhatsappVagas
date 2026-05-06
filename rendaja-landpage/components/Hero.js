@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
+import { getBusinessStatus, getDeliveryBadges } from "../src/lib/businessStatus";
 export default function Hero({ profile }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -39,7 +39,8 @@ export default function Hero({ profile }) {
   const showPortfolio = profile?.show_portfolio !== false;
   const showReviews = profile?.show_reviews !== false;
   const showStore = profile?.show_store !== false;
-
+const businessStatus = getBusinessStatus(profile);
+const deliveryBadges = getDeliveryBadges(profile);
   function closeMenu() {
     setMenuOpen(false);
   }
@@ -362,30 +363,52 @@ function SearchResultItem({ item, mobile = false }) {
           </div>
 
           <div className="hero-trust">
-            <div>
-              <span>🛡️</span>
-              <strong>Atendimento</strong>
-              <small>Personalizado</small>
-            </div>
+  <div className={businessStatus.open ? "hero-status-open" : "hero-status-closed"}>
+    <span>{businessStatus.open ? "🟢" : "⚫"}</span>
+    <strong>{businessStatus.open ? "Aberto agora" : "Fechado agora"}</strong>
+    <small>{businessStatus.open ? "Atendimento disponível" : "Fora do horário"}</small>
+  </div>
 
-            <div>
-              <span>⚡</span>
-              <strong>Contato</strong>
-              <small>Direto e rápido</small>
-            </div>
+  {deliveryBadges.slice(0, 3).map((badge) => (
+    <div key={badge.type}>
+      <span>
+        {badge.type === "free"
+          ? "🔥"
+          : badge.type === "delivery"
+          ? "🛵"
+          : badge.type === "pickup"
+          ? "🚗"
+          : "🏠"}
+      </span>
 
-            <div>
-              <span>📍</span>
-              <strong>Atende em</strong>
-              <small>{cidade}</small>
-            </div>
+      <strong>{badge.label}</strong>
 
-            <div>
-              <span>✅</span>
-              <strong>Perfil</strong>
-              <small>Profissional</small>
-            </div>
-          </div>
+      <small>
+        {badge.type === "pickup"
+          ? "Busca no cliente"
+          : badge.type === "home"
+          ? "Atendimento externo"
+          : "Disponível"}
+      </small>
+    </div>
+  ))}
+
+  {deliveryBadges.length === 0 && (
+    <>
+      <div>
+        <span>📍</span>
+        <strong>Atende em</strong>
+        <small>{cidade}</small>
+      </div>
+
+      <div>
+        <span>✅</span>
+        <strong>Perfil</strong>
+        <small>Profissional</small>
+      </div>
+    </>
+  )}
+</div>
         </div>
 
         <div className="hero-photo">

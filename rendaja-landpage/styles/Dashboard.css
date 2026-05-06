@@ -2173,3 +2173,361 @@
 .order-clean-variants span b {
   font-weight: 900 !important;
 }
+
+/* FUNCIONAMENTO E ENTREGA */
+
+.business-hours-editor {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.business-day-row {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 24px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.business-day-toggle {
+  width: 100%;
+  min-height: 66px;
+  border: 0;
+  border-radius: 20px;
+  background: #e2e8f0;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  padding: 13px 15px;
+  transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+
+.business-day-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.business-day-toggle strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.business-day-toggle span {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 900;
+  opacity: .76;
+}
+
+.business-day-toggle.active {
+  background: #25d366;
+  color: #061108;
+  box-shadow: 0 16px 38px rgba(37, 211, 102, 0.22);
+}
+
+.business-periods {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+.business-period-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.business-period-row .field {
+  margin: 0;
+}
+
+.business-period-row input[type="time"] {
+  width: 100%;
+  height: 46px;
+  border-radius: 16px;
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  padding: 0 12px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 900;
+  outline: none;
+}
+
+.business-period-row input[type="time"]:focus {
+  border-color: #25d366;
+  box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.12);
+}
+
+.ghost-admin-button {
+  width: fit-content;
+  height: 42px;
+  padding: 0 15px;
+  border-radius: 999px;
+  border: 1px solid #dbe3ef;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.ghost-admin-button:hover {
+  border-color: rgba(37, 211, 102, 0.45);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 768px) {
+  .business-day-row {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .business-period-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ghost-admin-button {
+    width: 100%;
+  }
+}
+
+
+/* ALERTA AO VIVO — PEDIDOS / AGENDAMENTOS */
+
+.dashboard-alert-toggle {
+  height: 46px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 950;
+  cursor: pointer;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+}
+
+.dashboard-alert-toggle.active {
+  background: #25d366;
+  color: #061108;
+}
+
+.dashboard-live-alert {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  z-index: 99999;
+
+  width: min(420px, calc(100% - 32px));
+  padding: 18px 18px 18px 20px;
+  border-radius: 26px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  background:
+    radial-gradient(circle at top right, rgba(37, 211, 102, 0.32), transparent 42%),
+    linear-gradient(135deg, #020617, #0f172a);
+  color: #fff;
+
+  box-shadow:
+    0 28px 90px rgba(15, 23, 42, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  animation:
+    dashboardAlertEnter 0.36s ease-out,
+    dashboardAlertPulse 1.1s ease-in-out infinite;
+}
+
+.dashboard-live-alert.booking {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.38), transparent 42%),
+    linear-gradient(135deg, #020617, #111827);
+}
+
+.dashboard-live-alert.test {
+  background:
+    radial-gradient(circle at top right, rgba(217, 168, 78, 0.36), transparent 42%),
+    linear-gradient(135deg, #020617, #111827);
+}
+
+.dashboard-live-alert::before {
+  content: "🔔";
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+
+  display: grid;
+  place-items: center;
+
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 24px;
+}
+
+.dashboard-live-alert div {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-live-alert strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+}
+
+.dashboard-live-alert span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.dashboard-live-alert button {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@keyframes dashboardAlertEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dashboardAlertPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 28px 90px rgba(15, 23, 42, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 0 0 0 rgba(37, 211, 102, 0.34);
+  }
+
+  50% {
+    box-shadow:
+      0 28px 90px rgba(15, 23, 42, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 0 0 12px rgba(37, 211, 102, 0);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-live-alert {
+    top: 14px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    border-radius: 22px;
+  }
+
+  .dashboard-alert-toggle {
+    width: 100%;
+  }
+}
+
+.confirm-button {
+  height: 44px;
+  padding: 0 18px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  background: linear-gradient(
+    135deg,
+    #25d366 0%,
+    #1ebe5d 100%
+  );
+
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+
+  border: none;
+  cursor: pointer;
+
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    box-shadow 0.18s ease;
+
+  box-shadow:
+    0 10px 25px rgba(37, 211, 102, 0.28);
+}
+
+.confirm-button:hover {
+  transform: translateY(-1px);
+  opacity: 0.96;
+
+  box-shadow:
+    0 14px 28px rgba(37, 211, 102, 0.36);
+}
+
+.confirm-button:active {
+  transform: scale(0.98);
+}
+
+/* FORÇA FINAL — Confirmar verde, Entregue amarelo */
+.booking-admin-actions .confirm-button {
+  background: linear-gradient(135deg, #25d366, #1ebe5d) !important;
+  color: #ffffff !important;
+  border: 0 !important;
+}
+
+.booking-admin-actions button:not(.danger-button) {
+  background: linear-gradient(135deg, #f5d28b, #d9a84e) !important;
+  color: #07111f !important;
+  border: 0 !important;
+}
+
+.booking-admin-actions a.confirm-button {
+  background: #22c55e !important;
+  color: #ffffff !important;
+  border-radius: 14px !important;
+  padding: 14px 18px !important;
+  font-weight: 900 !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.booking-admin-actions a.delivered-button {
+  background: linear-gradient(135deg, #f5d28b, #d9a84e) !important;
+  color: #07111f !important;
+  border-radius: 14px !important;
+  padding: 14px 18px !important;
+  font-weight: 900 !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}

@@ -422,6 +422,22 @@ services_text_color: profile.services_text_color || profile.text_color || "#0711
 
     reserved_slots: normalizeJsonArray(profile.reserved_slots),
     bookings: normalizeBookings(profile.bookings),
+
+    business_hours: normalizeJsonObject(profile.business_hours, {
+  monday: [],
+  tuesday: [],
+  wednesday: [],
+  thursday: [],
+  friday: [],
+  saturday: [],
+  sunday: [],
+}),
+
+delivery_enabled: profile.delivery_enabled === true,
+pickup_enabled: profile.pickup_enabled === true,
+home_service_enabled: profile.home_service_enabled === true,
+free_delivery: profile.free_delivery === true,
+delivery_fee: profile.delivery_fee ?? null,
   };
 }
 

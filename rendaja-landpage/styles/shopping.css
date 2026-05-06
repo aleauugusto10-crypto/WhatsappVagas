@@ -1,0 +1,2617 @@
+/* =========================================================
+   SHOPPING RENDAJÁ — DESKTOP PREMIUM V1
+   ========================================================= */
+
+.shoppingPage {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(37, 211, 102, 0.16), transparent 32%),
+    radial-gradient(circle at top right, rgba(15, 23, 42, 0.12), transparent 34%),
+    linear-gradient(180deg, #f8fafc 0%, #ffffff 42%, #f8fafc 100%);
+  color: #0f172a;
+  padding-bottom: 80px;
+  overflow-x: hidden;
+}
+
+/* HERO */
+.shoppingHero {
+  position: relative;
+  width: min(1180px, calc(100% - 48px));
+  margin: 24px auto 18px;
+  min-height: 380px;
+  padding: 42px;
+  border-radius: 38px;
+  overflow: hidden;
+
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 36px;
+  align-items: center;
+
+  background:
+    linear-gradient(135deg, rgba(8, 13, 23, 0.97), rgba(15, 23, 42, 0.94)),
+    radial-gradient(circle at 20% 20%, rgba(37, 211, 102, 0.28), transparent 35%);
+
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
+}
+.shoppingHeroGlow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.shoppingHeroGlowOne {
+  width: 280px;
+  height: 280px;
+  left: -80px;
+  top: -80px;
+  background: rgba(37, 211, 102, 0.28);
+}
+
+.shoppingHeroGlowTwo {
+  width: 360px;
+  height: 360px;
+  right: -120px;
+  bottom: -130px;
+  background: rgba(212, 175, 55, 0.22);
+}
+
+.shoppingHeroContent {
+  position: relative;
+  z-index: 2;
+}
+
+.shoppingHeroBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(37, 211, 102, 0.14);
+  border: 1px solid rgba(37, 211, 102, 0.34);
+  color: #bbf7d0;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.shoppingHero h1 {
+  margin: 18px 0 14px;
+  max-width: 640px;
+  color: #ffffff;
+  font-size: clamp(34px, 4vw, 58px);
+  line-height: 0.95;
+  letter-spacing: -0.065em;
+}
+
+.shoppingHero p {
+  max-width: 560px;
+  margin: 0;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.shoppingHeroStats {
+  display: flex;
+  gap: 14px;
+  margin-top: 34px;
+  flex-wrap: wrap;
+}
+
+.shoppingHeroStats div {
+  min-width: 140px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.085);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+}
+
+.shoppingHeroStats strong {
+  display: block;
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.shoppingHeroStats span {
+  display: block;
+  margin-top: 7px;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* MOCKUP */
+
+.shoppingHeroVisual {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+}
+
+.shoppingPhoneMock {
+  width: min(360px, 100%);
+  padding: 18px;
+  border-radius: 42px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,250,252,.94));
+  box-shadow:
+    0 35px 90px rgba(0,0,0,.35),
+    inset 0 0 0 1px rgba(255,255,255,.8);
+  transform: rotate(3deg);
+}
+
+.shoppingPhoneTop {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.shoppingPhoneTop span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+.shoppingMiniCard {
+  padding: 18px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+.shoppingMiniCard.big {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background:
+    linear-gradient(180deg, rgba(15,23,42,.1), rgba(15,23,42,.72)),
+    url("https://images.unsplash.com/photo-1521335629791-ce4aec67dd47?auto=format&fit=crop&w=900&q=80");
+  background-size: cover;
+  background-position: center;
+}
+
+.shoppingMiniCard small {
+  display: block;
+  color: #25d366;
+  font-weight: 950;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.shoppingMiniCard strong {
+  display: block;
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.shoppingMiniCard.big strong,
+.shoppingMiniCard.big span {
+  color: #fff;
+}
+
+.shoppingMiniCard span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.shoppingMiniGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.shoppingMiniGrid div {
+  padding: 18px 12px;
+  border-radius: 22px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  text-align: center;
+}
+
+.shoppingMiniGrid b {
+  display: block;
+  font-size: 24px;
+}
+
+.shoppingMiniGrid span {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #334155;
+}
+
+/* SEARCH */
+
+.shoppingSearchWrap {
+  width: min(1040px, calc(100% - 48px));
+  margin: -48px auto 22px;
+  position: relative;
+  z-index: 5;
+}
+
+.shoppingSearchBox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 76px;
+  padding: 12px 18px;
+  border-radius: 28px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(16px);
+}
+
+.shoppingSearchIcon {
+  font-size: 22px;
+}
+
+.shoppingSearchBox input {
+  flex: 1;
+  height: 52px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.shoppingSearchBox input::placeholder {
+  color: #94a3b8;
+}
+
+.shoppingSearchBox em {
+  color: #94a3b8;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.shoppingSearchBox button {
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+/* CATEGORIES */
+
+.shoppingCategoryRail {
+  width: min(1180px, calc(100% - 48px));
+  margin: 20px auto 28px;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  scrollbar-width: none;
+}
+
+.shoppingCategoryRail::-webkit-scrollbar {
+  display: none;
+}
+
+.shoppingCategoryRail button {
+  flex: 0 0 auto;
+  min-width: 132px;
+  height: 64px;
+  padding: 0 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 950;
+  cursor: pointer;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+  transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+}
+
+.shoppingCategoryRail button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
+}
+
+.shoppingCategoryRail button span {
+  font-size: 22px;
+}
+
+.shoppingCategoryRail button.active {
+  background: #25d366;
+  border-color: #25d366;
+  color: #061108;
+  box-shadow: 0 18px 42px rgba(37, 211, 102, 0.28);
+}
+
+/* PROMO */
+
+.shoppingPromoBanner {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto 34px;
+  padding: 30px;
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at right, rgba(37, 211, 102, 0.22), transparent 35%),
+    linear-gradient(135deg, #111827, #020617);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+}
+
+.shoppingPromoBanner span {
+  color: #86efac;
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.shoppingPromoBanner h2 {
+  margin: 8px 0;
+  font-size: 30px;
+  letter-spacing: -0.04em;
+}
+
+.shoppingPromoBanner p {
+  margin: 0;
+  color: rgba(226,232,240,.78);
+}
+
+.shoppingPromoBanner a {
+  flex: 0 0 auto;
+  height: 52px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #061108;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 950;
+  text-decoration: none;
+}
+
+/* SECTIONS */
+
+.shoppingSection {
+  width: min(1180px, calc(100% - 48px));
+  margin: 42px auto 0;
+}
+
+.shoppingSectionHead {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.shoppingSectionHead span {
+  color: #16a34a;
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.shoppingSectionHead h2 {
+  margin: 7px 0 6px;
+  font-size: 34px;
+  color: #0f172a;
+  letter-spacing: -0.05em;
+}
+
+.shoppingSectionHead p {
+  margin: 0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.shoppingSectionHead button {
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.shoppingGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* BUSINESS CARD */
+
+.businessCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+  transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+}
+
+.businessCard:hover {
+  transform: translateY(-5px);
+  border-color: rgba(37, 211, 102, 0.28);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.13);
+}
+
+.businessCardCover {
+  position: relative;
+  display: block;
+  height: 178px;
+  overflow: hidden;
+  background: #111827;
+}
+
+.businessCardCover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(2, 6, 23, 0.58));
+  pointer-events: none;
+}
+
+.businessCardCover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .35s ease;
+}
+
+.businessCard:hover .businessCardCover img {
+  transform: scale(1.06);
+}
+
+.businessCardFallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 950;
+  background:
+    radial-gradient(circle at top left, rgba(37, 211, 102, 0.38), transparent 40%),
+    linear-gradient(135deg, #111827, #020617);
+}
+
+.businessCardBadge {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  z-index: 2;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.92);
+  color: #166534;
+  font-size: 11px;
+  font-weight: 950;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+}
+
+.businessCardBody {
+  position: relative;
+  display: flex;
+  gap: 13px;
+  padding: 18px;
+}
+
+.businessCardLogo {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  margin-top: -38px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+  border: 3px solid #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  position: relative;
+  z-index: 3;
+}
+
+.businessCardLogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.businessCardLogo strong {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: #25d366;
+  color: #061108;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.businessCardInfo {
+  min-width: 0;
+  flex: 1;
+}
+
+.businessCardInfo a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.businessCardInfo h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.businessCardInfo p {
+  margin: 6px 0 10px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.businessCardMeta {
+  display: grid;
+  gap: 5px;
+}
+
+.businessCardMeta span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.businessCard.compact .businessCardCover {
+  height: 140px;
+}
+
+/* PRODUCT CARD */
+
+.productCard {
+  overflow: hidden;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+  transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+}
+
+.productCard:hover {
+  transform: translateY(-5px);
+  border-color: rgba(37, 211, 102, 0.28);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.13);
+}
+
+.productCardImage {
+  position: relative;
+  display: block;
+  height: 210px;
+  background: #f1f5f9;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.productCardImage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 52%, rgba(2, 6, 23, 0.44));
+  pointer-events: none;
+}
+
+.productCardImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .35s ease;
+}
+
+.productCard:hover .productCardImage img {
+  transform: scale(1.06);
+}
+
+.productCardImage span {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 2;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.productCardFallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 42px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 211, 102, 0.24), transparent 42%),
+    linear-gradient(135deg, #f8fafc, #e2e8f0);
+}
+
+.productCardBody {
+  padding: 17px;
+}
+
+.productCardBody small {
+  display: block;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productCardBody a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.productCardBody h3 {
+  margin: 7px 0 10px;
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.productCardBody strong {
+  color: #020617;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+/* STATES */
+
+.shoppingEmptyState {
+  width: min(760px, calc(100% - 48px));
+  margin: 60px auto;
+  padding: 60px 30px;
+  text-align: center;
+  border-radius: 36px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+}
+
+.shoppingEmptyState div {
+  font-size: 48px;
+}
+
+.shoppingEmptyState h2 {
+  margin: 14px 0 10px;
+  font-size: 30px;
+  color: #0f172a;
+  letter-spacing: -0.04em;
+}
+
+.shoppingEmptyState p {
+  margin: 0 auto;
+  max-width: 520px;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.shoppingSkeleton {
+  width: min(1180px, calc(100% - 48px));
+  margin: 40px auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.shoppingSkeletonCard {
+  height: 280px;
+  border-radius: 28px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.shoppingSkeletonCard span,
+.shoppingSkeletonCard strong,
+.shoppingSkeletonCard em {
+  display: block;
+  border-radius: 18px;
+  background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
+  background-size: 200% 100%;
+  animation: shoppingPulse 1.4s ease-in-out infinite;
+}
+
+.shoppingSkeletonCard span {
+  height: 150px;
+}
+
+.shoppingSkeletonCard strong {
+  height: 18px;
+  width: 70%;
+  margin-top: 22px;
+}
+
+.shoppingSkeletonCard em {
+  height: 14px;
+  width: 46%;
+  margin-top: 12px;
+}
+
+@keyframes shoppingPulse {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* TABLET */
+
+@media (max-width: 1024px) {
+  .shoppingHero {
+    grid-template-columns: 1fr;
+    padding: 48px;
+  }
+
+  .shoppingHeroVisual {
+    display: none;
+  }
+
+  .shoppingGrid,
+  .shoppingSkeleton {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+
+/* =========================================================
+   SHOPPING RENDAJÁ — MOBILE PREMIUM V1
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .shoppingPage {
+    padding-bottom: 54px;
+    background:
+      radial-gradient(circle at top left, rgba(37, 211, 102, 0.14), transparent 34%),
+      linear-gradient(180deg, #f8fafc 0%, #ffffff 48%, #f8fafc 100%);
+  }
+
+  .shoppingHero {
+    width: calc(100% - 24px);
+    margin: 14px auto 18px;
+    min-height: auto;
+    padding: 34px 22px 86px;
+    border-radius: 32px;
+    display: block;
+  }
+
+  .shoppingHeroBadge {
+    padding: 9px 13px;
+    font-size: 11px;
+  }
+
+  .shoppingHero h1 {
+    margin: 18px 0 14px;
+    font-size: clamp(36px, 12vw, 48px);
+    line-height: 0.96;
+    letter-spacing: -0.065em;
+  }
+
+  .shoppingHero p {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .shoppingHeroStats {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+  }
+
+  .shoppingHeroStats div {
+    min-width: 0;
+    padding: 14px 10px;
+    border-radius: 20px;
+  }
+
+  .shoppingHeroStats strong {
+    font-size: 22px;
+  }
+
+  .shoppingHeroStats span {
+    font-size: 10.5px;
+    line-height: 1.2;
+  }
+
+  .shoppingHeroVisual {
+    display: none;
+  }
+
+  .shoppingSearchWrap {
+    width: calc(100% - 24px);
+    margin: -58px auto 16px;
+  }
+
+  .shoppingSearchBox {
+    min-height: auto;
+    padding: 10px 12px;
+    border-radius: 24px;
+    gap: 9px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.13);
+  }
+
+  .shoppingSearchIcon {
+    font-size: 18px;
+  }
+
+  .shoppingSearchBox input {
+    height: 46px;
+    font-size: 14px;
+    font-weight: 850;
+    min-width: 0;
+  }
+
+  .shoppingSearchBox em {
+    display: none;
+  }
+
+  .shoppingSearchBox button {
+    height: 38px;
+    padding: 0 13px;
+    font-size: 12px;
+  }
+
+  .shoppingCategoryRail {
+    width: 100%;
+    margin: 14px 0 22px;
+    padding: 2px 12px 12px;
+    gap: 10px;
+  }
+
+  .shoppingCategoryRail button {
+    min-width: auto;
+    height: 52px;
+    padding: 0 14px;
+    border-radius: 18px;
+    gap: 8px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.055);
+  }
+
+  .shoppingCategoryRail button span {
+    font-size: 18px;
+  }
+
+  .shoppingCategoryRail button strong {
+    font-size: 12.5px;
+  }
+
+  .shoppingPromoBanner {
+    width: calc(100% - 24px);
+    margin: 0 auto 28px;
+    padding: 24px 20px;
+    border-radius: 28px;
+    display: block;
+  }
+
+  .shoppingPromoBanner h2 {
+    font-size: 25px;
+    line-height: 1.05;
+  }
+
+  .shoppingPromoBanner p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .shoppingPromoBanner a {
+    width: 100%;
+    height: 50px;
+    margin-top: 18px;
+  }
+
+  .shoppingSection {
+    width: calc(100% - 24px);
+    margin: 34px auto 0;
+  }
+
+  .shoppingSectionHead {
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  .shoppingSectionHead span {
+    font-size: 11px;
+  }
+
+  .shoppingSectionHead h2 {
+    margin: 6px 0;
+    font-size: 27px;
+    line-height: 1;
+  }
+
+  .shoppingSectionHead p {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .shoppingSectionHead button {
+    display: none;
+  }
+
+  .shoppingGrid,
+  .shoppingSkeleton {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .businessCard {
+    border-radius: 24px;
+  }
+
+  .businessCardCover {
+    height: 170px;
+  }
+
+  .businessCard.compact .businessCardCover {
+    height: 150px;
+  }
+
+  .businessCardBody {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .businessCardLogo {
+    width: 50px;
+    height: 50px;
+    border-radius: 17px;
+  }
+
+  .businessCardInfo h3 {
+    font-size: 16px;
+  }
+
+  .businessCardInfo p {
+    font-size: 12.5px;
+  }
+
+  .businessCardMeta span {
+    font-size: 11.5px;
+  }
+
+  .productCard {
+    border-radius: 24px;
+  }
+
+  .productCardImage {
+    height: 210px;
+  }
+
+  .productCardBody {
+    padding: 16px;
+  }
+
+  .productCardBody h3 {
+    font-size: 16px;
+  }
+
+  .productCardBody strong {
+    font-size: 19px;
+  }
+
+  .shoppingEmptyState {
+    width: calc(100% - 24px);
+    margin: 38px auto;
+    padding: 44px 20px;
+    border-radius: 30px;
+  }
+
+  .shoppingEmptyState h2 {
+    font-size: 25px;
+  }
+
+  .shoppingEmptyState p {
+    font-size: 14px;
+  }
+
+  .shoppingSkeleton {
+    width: calc(100% - 24px);
+    margin: 28px auto;
+  }
+
+  .shoppingSkeletonCard {
+    height: 250px;
+    border-radius: 24px;
+  }
+}
+
+@media (max-width: 420px) {
+  .shoppingHero {
+    padding: 30px 18px 82px;
+  }
+
+  .shoppingHero h1 {
+    font-size: 38px;
+  }
+
+  .shoppingHeroStats {
+    grid-template-columns: 1fr;
+  }
+
+  .shoppingHeroStats div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .shoppingHeroStats span {
+    margin-top: 0;
+    text-align: right;
+  }
+
+  .productCardImage {
+    height: 190px;
+  }
+}
+
+
+/* CARROSSEL PREMIUM */
+
+.shoppingCarouselSection {
+  width: min(1180px, calc(100% - 48px));
+  margin: 42px auto 0;
+}
+
+.shoppingCarousel {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 4px 2px 18px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.shoppingCarousel::-webkit-scrollbar {
+  display: none;
+}
+
+.shoppingCarousel > * {
+  flex: 0 0 270px;
+  scroll-snap-align: start;
+}
+
+@media (max-width: 768px) {
+  .shoppingCarouselSection {
+    width: calc(100% - 24px);
+    margin: 34px auto 0;
+  }
+
+  .shoppingCarousel {
+    gap: 14px;
+    margin-right: -12px;
+    padding-right: 12px;
+  }
+
+  .shoppingCarousel > * {
+    flex-basis: 245px;
+  }
+}
+
+/* FEATURE STRIP */
+
+.shoppingFeatureStrip {
+  width: min(1180px, calc(100% - 48px));
+  margin: 36px auto 6px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.shoppingFeatureStrip a {
+  position: relative;
+  overflow: hidden;
+  min-height: 190px;
+  padding: 24px;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 211, 102, 0.2), transparent 36%),
+    linear-gradient(135deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+}
+
+.shoppingFeatureStrip a::after {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  right: -45px;
+  bottom: -45px;
+  border-radius: 999px;
+  background: rgba(37, 211, 102, 0.12);
+}
+
+.shoppingFeatureStrip span {
+  display: inline-flex;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(37, 211, 102, 0.13);
+  color: #166534;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.shoppingFeatureStrip h3 {
+  margin: 16px 0 8px;
+  color: #0f172a;
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.shoppingFeatureStrip p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.45;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .shoppingFeatureStrip {
+    width: calc(100% - 24px);
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin: 28px auto 0;
+  }
+
+  .shoppingFeatureStrip a {
+    min-height: 150px;
+    padding: 20px;
+    border-radius: 26px;
+  }
+
+  .shoppingFeatureStrip h3 {
+    font-size: 21px;
+  }
+}
+
+/* FIX — busca visível quando estiver pesquisando */
+.shoppingPage .shoppingSearchWrap {
+  margin-top: 22px;
+}
+
+@media (max-width: 768px) {
+  .shoppingPage .shoppingSearchWrap {
+    margin-top: 16px;
+  }
+}
+
+.shoppingFeatureStrip a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* LISTING PAGES — VAGAS / MISSÕES / EM ALTA */
+
+.shoppingListingPage {
+  padding-top: 28px;
+}
+
+.shoppingListingHero {
+  width: min(1080px, calc(100% - 48px));
+  margin: 0 auto 34px;
+  padding: 42px;
+  border-radius: 38px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 211, 102, 0.24), transparent 36%),
+    linear-gradient(135deg, #0f172a, #020617);
+  color: #fff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
+}
+
+.shoppingBackLink {
+  display: inline-flex;
+  margin-bottom: 22px;
+  color: rgba(255,255,255,.78);
+  text-decoration: none;
+  font-weight: 900;
+}
+
+.shoppingListingHero span {
+  display: inline-flex;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(37, 211, 102, 0.15);
+  border: 1px solid rgba(37, 211, 102, 0.28);
+  color: #bbf7d0;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.shoppingListingHero h1 {
+  margin: 16px 0 10px;
+  font-size: clamp(36px, 5vw, 62px);
+  line-height: .95;
+  letter-spacing: -.065em;
+}
+
+.shoppingListingHero p {
+  max-width: 680px;
+  margin: 0;
+  color: rgba(226,232,240,.8);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.shoppingListingGrid {
+  width: min(1080px, calc(100% - 48px));
+  margin: 0 auto 70px;
+  display: grid;
+  gap: 18px;
+}
+
+.shoppingListingCard {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 30px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+}
+
+.shoppingListingIcon {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  background: #f0fdf4;
+  font-size: 30px;
+}
+
+.shoppingListingCard small {
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.shoppingListingCard h2 {
+  margin: 7px 0 8px;
+  color: #0f172a;
+  font-size: 25px;
+  letter-spacing: -.04em;
+}
+
+.shoppingListingCard p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.shoppingListingMeta {
+  margin: 16px 0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shoppingListingMeta span,
+.shoppingListingMeta strong {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.shoppingListingCard a {
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #061108;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  font-weight: 950;
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .shoppingListingPage {
+    padding-top: 16px;
+  }
+
+  .shoppingListingHero,
+  .shoppingListingGrid {
+    width: calc(100% - 24px);
+  }
+
+  .shoppingListingHero {
+    padding: 30px 22px;
+    border-radius: 30px;
+  }
+
+  .shoppingListingHero h1 {
+    font-size: 38px;
+  }
+
+  .shoppingListingHero p {
+    font-size: 15px;
+  }
+
+  .shoppingListingCard {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    border-radius: 26px;
+  }
+
+  .shoppingListingIcon {
+    width: 64px;
+    height: 64px;
+    border-radius: 22px;
+  }
+
+  .shoppingListingCard h2 {
+    font-size: 22px;
+  }
+
+  .shoppingListingCard a {
+    width: 100%;
+  }
+}
+
+/* PRODUCT WALL — MAIS PRODUTOS */
+
+.productWall {
+  width: min(1180px, calc(100% - 48px));
+  margin: 46px auto 0;
+}
+
+.productWallGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+@media (max-width: 1024px) {
+  .productWallGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .productWall {
+    width: calc(100% - 24px);
+    margin: 36px auto 0;
+  }
+
+  .productWallGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+/* =========================================================
+   SEASONAL SHOWCASE — PLACA + CARROSSEL
+   ========================================================= */
+
+.seasonalShowcase {
+  width: min(1180px, calc(100% - 48px));
+  margin: 48px auto 0;
+}
+.seasonalHeroPlate {
+  min-height: 280px;
+  padding: 34px;
+  border-radius: 38px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: flex-start;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.16);
+  position: relative;
+}
+
+.seasonalHeroPlate div {
+  max-width: 560px;
+}
+
+.seasonalHeroPlate small {
+  display: inline-flex;
+  margin-bottom: 12px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  backdrop-filter: blur(10px);
+}
+
+.seasonalHeroPlate h2 {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: .92;
+  letter-spacing: -.065em;
+}
+
+.seasonalHeroPlate p {
+  max-width: 520px;
+  margin: 0;
+  color: rgba(255, 255, 255, .82);
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.seasonalHeroPlate a {
+  margin-top: 22px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #061108;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 950;
+  text-decoration: none;
+}
+
+.seasonalProductCarousel {
+  margin-top: -34px;
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 0 18px 20px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.seasonalProductCarousel::-webkit-scrollbar {
+  display: none;
+}
+
+.seasonalProductCarousel > * {
+  flex: 0 0 270px;
+  scroll-snap-align: start;
+}
+
+.seasonalProductCarousel .productCard {
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.13);
+}
+
+@media (max-width: 768px) {
+  .seasonalShowcase {
+    width: calc(100% - 24px);
+    margin: 38px auto 0;
+  }
+
+  .seasonalHeroPlate {
+    min-height: 250px;
+    padding: 24px;
+    border-radius: 30px;
+  }
+
+  .seasonalHeroPlate h2 {
+    font-size: 36px;
+  }
+
+  .seasonalHeroPlate p {
+    font-size: 14px;
+  }
+
+  .seasonalHeroPlate a {
+    width: 100%;
+  }
+
+  .seasonalProductCarousel {
+    margin-top: -26px;
+    gap: 14px;
+    padding: 0 12px 18px;
+  }
+
+  .seasonalProductCarousel > * {
+    flex-basis: 245px;
+  }
+}
+
+
+
+/* =========================================================
+   SHOPPING OUTDOOR — HERO DINÂMICO
+   ========================================================= */
+
+.shoppingOutdoor {
+  width: min(1180px, calc(100% - 48px));
+  margin: 24px auto 22px;
+  position: relative;
+}
+
+.shoppingOutdoorMain {
+  min-height: 340px;
+  padding: 42px;
+  border-radius: 38px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: flex-end;
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
+}
+
+.shoppingOutdoorText {
+  max-width: 620px;
+}
+
+.shoppingOutdoorText span {
+  display: inline-flex;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  backdrop-filter: blur(10px);
+}
+
+.shoppingOutdoorText h1 {
+  margin: 14px 0 10px;
+  font-size: clamp(38px, 5vw, 66px);
+  line-height: .9;
+  letter-spacing: -.07em;
+}
+
+.shoppingOutdoorText p {
+  max-width: 560px;
+  margin: 0;
+  color: rgba(255, 255, 255, .84);
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 750;
+}
+
+.shoppingOutdoorText strong {
+  margin-top: 18px;
+  display: inline-flex;
+  color: #bbf7d0;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.shoppingOutdoorProducts {
+  margin: -42px 22px 0;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 0 12px;
+  scrollbar-width: none;
+  position: relative;
+  z-index: 4;
+}
+
+.shoppingOutdoorProducts::-webkit-scrollbar {
+  display: none;
+}
+
+.shoppingOutdoorProducts a {
+  flex: 0 0 210px;
+  height: 96px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: rgba(255,255,255,.94);
+  border: 1px solid rgba(255,255,255,.75);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  text-decoration: none;
+  color: #0f172a;
+}
+
+.shoppingOutdoorProducts img {
+  width: 82px;
+  height: 96px;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
+.shoppingOutdoorProducts div {
+  min-width: 0;
+  padding: 13px 12px;
+}
+
+.shoppingOutdoorProducts small {
+  display: block;
+  color: #16a34a;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shoppingOutdoorProducts b {
+  display: -webkit-box;
+  margin-top: 5px;
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 950;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+  .shoppingOutdoor {
+    width: calc(100% - 24px);
+    margin: 14px auto 18px;
+  }
+
+  .shoppingOutdoorMain {
+    min-height: 250px;
+    padding: 24px;
+    border-radius: 30px;
+  }
+
+  .shoppingOutdoorText h1 {
+    font-size: 36px;
+  }
+
+  .shoppingOutdoorText p {
+    font-size: 14px;
+  }
+
+  .shoppingOutdoorProducts {
+    margin: -30px 12px 0;
+    gap: 10px;
+  }
+
+  .shoppingOutdoorProducts a {
+    flex-basis: 190px;
+    height: 88px;
+    grid-template-columns: 74px 1fr;
+    border-radius: 20px;
+  }
+
+  .shoppingOutdoorProducts img {
+    width: 74px;
+    height: 88px;
+  }
+}
+/* OUTDOOR ARROWS — HIT AREA GRANDE */
+
+.shoppingOutdoorArrow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+
+  width: 90px;
+
+  z-index: 20;
+
+  border: 0;
+  background: transparent;
+
+  display: flex;
+  align-items: center;
+
+  color: rgba(255,255,255,.88);
+
+  font-size: 42px;
+  font-weight: 200;
+  line-height: 1;
+
+  cursor: pointer;
+
+  padding: 0;
+
+  transition:
+    opacity .22s ease,
+    transform .22s ease,
+    color .22s ease;
+}
+
+.shoppingOutdoorArrow:hover {
+  color: #ffffff;
+}
+
+.shoppingOutdoorArrow.left {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 18px;
+}
+
+.shoppingOutdoorArrow.right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 18px;
+}
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+  .shoppingOutdoorArrow {
+    width: 74px;
+    font-size: 34px;
+  }
+
+  .shoppingOutdoorArrow.left {
+    padding-left: 10px;
+  }
+
+  .shoppingOutdoorArrow.right {
+    padding-right: 10px;
+  }
+}/* OUTDOOR ARROWS — ÁREA ÚTIL INVISÍVEL, SEM ANIMAÇÃO */
+
+.shoppingOutdoorArrow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+
+  width: 92px;
+
+  border: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+
+  display: flex;
+  align-items: center;
+
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 42px;
+  font-weight: 200;
+  line-height: 1;
+
+  cursor: pointer;
+  padding: 0;
+
+  transform: none !important;
+  transition: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shoppingOutdoorArrow:hover,
+.shoppingOutdoorArrow:focus,
+.shoppingOutdoorArrow:active {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transform: none !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+
+.shoppingOutdoorArrow.left {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 18px;
+}
+
+.shoppingOutdoorArrow.right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 18px;
+}
+
+@media (max-width: 768px) {
+  .shoppingOutdoorArrow {
+    width: 78px;
+    font-size: 34px;
+  }
+
+  .shoppingOutdoorArrow.left {
+    padding-left: 12px;
+  }
+
+  .shoppingOutdoorArrow.right {
+    padding-right: 12px;
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+  .shoppingOutdoorArrow {
+    font-size: 34px;
+  }
+
+  .shoppingOutdoorArrow.left {
+    left: 10px;
+  }
+
+  .shoppingOutdoorArrow.right {
+    right: 10px;
+  }
+}
+
+.shoppingOutdoorArrow:hover {
+  background: rgba(255,255,255,.24);
+  transform: translateY(-50%) scale(1.06);
+}
+
+.shoppingOutdoorArrow.left {
+  left: 18px;
+}
+
+.shoppingOutdoorArrow.right {
+  right: 18px;
+}
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+  .shoppingOutdoorArrow {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .shoppingOutdoorArrow.left {
+    left: 10px;
+  }
+
+  .shoppingOutdoorArrow.right {
+    right: 10px;
+  }
+}
+
+/* FIX MOBILE OUTDOOR — VOLTAR CARDS E REMOVER SOMBRA QUADRADA */
+
+@media (max-width: 768px) {
+  .shoppingOutdoor {
+    overflow: visible !important;
+  }
+
+  .shoppingOutdoorMain {
+    min-height: 250px !important;
+    padding: 24px !important;
+    border-radius: 30px !important;
+    overflow: hidden !important;
+  }
+
+  .shoppingOutdoorText strong {
+    display: none !important;
+  }
+
+  /* setas no meio do banner, sem mexer no texto */
+  .shoppingOutdoorArrow {
+    top: 0 !important;
+    bottom: auto !important;
+    height: 250px !important;
+    width: 70px !important;
+    align-items: center !important;
+    font-size: 34px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .shoppingOutdoorArrow:hover,
+  .shoppingOutdoorArrow:focus,
+  .shoppingOutdoorArrow:active {
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .shoppingOutdoorArrow.left {
+    left: 0 !important;
+    padding-left: 12px !important;
+  }
+
+  .shoppingOutdoorArrow.right {
+    right: 0 !important;
+    padding-right: 12px !important;
+  }
+
+  /* carrossel sem caixa/sombra quadrada */
+  .shoppingOutdoorProducts {
+    margin: -30px 12px 0 !important;
+    padding: 0 0 18px !important;
+    gap: 10px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    scrollbar-width: none !important;
+  }
+
+  .shoppingOutdoorProducts::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .shoppingOutdoorProducts a {
+    flex: 0 0 190px !important;
+    height: 88px !important;
+    grid-template-columns: 74px 1fr !important;
+    border-radius: 20px !important;
+
+    box-shadow: none !important;
+    filter: none !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  }
+
+  .shoppingOutdoorProducts img {
+    width: 74px !important;
+    height: 88px !important;
+    object-fit: cover !important;
+  }
+
+  .shoppingOutdoorProducts div {
+    padding: 12px 10px !important;
+  }
+
+  .shoppingOutdoorProducts small {
+    font-size: 10px !important;
+  }
+
+  .shoppingOutdoorProducts b {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .shoppingOutdoorText {
+    position: relative !important;
+    top: -60px !important;
+  }
+}
+
+/* EYEBROW MAIS FINO */
+
+.shoppingSectionHead span {
+  display: inline-flex !important;
+  width: fit-content !important;
+  padding: 7px 11px !important;
+  border-radius: 999px !important;
+  background: rgba(15, 23, 42, 0.055) !important;
+  color: #334155 !important;
+  font-size: 10.5px !important;
+  font-weight: 950 !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+}
+
+.shoppingCarouselSection .shoppingSectionHead span,
+.productWall .shoppingSectionHead span {
+  background: rgba(37, 211, 102, 0.1) !important;
+  color: #166534 !important;
+}
+
+/* PRODUCT WALL — CARROSSEL DINÂMICO */
+
+.productWallDynamic {
+  width: min(1180px, calc(100% - 48px));
+  margin: 46px auto 0;
+}
+
+.productWallTrack {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 4px 4px 24px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.productWallTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.productWallItem {
+  flex: 0 0 260px;
+  scroll-snap-align: start;
+}
+
+.productWallItem.hero {
+  flex-basis: 390px;
+}
+
+.productWallItem.wide {
+  flex-basis: 330px;
+}
+
+.productWallItem.slim {
+  flex-basis: 230px;
+}
+
+.productWallItem.hero .productCardImage {
+  height: 270px;
+}
+
+.productWallItem.wide .productCardImage {
+  height: 235px;
+}
+
+.productWallItem.slim .productCardImage {
+  height: 190px;
+}
+
+.productWallItem .productCard {
+  height: 100%;
+}
+
+/* VITRINES DINÂMICAS */
+
+.dynamicBusinessItem {
+  flex: 0 0 270px;
+  scroll-snap-align: start;
+}
+
+.dynamicBusinessItem.medium {
+  flex-basis: 310px;
+}
+
+.dynamicBusinessItem.large {
+  flex-basis: 370px;
+}
+
+.dynamicBusinessItem.large .businessCardCover {
+  height: 220px;
+}
+
+.dynamicBusinessItem.medium .businessCardCover {
+  height: 190px;
+}
+
+@media (max-width: 768px) {
+  .productWallDynamic {
+    width: calc(100% - 24px);
+    margin: 36px auto 0;
+  }
+
+  .productWallTrack {
+    gap: 14px;
+    margin-right: -12px;
+    padding: 2px 12px 20px 0;
+  }
+
+  .productWallItem {
+    flex-basis: 225px;
+  }
+
+  .productWallItem.hero {
+    flex-basis: 295px;
+  }
+
+  .productWallItem.wide {
+    flex-basis: 260px;
+  }
+
+  .productWallItem.slim {
+    flex-basis: 205px;
+  }
+
+  .productWallItem.hero .productCardImage {
+    height: 230px;
+  }
+
+  .productWallItem.wide .productCardImage {
+    height: 205px;
+  }
+
+  .productWallItem.slim .productCardImage {
+    height: 175px;
+  }
+
+  .dynamicBusinessItem {
+    flex-basis: 240px;
+  }
+
+  .dynamicBusinessItem.medium {
+    flex-basis: 260px;
+  }
+
+  .dynamicBusinessItem.large {
+    flex-basis: 300px;
+  }
+
+  .dynamicBusinessItem.large .businessCardCover {
+    height: 190px;
+  }
+
+  .dynamicBusinessItem.medium .businessCardCover {
+    height: 170px;
+  }
+}
+
+
+/* PRODUCT WALL — CARROSSEL PADRONIZADO */
+
+.productWallDynamic {
+  width: min(1180px, calc(100% - 48px));
+  margin: 46px auto 0;
+}
+
+.productWallTrack {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 4px 4px 24px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.productWallTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.productWallItem {
+  flex: 0 0 270px !important;
+  scroll-snap-align: start;
+}
+
+.productWallItem .productCard {
+  height: 100%;
+}
+
+.productWallItem .productCardImage {
+  height: 220px !important;
+}
+
+/* ÚLTIMO CARROSSEL — VITRINES MAIS LARGAS, MAS PADRONIZADAS */
+
+.wideBusinessItem {
+  flex: 0 0 360px !important;
+  scroll-snap-align: start;
+}
+
+.wideBusinessItem .businessCardCover {
+  height: 210px !important;
+}
+
+.wideBusinessItem .businessCard {
+  height: 100%;
+}
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+  .productWallDynamic {
+    width: calc(100% - 24px);
+    margin: 36px auto 0;
+  }
+
+  .productWallTrack {
+    gap: 14px;
+    margin-right: -12px;
+    padding: 2px 12px 20px 0;
+  }
+
+  .productWallItem {
+    flex: 0 0 235px !important;
+  }
+
+  .productWallItem .productCardImage {
+    height: 190px !important;
+  }
+
+  .wideBusinessItem {
+    flex: 0 0 300px !important;
+  }
+
+  .wideBusinessItem .businessCardCover {
+    height: 185px !important;
+  }
+}
+
+
+/* RESET DEFINITIVO — CARROSSÉIS PADRONIZADOS */
+
+/* remove variações antigas dos produtos */
+.productWallItem,
+.productWallItem.hero,
+.productWallItem.wide,
+.productWallItem.slim {
+  flex: 0 0 270px !important;
+  width: 270px !important;
+  scroll-snap-align: start !important;
+}
+
+.productWallItem .productCardImage,
+.productWallItem.hero .productCardImage,
+.productWallItem.wide .productCardImage,
+.productWallItem.slim .productCardImage {
+  height: 220px !important;
+}
+
+/* remove variações antigas das vitrines */
+.dynamicBusinessItem,
+.dynamicBusinessItem.medium,
+.dynamicBusinessItem.large {
+  flex: 0 0 360px !important;
+  width: 360px !important;
+  scroll-snap-align: start !important;
+}
+
+.dynamicBusinessItem .businessCardCover,
+.dynamicBusinessItem.medium .businessCardCover,
+.dynamicBusinessItem.large .businessCardCover {
+  height: 210px !important;
+}
+
+/* caso você esteja usando wideBusinessItem no último carrossel */
+.wideBusinessItem {
+  flex: 0 0 360px !important;
+  width: 360px !important;
+  scroll-snap-align: start !important;
+}
+
+.wideBusinessItem .businessCardCover {
+  height: 210px !important;
+}
+
+@media (max-width: 768px) {
+  .productWallItem,
+  .productWallItem.hero,
+  .productWallItem.wide,
+  .productWallItem.slim {
+    flex: 0 0 235px !important;
+    width: 235px !important;
+  }
+
+  .productWallItem .productCardImage,
+  .productWallItem.hero .productCardImage,
+  .productWallItem.wide .productCardImage,
+  .productWallItem.slim .productCardImage {
+    height: 190px !important;
+  }
+
+  .dynamicBusinessItem,
+  .dynamicBusinessItem.medium,
+  .dynamicBusinessItem.large,
+  .wideBusinessItem {
+    flex: 0 0 300px !important;
+    width: 300px !important;
+  }
+
+  .dynamicBusinessItem .businessCardCover,
+  .dynamicBusinessItem.medium .businessCardCover,
+  .dynamicBusinessItem.large .businessCardCover,
+  .wideBusinessItem .businessCardCover {
+    height: 185px !important;
+  }
+}
+
+/* CATEGORIAS — VISUAL PREMIUM */
+
+.shoppingCategoryRail button {
+  position: relative;
+  overflow: hidden;
+  gap: 12px !important;
+}
+
+.shoppingCategoryRail button span {
+  font-size: 22px !important;
+  line-height: 1 !important;
+  flex: 0 0 auto;
+}
+
+.shoppingCategoryRail button strong,
+.shoppingCategoryRail button b {
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.03em;
+}
+
+.shoppingCategoryRail button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,.12),
+      transparent 40%
+    );
+  pointer-events: none;
+}
+
+.shoppingCategoryRail button.active span {
+  transform: scale(1.08);
+}
+
+.shoppingCategoryRail button.active {
+  box-shadow:
+    0 18px 42px rgba(37, 211, 102, 0.28),
+    inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+/* AJUSTE TEXTO OUTDOOR — SOMENTE DESKTOP */
+
+@media (min-width: 769px) {
+  .shoppingOutdoorText {
+    position: relative !important;
+    margin-left: 50px !important;
+    transform: translateY(-50px) !important;
+    max-width: 560px !important;
+  }
+}
+
+
+/* BUSINESS CARD — STATUS REAL + ENTREGA */
+
+.businessCardBadge.open {
+  color: #166534;
+}
+
+.businessCardBadge.closed {
+  color: #475569;
+}
+
+.businessCardBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.businessCardMiniBadge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 10.5px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.businessCardMiniBadge.free {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+
+.businessCardMiniBadge.delivery {
+  background: rgba(37, 211, 102, 0.12);
+  color: #166534;
+}
+
+.businessCardMiniBadge.pickup,
+.businessCardMiniBadge.home {
+  background: rgba(15, 23, 42, 0.07);
+  color: #334155;
+}
+
+/* =========================================================
+   FIX DEFINITIVO — REMOVER SOMBRA DO OUTDOOR / DIA DAS MÃES
+   ========================================================= */
+
+.shoppingOutdoor,
+.shoppingOutdoorMain,
+.shoppingOutdoorProducts,
+.shoppingOutdoorProducts a,
+.shoppingOutdoorProducts a:hover,
+.seasonalShowcase,
+.seasonalHeroPlate,
+.seasonalProductCarousel,
+.seasonalProductCarousel .productCard {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.shoppingOutdoorMain {
+  box-shadow: none !important;
+}
+
+.shoppingOutdoorProducts a {
+  box-shadow: none !important;
+}
+
+.shoppingOutdoorProducts a:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* remove sombra dos cards flutuando em cima do outdoor */
+.shoppingOutdoorProducts .productCard,
+.shoppingOutdoorProducts .businessCard,
+.shoppingOutdoorProducts * {
+  box-shadow: none !important;
+}
+
+/* =========================================================
+   FIX FINAL — BADGES ORGANIZADOS NO TOPO DO CARD
+   ========================================================= */
+
+.businessCardBody {
+  position: relative !important;
+  padding-top: 34px !important;
+}
+
+.businessCardInfo {
+  min-width: 0 !important;
+}
+
+.businessCardInfo h3,
+.businessCardInfo p,
+.businessCardMeta {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.businessCardBadges {
+  position: absolute !important;
+  top: 10px !important;
+  left: 76px !important;
+  right: 14px !important;
+
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 6px !important;
+  align-items: center !important;
+
+  margin: 0 !important;
+  z-index: 4 !important;
+  overflow: hidden !important;
+}
+
+.businessCardMiniBadge {
+  height: 24px !important;
+  max-width: 50% !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  padding: 0 9px !important;
+  border-radius: 999px !important;
+
+  font-size: 10px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  border: 1px solid transparent !important;
+}
+
+/* frete grátis = positivo, verde */
+.businessCardMiniBadge.free {
+  background: rgba(37, 211, 102, 0.14) !important;
+  color: #166534 !important;
+  border-color: rgba(37, 211, 102, 0.22) !important;
+}
+
+/* entrega */
+.businessCardMiniBadge.delivery {
+  background: rgba(37, 211, 102, 0.12) !important;
+  color: #166534 !important;
+  border-color: rgba(37, 211, 102, 0.2) !important;
+}
+
+/* busca / domicílio */
+.businessCardMiniBadge.pickup,
+.businessCardMiniBadge.home {
+  background: rgba(15, 23, 42, 0.07) !important;
+  color: #334155 !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* mantém nome e informações alinhados */
+.businessCardInfo h3 {
+  margin-top: 0 !important;
+}
+
+/* evita sumir nome quando tiver badge */
+.businessCardBody {
+  min-height: 160px !important;
+}
+
+/* mobile */
+@media (max-width: 768px) {
+  .businessCardBody {
+    padding-top: 34px !important;
+  }
+
+  .businessCardBadges {
+    left: 74px !important;
+    right: 12px !important;
+    top: 9px !important;
+  }
+
+  .businessCardMiniBadge {
+    max-width: 50% !important;
+    font-size: 9.5px !important;
+    padding: 0 8px !important;
+  }
+}
+
+/* FIX — setas centralizadas no banner sazonal, não no container inteiro */
+.shoppingOutdoor-seasonal .shoppingOutdoorArrow {
+  top: 0 !important;
+  bottom: auto !important;
+  height: 340px !important;
+  display: flex !important;
+  align-items: center !important;
+  transform: none !important;
+}
+
+.shoppingOutdoor-seasonal .shoppingOutdoorArrow.left {
+  left: 0 !important;
+}
+
+.shoppingOutdoor-seasonal .shoppingOutdoorArrow.right {
+  right: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .shoppingOutdoor-seasonal .shoppingOutdoorArrow {
+    height: 250px !important;
+  }
+}

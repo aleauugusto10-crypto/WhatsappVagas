@@ -1,9 +1,6 @@
 import { supabase } from "../supabase.js";
 import { sendText } from "./whatsapp.js";
 
-/**
- * 📩 Monta mensagem de vaga
- */
 function buildJobMessage(payload) {
   return (
     `📢 *Nova vaga para você!*\n\n` +
@@ -11,29 +8,136 @@ function buildJobMessage(payload) {
     `💼 ${payload.titulo || "Vaga"}\n` +
     `📍 ${payload.cidade || "-"}${payload.estado ? `/${payload.estado}` : ""}\n` +
     `💰 ${payload.salario || "A combinar"}\n\n` +
-    `👉 Entre no menu e veja mais detalhes.`
+    `👉 Digite *menu* para ver mais oportunidades.`
   );
 }
 
-/**
- * 📩 Monta mensagem de missão
- */
 function buildMissionMessage(payload) {
   return (
     `🔥 *Nova missão disponível!*\n\n` +
-    `📌 ${payload.titulo}\n` +
-    `📝 ${payload.descricao}\n` +
-    `💰 R$ ${payload.valor}\n` +
+    `📌 ${payload.titulo || "Missão"}\n` +
+    `📝 ${payload.descricao || "Veja os detalhes no RendaJá."}\n` +
+    `💰 R$ ${payload.valor || payload.valor_por_pessoa || "A combinar"}\n` +
     `📍 ${payload.cidade || "-"}${payload.estado ? `/${payload.estado}` : ""}\n\n` +
-    `👉 Entre no menu para visualizar.`
+    `👉 Digite *menu* para visualizar.`
   );
 }
 
-/**
- * 🚀 PROCESSA FILA DE NOTIFICAÇÕES
- */
+async function alreadyQueued({ assinaturaId, tipo, referenciaId }) {
+  const { data, error } = await supabase
+    .from("fila_notificacoes")
+    .select("id")
+    .eq("assinatura_id", assinaturaId)
+    .eq("tipo", tipo)
+    .eq("referencia_id", referenciaId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("❌ erro ao verificar duplicidade:", error);
+    return true;
+  }
+
+  return !!data;
+}
+
+async function enqueueForActiveSubscriptions() {
+  const now = new Date().toISOString();
+
+  const { data: assinaturas, error } = await supabase
+    .from("alerta_planos_usuarios")
+    .select("*")
+    .eq("status", "ativo")
+    .gt("expires_at", now);
+
+  if (error) {
+    console.error("❌ erro ao buscar assinaturas ativas:", error);
+    return;
+  }
+
+  if (!assinaturas || assinaturas.length === 0) {
+    return;
+  }
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: vagas, error: vagasError } = await supabase
+    .from("vagas")
+    .select("*")
+    .eq("status", "ativa")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (vagasError) {
+    console.error("❌ erro ao buscar vagas:", vagasError);
+  }
+
+  const { data: missoes, error: missoesError } = await supabase
+    .from("missoes")
+    .select("*")
+    .eq("status", "aberta")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (missoesError) {
+    console.error("❌ erro ao buscar missões:", missoesError);
+  }
+
+  for (const assinatura of assinaturas) {
+    if (assinatura.receber_vagas === true && Array.isArray(vagas)) {
+      for (const vaga of vagas) {
+        const exists = await alreadyQueued({
+          assinaturaId: assinatura.id,
+          tipo: "vaga",
+          referenciaId: vaga.id,
+        });
+
+        if (exists) continue;
+
+        await supabase.from("fila_notificacoes").insert({
+          assinatura_id: assinatura.id,
+          referencia_id: vaga.id,
+          tipo: "vaga",
+          telefone: assinatura.telefone,
+          payload: vaga,
+          status: "pendente",
+          criado_em: new Date().toISOString(),
+          tentativas: 0,
+        });
+      }
+    }
+
+    if (assinatura.receber_missoes === true && Array.isArray(missoes)) {
+      for (const missao of missoes) {
+        const exists = await alreadyQueued({
+          assinaturaId: assinatura.id,
+          tipo: "missao",
+          referenciaId: missao.id,
+        });
+
+        if (exists) continue;
+
+        await supabase.from("fila_notificacoes").insert({
+          assinatura_id: assinatura.id,
+          referencia_id: missao.id,
+          tipo: "missao",
+          telefone: assinatura.telefone,
+          payload: missao,
+          status: "pendente",
+          criado_em: new Date().toISOString(),
+          tentativas: 0,
+        });
+      }
+    }
+  }
+}
+
 export async function processNotificationQueue(limit = 20) {
   console.log("🟡 [QUEUE] Iniciando processamento...");
+
+  await enqueueForActiveSubscriptions();
 
   const { data: fila, error } = await supabase
     .from("fila_notificacoes")
@@ -55,8 +159,6 @@ export async function processNotificationQueue(limit = 20) {
   }
 
   for (const item of fila) {
-    console.log("📦 processando item:", item.id);
-
     try {
       let message = "";
 
@@ -69,16 +171,20 @@ export async function processNotificationQueue(limit = 20) {
       }
 
       if (!message) {
-        console.log("⚠️ tipo desconhecido:", item.tipo);
+        await supabase
+          .from("fila_notificacoes")
+          .update({
+            status: "erro",
+            erro: "Tipo desconhecido",
+            tentativas: Number(item.tentativas || 0) + 1,
+          })
+          .eq("id", item.id);
+
         continue;
       }
 
-      // 🚀 ENVIO WHATSAPP
       await sendText(item.telefone, message);
 
-      console.log("✅ enviado para:", item.telefone);
-
-      // ✅ MARCAR COMO ENVIADO
       await supabase
         .from("fila_notificacoes")
         .update({
@@ -87,16 +193,16 @@ export async function processNotificationQueue(limit = 20) {
         })
         .eq("id", item.id);
 
+      console.log("✅ notificação enviada:", item.telefone);
     } catch (err) {
       console.error("❌ erro ao enviar notificação:", err);
 
-      // ❌ MARCAR ERRO
       await supabase
         .from("fila_notificacoes")
-        .update({
+               .update({
           status: "erro",
           erro: err.message,
-          tentativas: (item.tentativas || 0) + 1,
+          tentativas: Number(item.tentativas || 0) + 1,
         })
         .eq("id", item.id);
     }
