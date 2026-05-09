@@ -341,7 +341,23 @@ function staffRoleLabel(role) {
   if (role === "cashier") return "Caixa";
   return "Funcionário";
 }
+async function getStaffById(staffId) {
+  if (!staffId) return null;
 
+  const { data, error } = await supabase
+    .from("profile_staff")
+    .select("*")
+    .eq("id", staffId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("❌ erro getStaffById:", error);
+    return null;
+  }
+
+  return data || null;
+}
 async function sendStaffMenu(phone, staff) {
   const rows = [];
 
@@ -450,8 +466,17 @@ if (
       return sendText(phone, "Erro ao finalizar pedido.");
     }
 
-    const commissionAmount =
-      staff.role === "owner" ? 0 : calcStaffCommission(staff, amount);
+    const commissionStaffId =
+  order.seller_staff_id ||
+  order.assigned_staff_id ||
+  order.staff_id ||
+  null;
+
+const commissionStaff = await getStaffById(commissionStaffId);
+
+const commissionAmount = commissionStaff
+  ? calcStaffCommission(commissionStaff, amount)
+  : 0;
 
     await supabase.from("finance_movements").insert({
       profile_page_id: profilePageId,
@@ -468,15 +493,17 @@ if (
       items: Array.isArray(order.items) ? order.items : [],
       customer_name: order.customer_name || null,
       customer_phone: order.customer_phone || null,
-      staff_id: staff.role === "owner" ? null : staff.id,
-      staff_name: staff.role === "owner" ? null : staff.nome,
-      registered_by_id: staff.role === "owner" ? null : staff.id,
-      registered_by_name: staff.role === "owner" ? "Dono" : staff.nome,
-      registered_by_role: staff.role || "staff",
-      commission_amount: commissionAmount,
-      commission_type: staff.role === "owner" ? "none" : staff.commission_type || "none",
-      commission_to_staff_id: staff.role === "owner" ? null : staff.id,
-      commission_to_staff_name: staff.role === "owner" ? null : staff.nome,
+     staff_id: commissionStaff?.id || null,
+staff_name: commissionStaff?.nome || null,
+
+registered_by_id: staff.role === "owner" ? null : staff.id,
+registered_by_name: staff.role === "owner" ? "Dono" : staff.nome,
+registered_by_role: staff.role || "staff",
+
+commission_amount: commissionAmount,
+commission_type: commissionStaff?.commission_type || "none",
+commission_to_staff_id: commissionStaff?.id || null,
+commission_to_staff_name: commissionStaff?.nome || null,
       created_at: new Date().toISOString(),
     });
 
@@ -521,7 +548,7 @@ if (
         paid_amount: amount,
         payment_status: "paid",
         payment_method: paymentMethod,
-        assigned_staff_id: staff.role === "owner" ? null : staff.id,
+        
         finalized_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -535,8 +562,17 @@ if (
       return sendText(phone, "Erro ao finalizar agendamento.");
     }
 
-    const commissionAmount =
-      staff.role === "owner" ? 0 : calcStaffCommission(staff, amount);
+    const commissionStaffId =
+  booking.assigned_staff_id ||
+  booking.staff_id ||
+  booking.seller_staff_id ||
+  null;
+
+const commissionStaff = await getStaffById(commissionStaffId);
+
+const commissionAmount = commissionStaff
+  ? calcStaffCommission(commissionStaff, amount)
+  : 0;
 
     await supabase.from("finance_movements").insert({
       profile_page_id: profilePageId,
@@ -552,15 +588,17 @@ if (
       source_id: booking.id,
       customer_name: booking.customer_name || null,
       customer_phone: booking.customer_phone || null,
-      staff_id: staff.role === "owner" ? null : staff.id,
-      staff_name: staff.role === "owner" ? null : staff.nome,
-      registered_by_id: staff.role === "owner" ? null : staff.id,
-      registered_by_name: staff.role === "owner" ? "Dono" : staff.nome,
-      registered_by_role: staff.role || "staff",
-      commission_amount: commissionAmount,
-      commission_type: staff.role === "owner" ? "none" : staff.commission_type || "none",
-      commission_to_staff_id: staff.role === "owner" ? null : staff.id,
-      commission_to_staff_name: staff.role === "owner" ? null : staff.nome,
+    staff_id: commissionStaff?.id || null,
+staff_name: commissionStaff?.nome || null,
+
+registered_by_id: staff.role === "owner" ? null : staff.id,
+registered_by_name: staff.role === "owner" ? "Dono" : staff.nome,
+registered_by_role: staff.role || "staff",
+
+commission_amount: commissionAmount,
+commission_type: commissionStaff?.commission_type || "none",
+commission_to_staff_id: commissionStaff?.id || null,
+commission_to_staff_name: commissionStaff?.nome || null,
       created_at: new Date().toISOString(),
     });
 

@@ -1,5 +1,6 @@
 import { supabase } from "../../src/lib/supabase";
 import { notifyStaffNewOrder } from "../../src/lib/staffNotifications.js";
+
 async function sendText(phone, text) {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -28,9 +29,7 @@ async function sendText(phone, text) {
 
   const data = await res.json().catch(() => null);
 
-  if (!res.ok) {
-    console.error("❌ Erro WhatsApp:", data);
-  }
+  if (!res.ok) console.error("❌ Erro WhatsApp:", data);
 
   return data;
 }
@@ -90,6 +89,27 @@ function buildItemLines(items = []) {
     .join("\n");
 }
 
+async function findAffiliateStaff(profilePageId, affiliateRef = "") {
+  const ref = String(affiliateRef || "").trim();
+
+  if (!profilePageId || !ref) return null;
+
+  const { data, error } = await supabase
+    .from("profile_staff")
+    .select("*")
+    .eq("profile_page_id", profilePageId)
+    .eq("ativo", true)
+    .or(`affiliate_code.eq.${ref},affiliate_slug.eq.${ref}`)
+    .maybeSingle();
+
+  if (error) {
+    console.error("❌ erro ao buscar afiliado:", error);
+    return null;
+  }
+
+  return data || null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Método não permitido." });
@@ -104,6 +124,9 @@ export default async function handler(req, res) {
       items,
       total,
       has_quote,
+
+      affiliate_ref = "",
+      source_ref = "",
 
       source_channel = "whatsapp_automation",
       automation_status = "waiting_owner_confirmation",
@@ -130,43 +153,40 @@ export default async function handler(req, res) {
     }
 
     const cleanCustomerPhone = normalizeBRPhone(customer_phone);
-    const cleanOwnerPhone = normalizeBRPhone(
-      profile_owner_phone || profile.whatsapp
-       );
+    const cleanOwnerPhone = normalizeBRPhone(profile_owner_phone || profile.whatsapp);
+
+    const finalAffiliateRef = String(affiliate_ref || source_ref || "").trim();
+    const affiliateStaff = await findAffiliateStaff(profile_page_id, finalAffiliateRef);
+
+    const finalSourceChannel = affiliateStaff
+      ? "affiliate_link"
+      : source_channel || "whatsapp_automation";
 
     const { data: order, error } = await supabase
       .from("profile_orders")
       .insert({
         profile_page_id,
-
         customer_name: String(customer_name || "").trim(),
-
         customer_phone: cleanCustomerPhone,
-
         note: String(note || "").trim(),
-
         items: Array.isArray(items) ? items : [],
-
         total: Number(total || 0),
-
         has_quote: !!has_quote,
-
         status: "pending",
 
-        source_channel,
-
+        source_channel: finalSourceChannel,
+        source_ref: finalAffiliateRef || null,
         automation_status,
 
-        profile_owner_name:
-          profile_owner_name ||
-          profile.nome ||
-          "",
+        seller_staff_id: affiliateStaff?.id || null,
+        seller_staff_name: affiliateStaff?.nome || null,
+        assigned_staff_id: affiliateStaff?.id || null,
+        staff_id: affiliateStaff?.id || null,
 
-        profile_owner_phone:
-          cleanOwnerPhone,
+        profile_owner_name: profile_owner_name || profile.nome || "",
+        profile_owner_phone: cleanOwnerPhone,
 
         created_at: new Date().toISOString(),
-
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -176,75 +196,43 @@ export default async function handler(req, res) {
       console.error("❌ Erro ao salvar pedido:", error);
 
       return res.status(500).json({
-        error:
-          error.message ||
-          "Erro ao salvar pedido.",
+        error: error.message || "Erro ao salvar pedido.",
       });
     }
-
-    /*
-      =====================================
-      AVISO PARA O DONO DA PÁGINA
-      =====================================
-    */
 
     if (cleanOwnerPhone) {
       await sendText(
         cleanOwnerPhone,
-
         `🔔 *Novo pedido recebido!*\n\n` +
-
           `🧾 Pedido: ${order.id}\n` +
-
-          `📌 Página: ${
-            profile.nome || "Perfil profissional"
-          }\n\n` +
-
+          `📌 Página: ${profile.nome || "Perfil profissional"}\n\n` +
           `👤 Cliente: ${customer_name}\n` +
-
           `📞 WhatsApp: ${cleanCustomerPhone}\n\n` +
-
-          `🛍️ *Itens do pedido:*\n\n` +
-
-          `${buildItemLines(items)}\n\n` +
-
-          `💰 Total: ${
-            has_quote
-              ? `Sob orçamento / parcial ${money(total)}`
-              : money(total)
-          }\n` +
-
           `${
-            note
-              ? `\n📝 Observação:\n${note}\n`
+            affiliateStaff
+              ? `🔗 Indicado por: *${affiliateStaff.nome || "Funcionário"}*\n\n`
               : ""
+          }` +
+          `🛍️ *Itens do pedido:*\n\n` +
+          `${buildItemLines(items)}\n\n` +
+          `💰 Total: ${
+            has_quote ? `Sob orçamento / parcial ${money(total)}` : money(total)
           }\n` +
-
+          `${note ? `\n📝 Observação:\n${note}\n` : ""}` +
           `Acesse o painel RendaJá para confirmar ou finalizar esse pedido.`
       );
-    
     }
-  await notifyStaffNewOrder(order);
-    /*
-      =====================================
-      MENSAGEM AUTOMÁTICA PARA CLIENTE
-      =====================================
-    */
+
+    await notifyStaffNewOrder(order);
 
     if (cleanCustomerPhone) {
       await sendText(
         cleanCustomerPhone,
-
         `✨ *Recebemos sua solicitação!*\n\n` +
-
           `Seu pedido foi enviado com sucesso para:\n` +
-
           `🏪 ${profile.nome || "a loja"}\n\n` +
-
           `🧾 Código do pedido:\n${order.id}\n\n` +
-
           `Agora é só aguardar a confirmação.\n\n` +
-
           `Você receberá atualizações automáticas diretamente aqui no WhatsApp. 💬`
       );
     }
@@ -253,18 +241,11 @@ export default async function handler(req, res) {
       ok: true,
       order,
     });
-
   } catch (err) {
-
-    console.error(
-      "❌ Erro geral profile-orders:",
-      err
-    );
+    console.error("❌ Erro geral profile-orders:", err);
 
     return res.status(500).json({
-      error:
-        err.message ||
-        "Erro interno ao criar pedido.",
+      error: err.message || "Erro interno ao criar pedido.",
     });
   }
 }

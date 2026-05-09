@@ -487,8 +487,10 @@ export default function BookingSection({ profile }) {
         booking.date ===
           selectedDateKey &&
         booking.time === slot &&
-        booking.staff_id ===
-          selectedStaffId
+        (
+  booking.staff_id === selectedStaffId ||
+  booking.assigned_staff_id === selectedStaffId
+)
     );
   }
 
@@ -788,7 +790,11 @@ async function submitBookingRequest(event) {
     const customerName = bookingCreated?.customer_name || "Cliente";
 
     const assignedStaff =
-      staffMembers.find((staff) => staff.id === bookingCreated?.staff_id) ||
+      staffMembers.find(
+  (staff) =>
+    staff.id === bookingCreated?.staff_id ||
+    staff.id === bookingCreated?.assigned_staff_id
+) ||
       null;
 
     const text = buildWhatsAppText(customerName, assignedStaff);

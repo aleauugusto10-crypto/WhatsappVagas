@@ -7,7 +7,25 @@ function money(value = 0) {
     currency: "BRL",
   });
 }
+function getAffiliateRef() {
 
+  if (typeof window === "undefined") return "";
+
+  const params = new URLSearchParams(window.location.search);
+
+  return (
+
+    params.get("ref") ||
+
+    params.get("affiliate") ||
+
+    params.get("vendedor") ||
+
+    ""
+
+  );
+
+}
 function onlyDigits(value = "") {
   return String(value || "").replace(/\D/g, "");
 }
@@ -47,7 +65,7 @@ const automationWhatsapp = onlyDigits(
   profile?.automation_whatsapp ||
   ""
 );
-
+const affiliateRef = getAffiliateRef();
   const categories = useMemo(() => {
     return Array.isArray(profile?.store_categories)
       ? profile.store_categories.filter((category) => category?.active !== false)
@@ -364,16 +382,43 @@ Aguardo a confirmação.`;
       return;
     }
 
-  const orderItems = cart.map((item) => ({
+const orderItems = cart.map((item) => ({
+
   id: item.id,
+
   type: item.type || "service",
+
   title: item.title || item.name || "Item",
+
   qty: item.qty || 1,
+
   price: isQuote(item) ? null : Number(item.price || 0),
+
   price_type: item.price_type || "fixed",
+
   category_id: item.category_id || "",
 
   image_url: item.image_url || "",
+
+  commission_enabled: item.commission_enabled === true,
+
+  allowed_staff_ids:
+
+    item.allowed_staff_ids ||
+
+    item.staff_ids ||
+
+    item.seller_staff_ids ||
+
+    [],
+
+  allow_all_staff:
+
+    item.allow_all_staff === true ||
+
+    item.all_staff === true ||
+
+    false,
 
   selected_variants: Array.isArray(item.selected_variants)
     ? item.selected_variants
@@ -384,19 +429,38 @@ const res = await fetch("/api/profile-orders", {
   headers: {
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({
+ body: JSON.stringify({
+
   profile_page_id: profile.id,
+
   customer_name: customerName,
+
   customer_phone: phone,
+
   note: customer.note.trim(),
+
   items: orderItems,
+
   total,
+
   has_quote: cartHasQuote,
 
-  source_channel: "whatsapp_automation",
+  affiliate_ref: affiliateRef,
+
+  source_ref: affiliateRef,
+
+  source_channel: affiliateRef
+
+    ? "affiliate_link"
+
+    : "whatsapp_automation",
+
   automation_status: "waiting_owner_confirmation",
+
   profile_owner_name: profile.nome || profile.name || "",
+
   profile_owner_phone: onlyDigits(profile.whatsapp || profile.phone || ""),
+
 }),
 });
 
