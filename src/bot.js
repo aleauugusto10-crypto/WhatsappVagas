@@ -882,7 +882,18 @@ if (text === "staff_bookings") {
     console.error("❌ erro confirmar booking:", error);
     return sendText(phone, "Erro ao confirmar agendamento.");
   }
+const customerPhone = normalizeBRPhone(confirmedBooking.customer_phone);
 
+if (customerPhone) {
+  await sendText(
+    customerPhone,
+    `Olá, ${confirmedBooking.customer_name || "tudo bem"}! ✅\n\n` +
+      `Seu agendamento foi confirmado.\n\n` +
+      `📅 Data: ${confirmedBooking.date || "-"}\n` +
+      `⏰ Horário: ${confirmedBooking.time || "-"}\n\n` +
+      `Fique atento às próximas mensagens 📲`
+  );
+}
   await sendText(phone, "✅ Agendamento confirmado com sucesso.");
 
   return sendActionButtons(phone, "O que deseja fazer agora?", [
@@ -1331,6 +1342,151 @@ if (!phone) return;
       msg?.interactive?.list_reply?.id ||
       msg?.text?.body?.toLowerCase().trim() ||
       "";
+
+      // =====================
+// CLIENTE RESPONDE PRESENÇA DO AGENDAMENTO
+// =====================
+if (text.startsWith("booking_presence_confirm_")) {
+  const bookingId = text.replace("booking_presence_confirm_", "");
+
+  const { data: booking, error } = await supabase
+    .from("profile_bookings")
+    .update({
+      confirmation_status: "confirmed",
+      confirmed_at: new Date().toISOString(),
+      customer_response_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+    .select(`
+      *,
+      profiles_pages (
+        id,
+        nome,
+        whatsapp
+      )
+    `)
+    .single();
+
+  if (error || !booking) {
+    console.error("❌ erro confirmar presença:", error);
+    return sendText(phone, "Não consegui confirmar sua presença agora.");
+  }
+
+  const ownerPhone = normalizeBRPhone(booking.profiles_pages?.whatsapp);
+
+  if (ownerPhone) {
+    await sendText(
+      ownerPhone,
+      `✅ *Cliente confirmou presença!*\n\n` +
+        `👤 Cliente: ${booking.customer_name || "Cliente"}\n` +
+        `📞 WhatsApp: ${booking.customer_phone || phone}\n` +
+        `📅 Data: ${booking.date || "-"}\n` +
+        `⏰ Horário: ${booking.time || "-"}`
+    );
+  }
+
+  return sendText(
+    phone,
+    `✅ Presença confirmada!\n\n` +
+      `Seu agendamento está confirmado para:\n` +
+      `📅 ${booking.date || "-"} às ${booking.time || "-"}`
+  );
+}
+
+if (text.startsWith("booking_presence_cancel_")) {
+  const bookingId = text.replace("booking_presence_cancel_", "");
+
+  const { data: booking, error } = await supabase
+    .from("profile_bookings")
+    .update({
+      status: "cancelled",
+      confirmation_status: "cancelled",
+      cancelled_by: "customer",
+      customer_response_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+    .select(`
+      *,
+      profiles_pages (
+        id,
+        nome,
+        whatsapp
+      )
+    `)
+    .single();
+
+  if (error || !booking) {
+    console.error("❌ erro cancelar presença:", error);
+    return sendText(phone, "Não consegui cancelar seu agendamento agora.");
+  }
+
+  const ownerPhone = normalizeBRPhone(booking.profiles_pages?.whatsapp);
+
+  if (ownerPhone) {
+    await sendText(
+      ownerPhone,
+      `🚫 *Cliente cancelou o agendamento!*\n\n` +
+        `👤 Cliente: ${booking.customer_name || "Cliente"}\n` +
+        `📞 WhatsApp: ${booking.customer_phone || phone}\n` +
+        `📅 Data: ${booking.date || "-"}\n` +
+        `⏰ Horário: ${booking.time || "-"}`
+    );
+  }
+
+  return sendText(
+    phone,
+    "🚫 Seu agendamento foi cancelado. Obrigado por avisar."
+  );
+}
+
+if (text.startsWith("booking_presence_reschedule_")) {
+  const bookingId = text.replace("booking_presence_reschedule_", "");
+
+  const { data: booking, error } = await supabase
+    .from("profile_bookings")
+    .update({
+      confirmation_status: "reschedule_requested",
+      customer_response_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+    .select(`
+      *,
+      profiles_pages (
+        id,
+        nome,
+        whatsapp
+      )
+    `)
+    .single();
+
+  if (error || !booking) {
+    console.error("❌ erro pedir reagendamento:", error);
+    return sendText(phone, "Não consegui solicitar o reagendamento agora.");
+  }
+
+  const ownerPhone = normalizeBRPhone(booking.profiles_pages?.whatsapp);
+
+  if (ownerPhone) {
+    await sendText(
+      ownerPhone,
+      `🔄 *Cliente pediu reagendamento!*\n\n` +
+        `👤 Cliente: ${booking.customer_name || "Cliente"}\n` +
+        `📞 WhatsApp: ${booking.customer_phone || phone}\n` +
+        `📅 Data atual: ${booking.date || "-"}\n` +
+        `⏰ Horário atual: ${booking.time || "-"}\n\n` +
+        `Entre em contato com o cliente para combinar outro horário.`
+    );
+  }
+
+  return sendText(
+    phone,
+    `🔄 Solicitação de reagendamento enviada!\n\n` +
+      `A loja/profissional foi avisado e poderá falar com você para combinar outro horário.`
+  );
+}
       const pendingOwnerAction = ownerTempActions.get(phone);
 
 if (pendingOwnerAction) {
