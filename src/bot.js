@@ -929,6 +929,16 @@ if (text.startsWith("staff_finish_booking_")) {
     "💰 Para finalizar esse atendimento, envie o valor recebido.\n\nExemplo: *80* ou *80,00*"
   );
 
+  if (staff.role === "owner") {
+    ownerTempActions.set(phone, {
+      action: "finish_booking",
+      bookingId,
+      profilePageId: staff.profile_page_id || staff.profiles_pages?.id,
+    });
+
+    return;
+  }
+
   await supabase
     .from("profile_staff")
     .update({
