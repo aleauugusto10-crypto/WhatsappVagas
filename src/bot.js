@@ -489,15 +489,13 @@ if (staff.temp_action === "finish_booking" && staff.temp_booking_id) {
     return sendText(phone, "📦 Nenhum pedido pendente no momento.");
   }
 
-  const rows = data.map((order) => ({
-    id: `staff_order_${order.id}`,
-    title: `${order.customer_name || "Cliente"} • ${
-      order.has_quote ? "Orçamento" : money(order.total || 0)
-    }`,
-    description: `${order.status || "pendente"} • ${
-      order.created_at ? new Date(order.created_at).toLocaleDateString("pt-BR") : ""
-    }`,
-  }));
+  const rows = data.map((order, index) => ({
+  id: `staff_order_${order.id}`,
+  title: `Pedido ${index + 1}`,
+  description: `${String(order.customer_name || "Cliente").slice(0, 28)} • ${
+    order.has_quote ? "Orçamento" : money(order.total || 0)
+  }`,
+}));
 
   return sendList(phone, "📦 *Pedidos disponíveis:*\n\nEscolha um para ver detalhes:", [
     {
