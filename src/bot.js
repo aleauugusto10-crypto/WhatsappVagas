@@ -147,6 +147,12 @@ function calcStaffCommission(staff, amount) {
 
   return 0;
 }
+function money(value = 0) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
 async function getLastUserPayment(userId) {
   const { data, error } = await supabase
     .from("pagamentos_plataforma")
