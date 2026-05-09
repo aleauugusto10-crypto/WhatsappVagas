@@ -228,9 +228,16 @@ affiliate_slug: affiliateCode,
 
       return res.status(201).json(data);
     }
+if (req.method === "PATCH") {
+  const { staffId, updates = {} } = req.body || {};
 
-    if (req.method === "PATCH") {
-      const { staffId, updates = {} } = req.body || {};
+  if (!staffId) {
+        return res.status(400).json({ error: "staffId obrigatório." });
+      }
+
+      const payload = {
+        updated_at: new Date().toISOString(),
+      };
 if ("canViewOrders" in updates) payload.can_view_orders = !!updates.canViewOrders;
 if ("canViewBookings" in updates) payload.can_view_bookings = !!updates.canViewBookings;
 
@@ -242,14 +249,6 @@ if ("canFinalizeBookings" in updates) payload.can_finalize_bookings = !!updates.
 
 if ("receivesCommission" in updates) payload.receives_commission = !!updates.receivesCommission;
 if ("whatsappEnabled" in updates) payload.whatsapp_enabled = updates.whatsappEnabled !== false;
-      if (!staffId) {
-        return res.status(400).json({ error: "staffId obrigatório." });
-      }
-
-      const payload = {
-        updated_at: new Date().toISOString(),
-      };
-
       if ("nome" in updates) payload.nome = String(updates.nome || "").trim();
       if ("telefone" in updates) payload.telefone = onlyDigits(updates.telefone) || null;
       if ("email" in updates) payload.email = updates.email || null;
