@@ -102,6 +102,35 @@ function getBRPhoneCandidates(phone = "") {
 
   return [...candidates].filter(Boolean);
 }
+
+
+function parseMoneyFromText(text = "") {
+  const clean = String(text || "")
+    .replace("R$", "")
+    .replace(/\s/g, "")
+    .replace(",", ".");
+
+  const value = Number(clean);
+
+  return Number.isFinite(value) ? value : 0;
+}
+
+function calcStaffCommission(staff, amount) {
+  const saleAmount = Number(amount || 0);
+  const commissionValue = Number(staff?.commission_value || 0);
+
+  if (!staff || staff.commission_type === "none") return 0;
+
+  if (staff.commission_type === "percent") {
+    return Number(((saleAmount * commissionValue) / 100).toFixed(2));
+  }
+
+  if (staff.commission_type === "fixed") {
+    return Number(commissionValue.toFixed(2));
+  }
+
+  return 0;
+}
 async function getLastUserPayment(userId) {
   const { data, error } = await supabase
     .from("pagamentos_plataforma")
@@ -201,7 +230,668 @@ await sendText(
     `⏳ Pedido criado, aguardando pagamento.\nID: ${payment.id}`
   );
 }
+async function findStaffByPhone(phone) {
+  const candidates = getBRPhoneCandidates(phone);
 
+  const { data, error } = await supabase
+    .from("profile_staff")
+    .select(`
+      *,
+      profiles_pages (
+        id,
+        nome,
+        slug,
+        whatsapp,
+        user_id
+      )
+    `)
+    .in("telefone", candidates)
+    .eq("ativo", true)
+    .eq("whatsapp_enabled", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("❌ erro findStaffByPhone:", error);
+    return null;
+  }
+
+  return data || null;
+}
+
+function staffRoleLabel(role) {
+  if (role === "manager") return "Gerente";
+  if (role === "cashier") return "Caixa";
+  return "Funcionário";
+}
+
+async function sendStaffMenu(phone, staff) {
+  const rows = [];
+
+  if (staff.can_view_orders) {
+    rows.push({
+      id: "staff_orders",
+      title: "📦 Pedidos",
+    });
+  }
+
+  if (staff.can_view_bookings) {
+    rows.push({
+      id: "staff_bookings",
+      title: "📅 Agendamentos",
+    });
+  }
+
+  if (staff.can_finalize_orders || staff.can_finalize_bookings) {
+    rows.push({
+      id: "staff_finalize",
+      title: "✅ Finalizações",
+    });
+  }
+
+  if (staff.receives_commission || staff.commission_type !== "none") {
+    rows.push({
+      id: "staff_commissions",
+      title: "💰 Minhas comissões",
+    });
+
+    rows.push({
+      id: "staff_affiliate",
+      title: "🔗 Meu link de divulgação",
+    });
+  }
+
+  rows.push({
+    id: "staff_help",
+    title: "🛟 Ajuda",
+  });
+
+  if (rows.length === 0) {
+    return sendText(
+      phone,
+      "Você está cadastrado como funcionário, mas ainda não possui permissões liberadas. Fale com o dono da página."
+    );
+  }
+
+  return sendList(
+    phone,
+    `👋 Olá, ${staff.nome}!\n\n` +
+      `Você está no menu da equipe de *${staff.profiles_pages?.nome || "sua empresa"}*.\n\n` +
+      `Cargo: ${staff.position_title || staffRoleLabel(staff.role)}\n\n` +
+      `Escolha uma opção abaixo:`,
+    [
+      {
+        title: "Menu da equipe",
+        rows,
+      },
+    ]
+  );
+}
+
+async function handleStaffMenu({ phone, text, staff }) {
+
+if (staff.temp_action === "finish_booking" && staff.temp_booking_id) {
+  const amount = parseMoneyFromText(text);
+
+  if (!amount || amount <= 0) {
+    return sendText(
+      phone,
+      "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *80* ou *80,00*"
+    );
+  }
+
+  const bookingId = staff.temp_booking_id;
+  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+  const commissionAmount = calcStaffCommission(staff, amount);
+
+  const { data: booking, error: bookingError } = await supabase
+    .from("profile_bookings")
+    .update({
+      status: "completed",
+      total: amount,
+      paid_amount: amount,
+      payment_status: "paid",
+      payment_method: "manual",
+      assigned_staff_id: staff.id,
+      finalized_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`)
+    .select()
+    .single();
+
+  if (bookingError) {
+    console.error("❌ erro finalizar booking:", bookingError);
+    return sendText(phone, "Erro ao finalizar atendimento.");
+  }
+
+  const { error: movementError } = await supabase
+    .from("finance_movements")
+    .insert({
+      profile_page_id: profilePageId,
+      type: "income",
+      amount,
+      payment_method: "manual",
+      description: `Atendimento finalizado - ${booking.customer_name || "Cliente"}`,
+      note: "Finalizado pelo funcionário via WhatsApp",
+      source_type: "booking",
+      source_id: bookingId,
+
+      staff_id: staff.id,
+      staff_name: staff.nome,
+
+      registered_by_id: staff.id,
+      registered_by_name: staff.nome,
+      registered_by_role: staff.role || "staff",
+
+      commission_amount: commissionAmount,
+      commission_type: staff.commission_type || "none",
+      commission_to_staff_id: staff.id,
+      commission_to_staff_name: staff.nome,
+
+      created_at: new Date().toISOString(),
+    });
+
+  if (movementError) {
+    console.error("❌ erro movement booking:", movementError);
+    return sendText(
+      phone,
+      "Atendimento finalizado, mas houve erro ao lançar no financeiro."
+    );
+  }
+
+  await supabase
+    .from("profile_staff")
+    .update({
+      temp_action: null,
+      temp_booking_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", staff.id);
+
+
+  return sendText(
+    phone,
+    `✅ Atendimento finalizado!\n\n` +
+      `Valor recebido: *${amount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      })}*\n` +
+      `Comissão gerada: *${commissionAmount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      })}*`
+  );
+}
+  if (["menu", "oi", "inicio", "início", "staff_menu"].includes(text)) {
+    return sendStaffMenu(phone, staff);
+  }
+
+  if (text === "staff_orders") {
+  if (!staff.can_view_orders) {
+    return sendText(phone, "Você não tem permissão para ver pedidos.");
+  }
+
+  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+
+  let query = supabase
+    .from("profile_orders")
+    .select("*")
+    .eq("profile_page_id", profilePageId)
+    .in("status", ["pending", "confirmed"])
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  const canSeeGeneralOrders =
+    staff.role === "manager" ||
+    staff.role === "cashier" ||
+    staff.can_confirm_orders ||
+    staff.can_finalize_orders;
+
+  if (!canSeeGeneralOrders) {
+    query = query.or(
+      `staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id},seller_staff_id.eq.${staff.id}`
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("❌ erro staff_orders:", error);
+    return sendText(phone, "Erro ao buscar pedidos.");
+  }
+
+  if (!data?.length) {
+    return sendText(phone, "📦 Nenhum pedido pendente no momento.");
+  }
+
+  const rows = data.map((order) => ({
+    id: `staff_order_${order.id}`,
+    title: `${order.customer_name || "Cliente"} • ${
+      order.has_quote ? "Orçamento" : money(order.total || 0)
+    }`,
+    description: `${order.status || "pendente"} • ${
+      order.created_at ? new Date(order.created_at).toLocaleDateString("pt-BR") : ""
+    }`,
+  }));
+
+  return sendList(phone, "📦 *Pedidos disponíveis:*\n\nEscolha um para ver detalhes:", [
+    {
+      title: "Pedidos",
+      rows,
+    },
+  ]);
+}
+
+  if (text === "staff_bookings") {
+  if (!staff.can_view_bookings) {
+    return sendText(phone, "Você não tem permissão para ver agendamentos.");
+  }
+
+  const { data, error } = await supabase
+    .from("profile_bookings")
+    .select("*")
+    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`)
+    .in("status", ["pending", "confirmed"])
+    .order("date", { ascending: true })
+    .order("time", { ascending: true })
+    .limit(10);
+
+  if (error) {
+    console.error("❌ erro staff_bookings:", error);
+    return sendText(phone, "Erro ao buscar seus agendamentos.");
+  }
+
+  if (!data?.length) {
+    return sendText(phone, "📅 Você não possui agendamentos pendentes no momento.");
+  }
+
+  const rows = data.map((booking) => ({
+    id: `staff_booking_${booking.id}`,
+    title: `${booking.customer_name || "Cliente"} • ${booking.date}`,
+    description: `${booking.time || ""} • ${booking.status || "pendente"}`,
+  }));
+
+  return sendList(phone, "📅 *Seus agendamentos:*\n\nEscolha um para ver detalhes:", [
+    {
+      title: "Agendamentos",
+      rows,
+    },
+  ]);
+}
+
+  if (text === "staff_finalize") {
+    return sendText(
+      phone,
+      "✅ *Finalizações*\n\nAqui vamos permitir finalizar pedido ou atendimento pelo WhatsApp, registrando pagamento no financeiro."
+    );
+  }
+
+  if (text === "staff_commissions") {
+    const pending = Number(staff.pending_commission_amount || 0).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+
+    return sendText(
+      phone,
+      `💰 *Minhas comissões*\n\n` +
+        `Comissão configurada: ${
+          staff.commission_type === "percent"
+            ? `${Number(staff.commission_value || 0)}%`
+            : staff.commission_type === "fixed"
+            ? `R$ ${Number(staff.commission_value || 0).toFixed(2)}`
+            : "Sem comissão"
+        }\n\n` +
+        `Comissão atual pendente: *${pending}*`
+    );
+  }
+
+  if (text === "staff_affiliate") {
+    const baseUrl =
+      process.env.PROFILE_PUBLIC_BASE_URL ||
+      process.env.FRONTEND_BASE_URL ||
+      process.env.APP_PUBLIC_URL ||
+      process.env.APP_BASE_URL ||
+      "https://rendaja.online";
+
+    const slug = staff.profiles_pages?.slug || "";
+    const ref = staff.affiliate_code || staff.affiliate_slug || "";
+
+    if (!slug || !ref) {
+      return sendText(phone, "Seu link de divulgação ainda não foi gerado.");
+    }
+
+    return sendText(
+      phone,
+      `🔗 *Seu link de divulgação*\n\n` +
+        `${baseUrl.replace(/\/$/, "")}/p/${slug}?ref=${ref}\n\n` +
+        `Quando alguém comprar ou agendar por esse link, a comissão será vinculada a você.`
+    );
+  }
+
+  if (text === "staff_help") {
+    return sendText(
+      phone,
+      "🛟 *Ajuda da equipe*\n\nDigite *menu* para voltar ao menu da equipe."
+    );
+  }
+  
+  if (text.startsWith("staff_confirm_booking_")) {
+  const bookingId = text.replace("staff_confirm_booking_", "");
+
+  if (!staff.can_confirm_bookings) {
+    return sendText(phone, "Você não tem permissão para confirmar agendamentos.");
+  }
+
+  const { error } = await supabase
+    .from("profile_bookings")
+    .update({
+      status: "confirmed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`);
+
+  if (error) {
+    console.error("❌ erro confirmar booking:", error);
+    return sendText(phone, "Erro ao confirmar agendamento.");
+  }
+
+  return sendText(phone, "✅ Agendamento confirmado com sucesso.");
+}
+
+if (text.startsWith("staff_cancel_booking_")) {
+  const bookingId = text.replace("staff_cancel_booking_", "");
+
+  const { error } = await supabase
+    .from("profile_bookings")
+    .update({
+      status: "cancelled",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`);
+
+  if (error) {
+    console.error("❌ erro cancelar booking:", error);
+    return sendText(phone, "Erro ao cancelar agendamento.");
+  }
+
+  return sendText(phone, "🚫 Agendamento cancelado.");
+}
+if (text.startsWith("staff_confirm_order_")) {
+  const orderId = text.replace("staff_confirm_order_", "");
+
+  if (!staff.can_confirm_orders) {
+    return sendText(phone, "Você não tem permissão para confirmar pedidos.");
+  }
+
+  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+
+  const { error } = await supabase
+    .from("profile_orders")
+    .update({
+      status: "confirmed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .eq("profile_page_id", profilePageId);
+
+  if (error) {
+    console.error("❌ erro confirmar pedido:", error);
+    return sendText(phone, "Erro ao confirmar pedido.");
+  }
+
+  return sendText(phone, "✅ Pedido confirmado com sucesso.");
+}
+
+if (text.startsWith("staff_finish_order_")) {
+  const orderId = text.replace("staff_finish_order_", "");
+
+  if (!staff.can_finalize_orders) {
+    return sendText(phone, "Você não tem permissão para finalizar pedidos.");
+  }
+
+  await sendText(
+    phone,
+    "💰 Para finalizar esse pedido, envie o valor recebido.\n\nExemplo: *120* ou *120,00*"
+  );
+
+  await supabase
+    .from("profile_staff")
+    .update({
+      temp_action: "finish_order",
+      temp_order_id: orderId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", staff.id);
+
+  return;
+}
+if (text.startsWith("staff_cancel_order_")) {
+  const orderId = text.replace("staff_cancel_order_", "");
+  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+
+  const { error } = await supabase
+    .from("profile_orders")
+    .update({
+      status: "cancelled",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .eq("profile_page_id", profilePageId);
+
+  if (error) {
+    console.error("❌ erro cancelar pedido:", error);
+    return sendText(phone, "Erro ao cancelar pedido.");
+  }
+
+  return sendText(phone, "🚫 Pedido cancelado.");
+}
+if (text.startsWith("staff_finish_booking_")) {
+  const bookingId = text.replace("staff_finish_booking_", "");
+
+  if (!staff.can_finalize_bookings) {
+    return sendText(phone, "Você não tem permissão para finalizar agendamentos.");
+  }
+
+  await sendText(
+    phone,
+    "💰 Para finalizar esse atendimento, envie o valor recebido.\n\nExemplo: *80* ou *80,00*"
+  );
+
+  await supabase
+    .from("profile_staff")
+    .update({
+      temp_action: "finish_booking",
+      temp_booking_id: bookingId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", staff.id);
+
+  return;
+}
+if (staff.temp_action === "finish_order" && staff.temp_order_id) {
+  const amount = parseMoneyFromText(text);
+
+  if (!amount || amount <= 0) {
+    return sendText(
+      phone,
+      "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *120* ou *120,00*"
+    );
+  }
+
+  const orderId = staff.temp_order_id;
+  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+  const commissionAmount = calcStaffCommission(staff, amount);
+
+  const { data: order, error: orderError } = await supabase
+    .from("profile_orders")
+    .update({
+      status: "delivered",
+      paid_amount: amount,
+      payment_status: "paid",
+      payment_method: "manual",
+      finalized_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .eq("profile_page_id", profilePageId)
+    .select()
+    .single();
+
+  if (orderError) {
+    console.error("❌ erro finalizar pedido:", orderError);
+    return sendText(phone, "Erro ao finalizar pedido.");
+  }
+
+  const { error: movementError } = await supabase
+    .from("finance_movements")
+    .insert({
+      profile_page_id: profilePageId,
+      type: "income",
+      amount,
+      payment_method: "manual",
+      description: `Pedido finalizado - ${order.customer_name || "Cliente"}`,
+      note: "Finalizado pelo funcionário via WhatsApp",
+      source_type: "order",
+      source_id: orderId,
+
+      items: Array.isArray(order.items) ? order.items : [],
+
+      customer_name: order.customer_name || null,
+      customer_phone: order.customer_phone || null,
+
+      staff_id: staff.id,
+      staff_name: staff.nome,
+
+      registered_by_id: staff.id,
+      registered_by_name: staff.nome,
+      registered_by_role: staff.role || "staff",
+
+      commission_amount: commissionAmount,
+      commission_type: staff.commission_type || "none",
+      commission_to_staff_id: staff.id,
+      commission_to_staff_name: staff.nome,
+
+      created_at: new Date().toISOString(),
+    });
+
+  if (movementError) {
+    console.error("❌ erro movement pedido:", movementError);
+    return sendText(
+      phone,
+      "Pedido finalizado, mas houve erro ao lançar no financeiro."
+    );
+  }
+
+  await supabase
+    .from("profile_staff")
+    .update({
+      temp_action: null,
+      temp_order_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", staff.id);
+
+  return sendText(
+    phone,
+    `✅ Pedido finalizado!\n\n` +
+      `Valor recebido: *${amount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      })}*\n` +
+      `Comissão gerada: *${commissionAmount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      })}*`
+  );
+}
+if (text.startsWith("staff_booking_")) {
+  const bookingId = text.replace("staff_booking_", "");
+
+  const { data: booking, error } = await supabase
+    .from("profile_bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`)
+    .maybeSingle();
+
+  if (error || !booking) {
+    console.error("❌ erro staff_booking detalhe:", error);
+    return sendText(phone, "Não consegui encontrar esse agendamento.");
+  }
+
+  const services = Array.isArray(booking.services) ? booking.services : [];
+
+  const servicesText =
+    services.length > 0
+      ? services
+          .map((service) => {
+            const name =
+              service.name ||
+              service.title ||
+              service.service_title ||
+              "Serviço";
+
+            const price =
+              service.price_type === "quote"
+                ? "Sob orçamento"
+                : service.price
+                ? `R$ ${Number(service.price || 0).toFixed(2)}`
+                : "";
+
+            return `• ${service.qty || 1}x ${name}${price ? ` — ${price}` : ""}`;
+          })
+          .join("\n")
+      : "Serviço não informado";
+
+  await sendText(
+    phone,
+    `📅 *Detalhes do agendamento*\n\n` +
+      `👤 Cliente: ${booking.customer_name || "Cliente"}\n` +
+      `📞 WhatsApp: ${booking.customer_phone || "Não informado"}\n` +
+      `📅 Data: ${booking.date || "-"}\n` +
+      `⏰ Horário: ${booking.time || "-"}\n` +
+      `📌 Status: ${booking.status || "pending"}\n\n` +
+      `🛠️ *Serviço(s):*\n${servicesText}\n` +
+      `${booking.note ? `\n📝 Observação:\n${booking.note}` : ""}`
+  );
+
+  const buttons = [];
+
+  if (booking.status === "pending" && staff.can_confirm_bookings) {
+    buttons.push({
+      id: `staff_confirm_booking_${booking.id}`,
+      title: "Confirmar",
+    });
+  }
+
+  if (booking.status === "confirmed" && staff.can_finalize_bookings) {
+    buttons.push({
+      id: `staff_finish_booking_${booking.id}`,
+      title: "Finalizar",
+    });
+  }
+
+  if (booking.status !== "cancelled") {
+    buttons.push({
+      id: `staff_cancel_booking_${booking.id}`,
+      title: "Cancelar",
+    });
+  }
+
+  buttons.push({
+    id: "staff_bookings",
+    title: "Voltar",
+  });
+
+  return sendActionButtons(phone, "O que deseja fazer?", buttons.slice(0, 3));
+}
+  return sendStaffMenu(phone, staff);
+}
 export async function handleMessage(msg) {
   
   const rawPhone = msg?.from;
@@ -222,7 +912,15 @@ if (!phone) return;
       msg?.interactive?.list_reply?.id ||
       msg?.text?.body?.toLowerCase().trim() ||
       "";
+const staff = await findStaffByPhone(phone);
 
+if (staff) {
+  return handleStaffMenu({
+    phone,
+    text,
+    staff,
+  });
+}
     const phoneCandidates = getBRPhoneCandidates(rawPhone);
 
 let { data: user } = await supabase
@@ -675,3 +1373,4 @@ return sendEntradaInicial(phone);
     processingUsers.delete(phone);
   }
 }
+

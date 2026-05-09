@@ -42,6 +42,12 @@ export default function StoreSection({ profile }) {
 
   const whatsapp = onlyDigits(profile?.whatsapp || profile?.phone || "");
 
+const automationWhatsapp = onlyDigits(
+  process.env.NEXT_PUBLIC_AUTOMATION_WHATSAPP ||
+  profile?.automation_whatsapp ||
+  ""
+);
+
   const categories = useMemo(() => {
     return Array.isArray(profile?.store_categories)
       ? profile.store_categories.filter((category) => category?.active !== false)
@@ -315,54 +321,27 @@ function getVariantImage() {
     });
   }
 
-  function buildWhatsAppLink() {
-    if (!whatsapp || cart.length === 0) return "#";
+  function buildWhatsAppLink(orderId = "") {
+  if (!automationWhatsapp || cart.length === 0) return "#";
 
-    const customerName = `${customer.firstName} ${customer.lastName}`.trim();
-    const customerPhone = onlyDigits(customer.phone);
+  const customerName = `${customer.firstName} ${customer.lastName}`.trim();
 
-    let message = `Olá! 👋\n\n`;
-    message += `Acabei de fazer uma solicitação pela página ${
-      profile?.name || profile?.nome || "profissional"
-    }.\n\n`;
+  const message = `Olá! Quero acompanhar minha solicitação.
 
-    message += `👤 Cliente: ${customerName}\n`;
-    message += `📞 WhatsApp: ${customerPhone}\n\n`;
-    message += `🛍️ Itens solicitados:\n`;
-cart.forEach((item) => {
-  const typeLabel = isProduct(item) ? "Produto" : "Serviço";
-  const priceLabel = isQuote(item)
-    ? "Sob orçamento"
-    : money(Number(item.price || 0) * item.qty);
+Código do pedido: ${orderId}
 
-  message += `• ${item.qty}x ${typeLabel}: ${item.title} — ${priceLabel}\n`;
+Cliente: ${customerName}
+Página: ${profile?.nome || profile?.name || "Vitrine profissional"}
 
-  if (Array.isArray(item.selected_variants) && item.selected_variants.length > 0) {
-    item.selected_variants.forEach((variant) => {
-      message += `   ↳ ${variant.variant_name}: ${variant.label}\n`;
-    });
-  }
-});
-    if (!cartHasQuote) {
-      message += `\n💰 Total estimado: ${money(total)}\n`;
-    } else {
-      message += `\n💰 Total parcial dos itens com preço: ${money(total)}\n`;
-      message += `ℹ️ Alguns itens estão sob orçamento.\n`;
-    }
+Aguardo a confirmação.`;
 
-    if (customer.note.trim()) {
-      message += `\n📝 Observação:\n${customer.note.trim()}\n`;
-    }
-
-    message += `\nAguardo retorno.`;
-
-    return `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}`;
-  }
+  return `https://wa.me/${automationWhatsapp}?text=${encodeURIComponent(message)}`;
+}
 
   function openCheckoutModal() {
-    if (cart.length === 0 || !whatsapp) return;
-    setShowCheckoutModal(true);
-  }
+  if (cart.length === 0 || !automationWhatsapp) return;
+  setShowCheckoutModal(true);
+}
 
   async function confirmCheckout() {
     const firstName = customer.firstName.trim();
@@ -406,14 +385,19 @@ const res = await fetch("/api/profile-orders", {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    profile_page_id: profile.id,
-    customer_name: customerName,
-    customer_phone: phone,
-    note: customer.note.trim(),
-    items: orderItems,
-    total,
-    has_quote: cartHasQuote,
-  }),
+  profile_page_id: profile.id,
+  customer_name: customerName,
+  customer_phone: phone,
+  note: customer.note.trim(),
+  items: orderItems,
+  total,
+  has_quote: cartHasQuote,
+
+  source_channel: "whatsapp_automation",
+  automation_status: "waiting_owner_confirmation",
+  profile_owner_name: profile.nome || profile.name || "",
+  profile_owner_phone: onlyDigits(profile.whatsapp || profile.phone || ""),
+}),
 });
 
 const data = await res.json().catch(() => ({}));
@@ -424,7 +408,9 @@ if (!res.ok) {
   return;
 }
 
-window.open(buildWhatsAppLink(), "_blank", "noopener,noreferrer");
+const orderId = data?.id || data?.order?.id || "";
+
+window.open(buildWhatsAppLink(orderId), "_blank", "noopener,noreferrer");
 
 setShowCheckoutModal(false);
 setCart([]);
@@ -731,10 +717,10 @@ alert("Pedido enviado com sucesso!");
                 <button
                   type="button"
                   className={`cart-checkout ${
-                    cart.length === 0 || !whatsapp ? "disabled" : ""
-                  }`}
-                  onClick={openCheckoutModal}
-                  disabled={cart.length === 0 || !whatsapp}
+  cart.length === 0 || !automationWhatsapp ? "disabled" : ""
+}`}
+onClick={openCheckoutModal}
+disabled={cart.length === 0 || !automationWhatsapp}
                 >
                   {cartHasQuote ? "Solicitar orçamento" : "Finalizar pedido"}
                 </button>

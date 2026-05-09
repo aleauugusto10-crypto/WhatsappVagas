@@ -161,7 +161,7 @@ const averageStars = "⭐".repeat(Math.round(averageRating));
   return (
     <section className="reviews">
     <div className="reviews-head">
-  <span>Avaliações reais</span>
+
 
   <h2 className="reviews-title">
     Avaliações

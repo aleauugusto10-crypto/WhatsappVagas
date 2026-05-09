@@ -28,7 +28,7 @@ export default function HomeProfilesShowcase() {
   if (!profiles.length) return [];
 
   const minItems = 30;
-  const repeatTimes = Math.max(6, Math.ceil(minItems / profiles.length));
+const repeatTimes = Math.max(6, Math.ceil(minItems / profiles.length));
 
   return Array.from({ length: repeatTimes }).flatMap(() => profiles);
 }, [profiles]);

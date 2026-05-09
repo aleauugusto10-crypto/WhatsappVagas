@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+
 import { supabase } from "../../src/lib/supabase";
 import Hero from "../../components/Hero";
 import Gallery from "../../components/Gallery";
@@ -7,6 +8,9 @@ import Reviews from "../../components/Reviews";
 import StoreSection from "../../components/StoreSection";
 import BookingSection from "../../components/BookingSection";
 import ServicesSection from "../../components/ServicesSection";
+import StaffPanel from "../../components/dashboard/StaffPanel";
+import FinancePanel from "../../components/dashboard/FinancePanel";
+import { getProfileStaff } from "../../src/modules/staff/staffService";
 import { QRCodeCanvas } from "qrcode.react";
 function money(value = 0) {
 
@@ -132,6 +136,9 @@ const MENU = [
   { id: "orders", label: "Pedidos", icon: "📦" },
 
   { id: "bookings", label: "Agendamentos", icon: "📅" },
+  { id: "staff", label: "Equipe", icon: "👥" },
+{ id: "finance", label: "Financeiro", icon: "💰" },
+
   { id: "reviews", label: "Avaliações", icon: "⭐" },
   { id: "jobs", label: "Vagas", icon: "💼" },
   { id: "missions", label: "Missões", icon: "🎯" },
@@ -617,6 +624,9 @@ return (
     reload={() => loadOrders(profile.id)}
   />
 )}
+{active === "staff" && <StaffPanel />}
+{active === "finance" && <FinancePanel profileFromDashboard={profile} />}
+{active === "schedule" && <SchedulePanel />}
 {active === "reviews" && (
   <ReviewsPanel
   profile={profile}
@@ -973,9 +983,20 @@ function ServicesEditor({ profile, setField }) {
     </div>
   );
 }
+
 function OrdersPanel({ orders, loading, reload }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedImage, setExpandedImage] = useState(null);
+  const [paymentModalOrder, setPaymentModalOrder] = useState(null);
+
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    payment_method: "pix",
+    note: "",
+  });
+
+  const [finishingPayment, setFinishingPayment] = useState(false);
+
   const counts = {
     all: orders.length,
     pending: orders.filter((item) => item.status === "pending").length,
@@ -988,103 +1009,132 @@ function OrdersPanel({ orders, loading, reload }) {
     statusFilter === "all"
       ? orders
       : orders.filter((item) => item.status === statusFilter);
-function getWhatsappPhone(phone = "") {
-  const raw = String(phone || "").replace(/\D/g, "");
-  if (!raw) return "";
-  return raw.startsWith("55") ? raw : `55${raw}`;
-}
 
-function buildWhatsappUrl(phone, message) {
-  const phoneBR = getWhatsappPhone(phone);
-  if (!phoneBR) return "#";
-  return `https://wa.me/${phoneBR}?text=${encodeURIComponent(message)}`;
-}
+  function openPaymentModal(order) {
+    const suggestedAmount = order.has_quote ? "" : Number(order.total || 0);
 
-function shortText(text = "", limit = 140) {
-  const clean = String(text || "").trim();
-  if (clean.length <= limit) return clean;
-  return `${clean.slice(0, limit)}...`;
-}
+    setPaymentModalOrder(order);
+    setPaymentForm({
+      amount: suggestedAmount,
+      payment_method: "pix",
+      note: "",
+    });
+  }
 
-function buildWhatsappConfirmUrl(order) {
-  return buildWhatsappUrl(
-    order.customer_phone,
-    `Olá, ${order.customer_name || "tudo bem"}!
+  function closePaymentModal() {
+    setPaymentModalOrder(null);
+    setPaymentForm({
+      amount: "",
+      payment_method: "pix",
+      note: "",
+    });
+  }
 
-Recebemos seu pedido e ele já foi confirmado.
+  async function finalizeOrderPayment() {
+    if (!paymentModalOrder?.id || finishingPayment) return;
 
-Agora vamos dar andamento ao processamento e qualquer novidade te avisamos por aqui.
+    const amount = Number(paymentForm.amount || 0);
 
-Obrigado por comprar com a gente!`
-  );
-}
+    if (!amount || amount <= 0) {
+      alert("Informe o valor recebido.");
+      return;
+    }
 
-function buildWhatsappDeliveredUrl(order) {
-  return buildWhatsappUrl(
-    order.customer_phone,
-    `Olá, ${order.customer_name || "tudo bem"}!
+    setFinishingPayment(true);
 
-Passando para avisar que seu pedido foi finalizado/entregue com sucesso.
+    try {
+      const response = await fetch("/api/finance/finalize-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId: paymentModalOrder.id,
+          amount,
+          payment_method: paymentForm.payment_method,
+          note: paymentForm.note,
+        }),
+      });
 
-Muito obrigado pela preferência! Qualquer coisa, estamos à disposição.`
-  );
-}
+      const json = await response.json().catch(() => ({}));
 
-function buildWhatsappNoteUrl(order) {
-  const note = shortText(order.note || "");
+      if (!response.ok) {
+        alert(json.error || "Erro ao finalizar venda.");
+        return;
+      }
 
-  return buildWhatsappUrl(
-    order.customer_phone,
-    `Olá, ${order.customer_name || "tudo bem"}!
+      await reload();
+      closePaymentModal();
 
-Sobre sua observação:
+      alert("Venda finalizada e registrada no financeiro!");
+    } catch (err) {
+      console.error("Erro ao finalizar venda:", err);
+      alert("Erro ao finalizar venda.");
+    } finally {
+      setFinishingPayment(false);
+    }
+  }
 
-"${note}"
-
-`
-  );
-}
-
-async function updateOrderStatus(order, status) {
+  async function updateOrderStatus(order, status) {
   if (!order?.id) return;
 
-  const { error } = await supabase
-    .from("profile_orders")
-    .update({
-      status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", order.id);
+  try {
+    const response = await fetch("/api/orders/update-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        orderId: order.id,
+        status,
+      }),
+    });
 
-  if (error) {
-    console.error("Erro ao atualizar pedido:", error);
-    alert(error.message || "Erro ao atualizar pedido.");
-    return;
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      alert(json.error || "Erro ao atualizar pedido.");
+      return;
+    }
+
+    await reload();
+
+    if (status === "confirmed") {
+      alert("Pedido confirmado e cliente avisado automaticamente!");
+    }
+
+    if (status === "cancelled") {
+      alert("Pedido cancelado e cliente avisado automaticamente!");
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar pedido:", err);
+    alert("Erro ao atualizar pedido.");
   }
-
-  await reload();
 }
 
-async function deleteOrder(order) {
-  const ok = confirm("Excluir este pedido? Use isso apenas para trote, teste ou pedido inválido.");
-  if (!ok) return;
+  async function deleteOrder(order) {
+    const ok = confirm(
+      "Excluir este pedido? Use isso apenas para trote, teste ou pedido inválido."
+    );
 
-  const { error } = await supabase
-    .from("profile_orders")
-    .delete()
-    .eq("id", order.id);
+    if (!ok) return;
 
-  if (error) {
-    console.error("Erro ao excluir pedido:", error);
-    alert(error.message || "Erro ao excluir pedido.");
-    return;
+    const { error } = await supabase
+      .from("profile_orders")
+      .delete()
+      .eq("id", order.id);
+
+    if (error) {
+      console.error("Erro ao excluir pedido:", error);
+      alert(error.message || "Erro ao excluir pedido.");
+      return;
+    }
+
+    await reload();
   }
-
-  await reload();
-}
 
   return (
-    <div className="dash-panel">
+    <div className="dash-panel orders-dashboard-panel">
       <div className="bookings-panel-head">
         <PanelTitle
           title="Pedidos"
@@ -1133,12 +1183,12 @@ async function deleteOrder(order) {
           <p>Use o botão de atualizar para verificar se chegaram novos pedidos.</p>
         </div>
       ) : (
-        <div className="bookings-list">
+        <div className="bookings-list order-cards-grid">
           {filteredOrders.map((order) => {
             const items = Array.isArray(order.items) ? order.items : [];
 
             return (
-              <div key={order.id} className="booking-admin-card">
+              <div key={order.id} className="booking-admin-card order-mini-card">
                 <div className="booking-admin-top">
                   <div>
                     <span className={`booking-status ${order.status || "pending"}`}>
@@ -1156,45 +1206,47 @@ async function deleteOrder(order) {
                 <div className="booking-admin-services">
                   {items.length > 0 ? (
                     items.map((item, index) => (
-                    <div key={`${order.id}-${index}`} className="order-clean-item">
-  {item.image_url && (
-    <button
-      type="button"
-      className="order-clean-image"
-      onClick={() =>
-        setExpandedImage({
-          url: item.image_url,
-          title: item.title || item.name || "Produto",
-        })
-      }
-    >
-      <img src={item.image_url} alt={item.title || "Produto"} />
-    </button>
-  )}
+                      <div key={`${order.id}-${index}`} className="order-clean-item">
+                        {item.image_url && (
+                          <button
+                            type="button"
+                            className="order-clean-image"
+                            onClick={() =>
+                              setExpandedImage({
+                                url: item.image_url,
+                                title: item.title || item.name || "Produto",
+                              })
+                            }
+                          >
+                            <img src={item.image_url} alt={item.title || "Produto"} />
+                          </button>
+                        )}
 
-  <div className="order-clean-content">
-    <strong>{item.title || item.name || "Item"}</strong>
+                        <div className="order-clean-content">
+                          <strong>{item.title || item.name || "Item"}</strong>
 
-    {Array.isArray(item.selected_variants) &&
-      item.selected_variants.length > 0 && (
-        <div className="order-clean-variants">
-          {item.selected_variants.map((variant, vIndex) => (
-            <span key={`${item.id}-${vIndex}`}>
-              {variant.image_url && <img src={variant.image_url} alt={variant.label} />}
-              <b>{variant.variant_name}:</b> {variant.label}
-            </span>
-          ))}
-        </div>
-      )}
+                          {Array.isArray(item.selected_variants) &&
+                            item.selected_variants.length > 0 && (
+                              <div className="order-clean-variants">
+                                {item.selected_variants.map((variant, vIndex) => (
+                                  <span key={`${item.id}-${vIndex}`}>
+                                    {variant.image_url && (
+                                      <img src={variant.image_url} alt={variant.label} />
+                                    )}
+                                    <b>{variant.variant_name}:</b> {variant.label}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
 
-    <small>
-      {item.qty || 1}x •{" "}
-      {item.price_type === "quote"
-        ? "Sob orçamento"
-        : money(Number(item.price || 0) * Number(item.qty || 1))}
-    </small>
-  </div>
-</div>
+                          <small>
+                            {item.qty || 1}x •{" "}
+                            {item.price_type === "quote"
+                              ? "Sob orçamento"
+                              : money(Number(item.price || 0) * Number(item.qty || 1))}
+                          </small>
+                        </div>
+                      </div>
                     ))
                   ) : (
                     <div>
@@ -1205,89 +1257,158 @@ async function deleteOrder(order) {
 
                 <div className="booking-admin-info">
                   {order.customer_phone && (
-                    <a
-                      href={`https://wa.me/55${String(order.customer_phone).replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      WhatsApp: {order.customer_phone}
-                    </a>
+                    <span>WhatsApp: {order.customer_phone}</span>
                   )}
 
-                  {order.note && order.customer_phone && (
-  <a
-    href={buildWhatsappNoteUrl(order)}
-    target="_blank"
-    rel="noreferrer"
-  >
-    Obs: {order.note}
-  </a>
-)}
-
-{order.note && !order.customer_phone && <span>Obs: {order.note}</span>}
+                  {order.note && <span>Obs: {order.note}</span>}
                 </div>
 
-               <div className="booking-admin-actions">
-  {order.status !== "confirmed" && (
-    <a
-      href={buildWhatsappConfirmUrl(order)}
-      target="_blank"
-      rel="noreferrer"
-      className="confirm-button"
-      onClick={() => updateOrderStatus(order, "confirmed")}
-    >
-      Confirmar
-    </a>
-  )}
+                <div className="booking-admin-actions">
+                  {order.status !== "confirmed" && order.status !== "delivered" && (
+                    <button
+                      type="button"
+                      className="confirm-button"
+                      onClick={() => updateOrderStatus(order, "confirmed")}
+                    >
+                      Confirmar
+                    </button>
+                  )}
 
-  {order.status !== "delivered" && (
- <a
-  href={buildWhatsappDeliveredUrl(order)}
-  target="_blank"
-  rel="noreferrer"
-  className="delivered-button"
-  onClick={() => updateOrderStatus(order, "delivered")}
->
-  Entregue
-</a>
-  )}
+                  {order.status !== "delivered" && order.status !== "cancelled" && (
+                    <button
+                      type="button"
+                      className="delivered-button"
+                      onClick={() => openPaymentModal(order)}
+                    >
+                      Finalizar venda
+                    </button>
+                  )}
 
-  {order.status !== "cancelled" && (
-    <button
-      type="button"
-      className="danger-button"
-      onClick={() => updateOrderStatus(order, "cancelled")}
-    >
-      Cancelar
-    </button>
-  )}
+                  {order.status !== "cancelled" && order.status !== "delivered" && (
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => updateOrderStatus(order, "cancelled")}
+                    >
+                      Cancelar
+                    </button>
+                  )}
 
-  <button
-    type="button"
-    className="danger-button"
-    onClick={() => deleteOrder(order)}
-  >
-    Excluir
-  </button>
-</div>
+                  <button
+                    type="button"
+                    className="danger-button"
+                    onClick={() => deleteOrder(order)}
+                  >
+                    Excluir
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {paymentModalOrder && (
+        <div className="payment-modal-backdrop" onClick={closePaymentModal}>
+          <div className="payment-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="payment-modal-close" onClick={closePaymentModal}>
+              ×
+            </button>
+
+            <span className="card-label">Finalizar venda</span>
+
+            <h3>Registrar pagamento recebido</h3>
+
+            <p>Informe quanto foi recebido para lançar essa entrada no financeiro.</p>
+
+            <div className="payment-summary">
+              <span>Cliente</span>
+              <strong>{paymentModalOrder.customer_name || "Cliente"}</strong>
+            </div>
+
+            <div className="payment-summary">
+              <span>Total do pedido</span>
+              <strong>
+                {paymentModalOrder.has_quote
+                  ? "Sob orçamento"
+                  : money(paymentModalOrder.total || 0)}
+              </strong>
+            </div>
+
+            <div className="form-grid">
+              <Field label="Valor recebido">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={paymentForm.amount}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
+                  placeholder="Ex: 150"
+                />
+              </Field>
+
+              <Field label="Forma de pagamento">
+                <select
+                  value={paymentForm.payment_method}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      payment_method: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="pix">Pix</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="card">Cartão</option>
+                  <option value="transfer">Transferência</option>
+                  <option value="other">Outro</option>
+                </select>
+              </Field>
+
+              <Field label="Observação" full>
+                <textarea
+                  value={paymentForm.note}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      note: e.target.value,
+                    }))
+                  }
+                  placeholder="Ex: Cliente pagou no Pix da loja"
+                />
+              </Field>
+            </div>
+
+            <button
+              type="button"
+              className="payment-finish-button"
+              onClick={finalizeOrderPayment}
+              disabled={finishingPayment}
+            >
+              {finishingPayment ? "Finalizando..." : "Confirmar pagamento"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {expandedImage && (
-  <div className="order-image-modal-backdrop" onClick={() => setExpandedImage(null)}>
-    <div className="order-image-modal" onClick={(e) => e.stopPropagation()}>
-      <button type="button" onClick={() => setExpandedImage(null)}>
-        ×
-      </button>
+        <div className="order-image-modal-backdrop" onClick={() => setExpandedImage(null)}>
+          <div className="order-image-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setExpandedImage(null)}>
+              ×
+            </button>
 
-      <img src={expandedImage.url} alt={expandedImage.title} />
+            <img src={expandedImage.url} alt={expandedImage.title} />
 
-      <strong>{expandedImage.title}</strong>
-    </div>
-  </div>
-)}
+            <strong>{expandedImage.title}</strong>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2168,13 +2289,16 @@ function AvailabilityPanel({ profile, setField }) {
     </div>
   );
 }
+
+
 function StoreItemsEditor({ profile, setField, uploadImage }) {
   const items = Array.isArray(profile.store_items) ? profile.store_items : [];
   const [itemSearch, setItemSearch] = useState("");
 const [itemTypeFilter, setItemTypeFilter] = useState("all");
 const [categoryFilter, setCategoryFilter] = useState("all");
 const [editingItemId, setEditingItemId] = useState(null);
-
+const [staffMembers, setStaffMembers] = useState([]);
+const [loadingStaff, setLoadingStaff] = useState(false);
 const filteredItems = items.filter((item) => {
   const search = itemSearch.toLowerCase();
 
@@ -2202,10 +2326,30 @@ const filteredItems = items.filter((item) => {
     : [1, 2, 3, 4, 5, 6];
 
   const workingHours = profile.working_hours || {
+    
     start: 8,
     end: 18,
     interval: 1,
   };
+  useEffect(() => {
+  async function loadStaff() {
+    if (!profile?.id) return;
+
+    try {
+      setLoadingStaff(true);
+
+      const data = await getProfileStaff(profile.id);
+
+      setStaffMembers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ erro ao carregar funcionários:", err);
+    } finally {
+      setLoadingStaff(false);
+    }
+  }
+
+  loadStaff();
+}, [profile?.id]);
 function productHasVariants(item) {
   return item?.variants_enabled === true;
 }
@@ -2361,6 +2505,45 @@ function removeVariantOption(itemId, variantId, optionId) {
     setField("store_items", nextItems);
   }
 
+  
+function toggleItemStaff(itemId, staffId) {
+  const item = items.find((i) => i.id === itemId);
+  if (!item) return;
+
+  const current = Array.isArray(item.allowed_staff_ids)
+    ? item.allowed_staff_ids.map(String)
+    : [];
+
+  const id = String(staffId);
+  const exists = current.includes(id);
+
+  const nextStaffIds = exists
+    ? current.filter((staffId) => staffId !== id)
+    : [...current, id];
+
+  const nextItems = items.map((currentItem) => {
+    if (currentItem.id !== itemId) return currentItem;
+
+    return {
+      ...currentItem,
+      allow_all_staff: false,
+      allowed_staff_ids: nextStaffIds,
+    };
+  });
+
+  setField("store_items", nextItems);
+}
+
+function itemCanUseAllStaff(item) {
+  return item.allow_all_staff === true;
+}
+
+function getItemStaffIds(item) {
+  return Array.isArray(item.allowed_staff_ids)
+    ? item.allowed_staff_ids.map(String)
+    : [];
+}
+
   function addItem() {
     const firstCategory = categories[0];
 
@@ -2377,7 +2560,10 @@ function removeVariantOption(itemId, variantId, optionId) {
   booking_enabled: false,
   duration_minutes: 60,
   variants_enabled: false,
-  variants: [],
+variants: [],
+
+allow_all_staff: true,
+allowed_staff_ids: [],
 };
 
     setField("store_items", [...items, newItem]);
@@ -2980,6 +3166,80 @@ function removeVariantOption(itemId, variantId, optionId) {
     )}
   </div>
 )}
+
+{(isService || isProduct) && (
+  <div className="dash-card staff-assignment-box">
+    <div className="store-editor-head">
+      <div>
+        <span className="card-label">
+          {isService ? "Profissionais do serviço" : "Vendedores do produto"}
+        </span>
+
+        <h3>
+          {isService
+            ? "Quem pode atender este serviço?"
+            : "Quem pode vender este produto?"}
+        </h3>
+
+        <p>
+          Escolha profissionais específicos ou permita todos.
+        </p>
+      </div>
+    </div>
+{!loadingStaff && staffMembers.length === 0 && (
+  <div className="dashboard-note">
+    Nenhum funcionário cadastrado ainda. Vá na aba Equipe e cadastre pelo menos
+    um profissional para poder vincular este item.
+  </div>
+)}
+    <ToggleField
+      label={
+        isService
+          ? "Todos os profissionais podem atender"
+          : "Todos os vendedores podem receber pedidos"
+      }
+      value={itemCanUseAllStaff(item)}
+      onChange={(v) => updateItem(item.id, "allow_all_staff", v)}
+    />
+
+    {!itemCanUseAllStaff(item) && (
+      <div className="staff-selector-grid">
+        {staffMembers.map((staff) => {
+          const selected = getItemStaffIds(item).includes(String(staff.id));
+
+          return (
+            <button
+              key={staff.id}
+              type="button"
+              className={`staff-selector-card ${
+                selected ? "active" : ""
+              }`}
+              onClick={() => toggleItemStaff(item.id, staff.id)}
+            >
+              <strong>{staff.nome}</strong>
+
+              <span>
+                {staff.role === "admin"
+                  ? "Administrador"
+                  : staff.role === "cashier"
+                  ? "Caixa"
+                  : staff.role === "manager"
+                  ? "Gerente"
+                  : "Profissional"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    )}
+
+    {loadingStaff && (
+      <div className="dashboard-note">
+        Carregando profissionais...
+      </div>
+    )}
+  </div>
+)}
                     {isQuote && (
                       <div className="dashboard-note">
                         Este item será exibido como “Sob orçamento”.
@@ -3144,120 +3404,277 @@ function formatBookingDate(date) {
 
 function bookingStatusLabel(status) {
   if (status === "confirmed") return "Confirmado";
+  if (status === "completed") return "Finalizado";
   if (status === "cancelled") return "Cancelado";
   if (status === "expired") return "Expirado";
   return "Pendente";
 }
 
-
 function BookingsPanel({ bookings, loading, reload }) {
+  const [paymentModalBooking, setPaymentModalBooking] = useState(null);
+
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    payment_method: "pix",
+    note: "",
+  });
+
+  const [finishingPayment, setFinishingPayment] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [staffFilter, setStaffFilter] = useState("all");
 
   const counts = {
     all: bookings.length,
     pending: bookings.filter((item) => item.status === "pending").length,
     confirmed: bookings.filter((item) => item.status === "confirmed").length,
+    completed: bookings.filter((item) => item.status === "completed").length,
     cancelled: bookings.filter((item) => item.status === "cancelled").length,
   };
 
-  const filteredBookings =
-    statusFilter === "all"
-      ? bookings
-      : bookings.filter((item) => item.status === statusFilter);
+  const staffOptions = useMemo(() => {
+    const map = new Map();
 
-  async function updateBookingStatus(id, status) {
-    const { error } = await supabase
-      .from("profile_bookings")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
+    bookings.forEach((booking) => {
+      const staffId =
+        booking.assigned_staff_id ||
+        booking.staff_id ||
+        booking.staff?.id ||
+        null;
+
+      const staffName =
+        booking.staff_name ||
+        booking.assigned_staff_name ||
+        booking.professional_name ||
+        booking.staff?.nome ||
+        "";
+
+      if (staffId && staffName) {
+        map.set(String(staffId), {
+          id: String(staffId),
+          name: staffName,
+          count: 0,
+        });
+      }
+    });
+
+    bookings.forEach((booking) => {
+      const staffId =
+        booking.assigned_staff_id ||
+        booking.staff_id ||
+        booking.staff?.id ||
+        null;
+
+      if (staffId && map.has(String(staffId))) {
+        map.get(String(staffId)).count += 1;
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [bookings]);
+
+  const filteredBookings = bookings.filter((booking) => {
+    const matchesStatus =
+      statusFilter === "all" || booking.status === statusFilter;
+
+    const bookingStaffId = String(
+      booking.assigned_staff_id ||
+        booking.staff_id ||
+        booking.staff?.id ||
+        ""
+    );
+
+    const matchesStaff =
+      staffFilter === "all" || bookingStaffId === String(staffFilter);
+
+    return matchesStatus && matchesStaff;
+  });
+
+  
+
+  function shortText(text = "", limit = 140) {
+    const clean = String(text || "").trim();
+    if (clean.length <= limit) return clean;
+    return `${clean.slice(0, limit)}...`;
+  }
+
+  function getServiceName(service) {
+    return service?.name || service?.title || service?.service_title || "Serviço";
+  }
+
+  function getBookingStaffName(booking) {
+    return (
+      booking.staff_name ||
+      booking.assigned_staff_name ||
+      booking.professional_name ||
+      booking.staff?.nome ||
+      ""
+    );
+  }
+
+  function buildServicesText(services = []) {
+    if (!services.length) return "Serviço não informado";
+
+    return services
+      .map((service) => {
+        const qty = service.qty > 1 ? `${service.qty}x ` : "";
+        const name = getServiceName(service);
+        return `${qty}${name}`;
       })
-      .eq("id", id);
+      .join(" • ");
+  }
 
-    if (error) {
-      console.error("Erro ao atualizar agendamento:", error);
-      alert(error.message || "Erro ao atualizar agendamento.");
+  function getBookingTotal(booking) {
+    if (booking.total) return Number(booking.total || 0);
+
+    const services = Array.isArray(booking.services) ? booking.services : [];
+
+    return services.reduce((acc, service) => {
+      if (service.price_type === "quote") return acc;
+
+      return (
+        acc +
+        Number(service.price || service.value || 0) *
+          Number(service.qty || 1)
+      );
+    }, 0);
+  }
+async function updateBookingStatus(bookingId, status) {
+  if (!bookingId) return;
+
+  try {
+    const response = await fetch("/api/bookings/update-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bookingId,
+        status,
+      }),
+    });
+
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      alert(json.error || "Erro ao atualizar agendamento.");
       return;
     }
 
     await reload();
 
-    alert(
-      status === "confirmed"
-        ? "Agendamento confirmado!"
-        : "Agendamento cancelado!"
+    if (status === "confirmed") {
+      alert("Agendamento confirmado e cliente avisado automaticamente!");
+    }
+
+    if (status === "cancelled") {
+      alert("Agendamento cancelado e cliente avisado automaticamente!");
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar agendamento:", err);
+    alert("Erro ao atualizar agendamento.");
+  }
+}
+  async function deleteBooking(booking) {
+    const ok = confirm(
+      "Excluir este agendamento? Use isso apenas para trote, teste ou solicitação inválida."
     );
-  }
-function getWhatsappPhone(phone = "") {
-  const raw = String(phone || "").replace(/\D/g, "");
-  if (!raw) return "";
-  return raw.startsWith("55") ? raw : `55${raw}`;
-}
 
-function buildWhatsappUrl(phone, message) {
-  const phoneBR = getWhatsappPhone(phone);
-  if (!phoneBR) return "#";
-  return `https://wa.me/${phoneBR}?text=${encodeURIComponent(message)}`;
-}
+    if (!ok) return;
 
-function shortText(text = "", limit = 140) {
-  const clean = String(text || "").trim();
-  if (clean.length <= limit) return clean;
-  return `${clean.slice(0, limit)}...`;
-}
+    const { error } = await supabase
+      .from("profile_bookings")
+      .delete()
+      .eq("id", booking.id);
 
-function buildBookingConfirmUrl(booking) {
-  return buildWhatsappUrl(
-    booking.customer_phone,
-    `Olá, ${booking.customer_name || "tudo bem"}!
+    if (error) {
+      console.error("Erro ao excluir agendamento:", error);
+      alert(error.message || "Erro ao excluir agendamento.");
+      return;
+    }
 
-Seu agendamento foi confirmado.
-
-Data: ${formatBookingDate(booking.date)}
-Horário: ${booking.time}
-
-Qualquer dúvida, pode falar por aqui.`
-  );
-}
-
-function buildBookingNoteUrl(booking) {
-  const note = shortText(booking.note || "");
-
-  return buildWhatsappUrl(
-    booking.customer_phone,
-    `Olá, ${booking.customer_name || "tudo bem"}!
-
-Sobre sua observação no agendamento:
-
-"${note}"
-
-`
-  );
-}
-
-async function deleteBooking(booking) {
-  const ok = confirm("Excluir este agendamento? Use isso apenas para trote, teste ou solicitação inválida.");
-  if (!ok) return;
-
-  const { error } = await supabase
-    .from("profile_bookings")
-    .delete()
-    .eq("id", booking.id);
-
-  if (error) {
-    console.error("Erro ao excluir agendamento:", error);
-    alert(error.message || "Erro ao excluir agendamento.");
-    return;
+    await reload();
   }
 
-  await reload();
-}
+  function openPaymentModal(booking) {
+    const suggestedAmount = getBookingTotal(booking);
+
+    setPaymentModalBooking(booking);
+
+    setPaymentForm({
+      amount: suggestedAmount > 0 ? suggestedAmount : "",
+      payment_method: "pix",
+      note: "",
+    });
+  }
+
+  function closePaymentModal() {
+    setPaymentModalBooking(null);
+
+    setPaymentForm({
+      amount: "",
+      payment_method: "pix",
+      note: "",
+    });
+  }
+
+  async function finalizeBookingPayment() {
+    if (!paymentModalBooking?.id || finishingPayment) return;
+
+    const amount = Number(paymentForm.amount || 0);
+
+    if (!amount || amount <= 0) {
+      alert("Informe o valor recebido.");
+      return;
+    }
+
+    setFinishingPayment(true);
+
+    try {
+      const response = await fetch("/api/finance/finalize-booking", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bookingId: paymentModalBooking.id,
+          profilePageId: paymentModalBooking.profile_page_id,
+          amount,
+          paymentMethod: paymentForm.payment_method,
+          note: paymentForm.note,
+          staffId:
+            paymentModalBooking.assigned_staff_id ||
+            paymentModalBooking.staff_id ||
+            null,
+        }),
+      });
+
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        alert(json.error || "Erro ao finalizar atendimento.");
+        return;
+      }
+
+      await reload();
+      closePaymentModal();
+
+      alert("Atendimento finalizado com sucesso!");
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao finalizar atendimento.");
+    } finally {
+      setFinishingPayment(false);
+    }
+  }
+
   return (
-    <div className="dash-panel">
+    <div className="dash-panel bookings-dashboard-panel">
       <div className="bookings-panel-head">
         <PanelTitle
           title="Agendamentos"
-          text="Acompanhe solicitações, confirme horários e organize sua agenda."
+          text="Acompanhe solicitações, confirme horários, filtre por profissional e finalize atendimentos."
         />
 
         <button type="button" onClick={reload} disabled={loading}>
@@ -3295,12 +3712,46 @@ async function deleteBooking(booking) {
 
         <button
           type="button"
+          className={statusFilter === "completed" ? "active" : ""}
+          onClick={() => setStatusFilter("completed")}
+        >
+          <span>Finalizados</span>
+          <strong>{counts.completed}</strong>
+        </button>
+
+        <button
+          type="button"
           className={statusFilter === "cancelled" ? "active" : ""}
           onClick={() => setStatusFilter("cancelled")}
         >
           <span>Cancelados</span>
           <strong>{counts.cancelled}</strong>
         </button>
+      </div>
+
+      <div className="booking-staff-carousel">
+        <button
+          type="button"
+          className={staffFilter === "all" ? "active" : ""}
+          onClick={() => setStaffFilter("all")}
+        >
+          <span>👥</span>
+          <strong>Todos</strong>
+          <small>{bookings.length}</small>
+        </button>
+
+        {staffOptions.map((staff) => (
+          <button
+            key={staff.id}
+            type="button"
+            className={staffFilter === staff.id ? "active" : ""}
+            onClick={() => setStaffFilter(staff.id)}
+          >
+            <span>{staff.name?.[0] || "P"}</span>
+            <strong>{staff.name}</strong>
+            <small>{staff.count}</small>
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -3310,19 +3761,20 @@ async function deleteBooking(booking) {
       ) : filteredBookings.length === 0 ? (
         <div className="coming-box">
           <strong>Nenhum agendamento nesta visualização</strong>
-          <p>
-            Use o botão de atualizar para verificar se chegaram novas solicitações.
-          </p>
+          <p>Altere o filtro de status ou profissional para ver outros agendamentos.</p>
         </div>
       ) : (
-        <div className="bookings-list">
+        <div className="bookings-list booking-cards-grid">
           {filteredBookings.map((booking) => {
             const services = Array.isArray(booking.services)
               ? booking.services
               : [];
 
+            const staffName = getBookingStaffName(booking);
+            const total = getBookingTotal(booking);
+
             return (
-              <div key={booking.id} className="booking-admin-card">
+              <div key={booking.id} className="booking-admin-card booking-mini-card">
                 <div className="booking-admin-top">
                   <div>
                     <span className={`booking-status ${booking.status || "pending"}`}>
@@ -3332,17 +3784,34 @@ async function deleteBooking(booking) {
                     <h3>
                       {formatBookingDate(booking.date)} às {booking.time}
                     </h3>
+
+                    {staffName && (
+                      <small className="booking-staff-line">
+                        Profissional: {staffName}
+                      </small>
+                    )}
                   </div>
 
-                  <strong>{services.length || 1} serviço(s)</strong>
+                  <strong>{total > 0 ? money(total) : `${services.length || 1} serviço(s)`}</strong>
                 </div>
 
                 <div className="booking-admin-services">
                   {services.length > 0 ? (
                     services.map((service, index) => (
                       <div key={`${booking.id}-${index}`}>
-                        <strong>{service.name || service.title || "Serviço"}</strong>
-                        {service.qty > 1 && <span>{service.qty}x</span>}
+                        <strong>{getServiceName(service)}</strong>
+
+                        <span>
+                          {service.qty > 1 ? `${service.qty}x` : "1x"}
+                          {service.price_type === "quote"
+                            ? " • Sob orçamento"
+                            : service.price
+                            ? ` • ${money(service.price)}`
+                            : ""}
+                          {service.duration || service.duration_minutes
+                            ? ` • ${service.duration || service.duration_minutes} min`
+                            : ""}
+                        </span>
                       </div>
                     ))
                   ) : (
@@ -3358,62 +3827,160 @@ async function deleteBooking(booking) {
                   )}
 
                   {booking.customer_phone && (
-                    <a
-                      href={`https://wa.me/55${String(booking.customer_phone).replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      WhatsApp: {booking.customer_phone}
-                    </a>
-                  )}
-
-                  {booking.note && booking.customer_phone && (
-  <a
-    href={buildBookingNoteUrl(booking)}
-    target="_blank"
-    rel="noreferrer"
-  >
-    Obs: {booking.note}
-  </a>
+  <span>WhatsApp: {booking.customer_phone}</span>
 )}
 
-{booking.note && !booking.customer_phone && <span>Obs: {booking.note}</span>}
+                  {booking.note && <span>Obs: {booking.note}</span>}
+
+                  
                 </div>
 
                 <div className="booking-admin-actions">
-  {booking.status !== "confirmed" && (
-    <a
-      href={buildBookingConfirmUrl(booking)}
-      target="_blank"
-      rel="noreferrer"
-      className="confirm-button"
-      onClick={() => updateBookingStatus(booking.id, "confirmed")}
-    >
-      Confirmar
-    </a>
-  )}
+                  {booking.status === "confirmed" && (
+                    <button
+                      type="button"
+                      className="delivered-button"
+                      onClick={() => openPaymentModal(booking)}
+                    >
+                      Finalizar atendimento
+                    </button>
+                  )}
 
-  {booking.status !== "cancelled" && (
-    <button
-      type="button"
-      className="danger-button"
-      onClick={() => updateBookingStatus(booking.id, "cancelled")}
-    >
-      Cancelar
-    </button>
-  )}
+                  {booking.status !== "confirmed" &&
+                    booking.status !== "completed" &&
+                    booking.status !== "cancelled" && (
+                    <button
+  type="button"
+  className="confirm-button"
+  onClick={() => updateBookingStatus(booking.id, "confirmed")}
+>
+  Confirmar
+</button>
+                    )}
 
-  <button
-    type="button"
-    className="danger-button"
-    onClick={() => deleteBooking(booking)}
-  >
-    Excluir
-  </button>
-</div>
+                  {booking.status !== "cancelled" &&
+                    booking.status !== "completed" && (
+                      <button
+                        type="button"
+                        className="danger-button"
+                        onClick={() => updateBookingStatus(booking.id, "cancelled")}
+                      >
+                        Cancelar
+                      </button>
+                    )}
+
+                  <button
+                    type="button"
+                    className="danger-button"
+                    onClick={() => deleteBooking(booking)}
+                  >
+                    Excluir
+                  </button>
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {paymentModalBooking && (
+        <div className="payment-modal-backdrop" onClick={closePaymentModal}>
+          <div className="payment-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="payment-modal-close"
+              onClick={closePaymentModal}
+            >
+              ×
+            </button>
+
+            <span className="card-label">Finalizar atendimento</span>
+
+            <h3>Registrar pagamento do agendamento</h3>
+
+            <p>
+              Informe o valor recebido e a forma de pagamento para lançar essa
+              entrada no financeiro.
+            </p>
+
+            <div className="payment-summary">
+              <span>Cliente</span>
+              <strong>{paymentModalBooking.customer_name || "Cliente"}</strong>
+            </div>
+
+            <div className="payment-summary">
+              <span>Agendamento</span>
+              <strong>
+                {formatBookingDate(paymentModalBooking.date)} às{" "}
+                {paymentModalBooking.time}
+              </strong>
+            </div>
+
+            {getBookingStaffName(paymentModalBooking) && (
+              <div className="payment-summary">
+                <span>Profissional</span>
+                <strong>{getBookingStaffName(paymentModalBooking)}</strong>
+              </div>
+            )}
+
+            <div className="form-grid">
+              <Field label="Valor recebido">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={paymentForm.amount}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
+                  placeholder="Ex: 80"
+                />
+              </Field>
+
+              <Field label="Forma de pagamento">
+                <select
+                  value={paymentForm.payment_method}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      payment_method: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="pix">Pix</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="card">Cartão</option>
+                  <option value="transfer">Transferência</option>
+                  <option value="other">Outro</option>
+                </select>
+              </Field>
+
+              <Field label="Observação" full>
+                <textarea
+                  value={paymentForm.note}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      note: e.target.value,
+                    }))
+                  }
+                  placeholder="Ex: Cliente pagou no Pix da loja"
+                />
+              </Field>
+            </div>
+
+            <button
+              type="button"
+              className="payment-finish-button"
+              onClick={finalizeBookingPayment}
+              disabled={finishingPayment}
+            >
+              {finishingPayment ? "Finalizando..." : "Confirmar pagamento"}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -359,7 +359,7 @@ function SearchResultItem({ item, mobile = false }) {
 
             {showServices && (
               <a className="ghost-cta" href="#servicos">
-                Ver serviços
+                Especialidades
               </a>
             )}
           </div>

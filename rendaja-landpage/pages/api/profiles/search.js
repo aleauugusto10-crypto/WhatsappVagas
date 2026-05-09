@@ -9,6 +9,23 @@ function normalizeText(value = "") {
 
 export default async function handler(req, res) {
   try {
+    const { userId } = req.query;
+
+    if (userId) {
+      const { data, error } = await supabase
+        .from("profiles_pages")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erro search profile by userId:", error);
+        return res.status(500).json({ error: "Erro ao buscar perfil." });
+      }
+
+      return res.status(200).json(data || null);
+    }
+
     const q = normalizeText(req.query.q || "");
 
     if (q.length < 2) {
@@ -17,7 +34,9 @@ export default async function handler(req, res) {
 
     const { data, error } = await supabase
       .from("profiles_pages")
-      .select("id, slug, nome, servico, cidade, estado, descricao, logo_url, hero_image_url, is_active")
+      .select(
+        "id, slug, nome, servico, cidade, estado, descricao, logo_url, hero_image_url, is_active"
+      )
       .eq("is_active", true)
       .limit(30);
 

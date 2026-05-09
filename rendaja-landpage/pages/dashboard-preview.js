@@ -235,8 +235,7 @@ function ReviewsSection({ reviews = [], enabled }) {
   return (
     <section className="reviews">
       <div className="reviews-head">
-        <span>Avaliações reais</span>
-
+      
         <h2 className="reviews-title">
           Avaliações
 

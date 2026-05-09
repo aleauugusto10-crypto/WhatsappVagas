@@ -4,8 +4,18 @@ import { supabase } from "../src/lib/supabase";
 const WEEK_DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 function pad(value) {
@@ -13,7 +23,9 @@ function pad(value) {
 }
 
 function dateKey(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getFullYear()}-${pad(
+    date.getMonth() + 1
+  )}-${pad(date.getDate())}`;
 }
 
 function isSameDay(a, b) {
@@ -49,8 +61,15 @@ function normalizeReservedSlots(value = []) {
   return value
     .map((item) => {
       if (typeof item === "string") return item;
-      if (item?.date && item?.time) return `${item.date}-${item.time}`;
-      if (item?.day && item?.slot) return `${item.day}-${item.slot}`;
+
+      if (item?.date && item?.time) {
+        return `${item.date}-${item.time}`;
+      }
+
+      if (item?.day && item?.slot) {
+        return `${item.day}-${item.slot}`;
+      }
+
       return null;
     })
     .filter(Boolean);
@@ -62,20 +81,39 @@ function normalizeBookingServices(value = []) {
   return value.filter(Boolean).map((item, index) => ({
     id: item.id || item.slug || `booking-service-${index}`,
     name: item.name || item.title || item.service_title || "Serviço",
+
     price: item.price || item.value || null,
+
     price_type: item.price_type || "fixed",
+
     duration: item.duration || item.duration_minutes || null,
+
     qty: item.qty || 1,
+
+    allowed_staff_ids:
+      item.allowed_staff_ids ||
+      item.staff_ids ||
+      item.professional_ids ||
+      [],
+
+    allow_all_staff:
+      item.allow_all_staff === true ||
+      item.all_staff === true ||
+      false,
   }));
 }
 
 function formatMoney(value) {
-  if (!value) return null;
+  if (!value && value !== 0) return null;
 
   return Number(value).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function buildSlotId(date, time, staffId = "owner") {
+  return `${date}-${time}-${staffId}`;
 }
 
 export default function BookingSection({ profile }) {
@@ -87,15 +125,26 @@ export default function BookingSection({ profile }) {
     profile?.title ||
     "profissional";
 
-  const professionalWhatsapp = profile?.whatsapp || profile?.phone || "";
+  const professionalWhatsapp =
+    profile?.whatsapp || profile?.phone || "";
 
   const [bookingServices, setBookingServices] = useState([]);
+
   const [selectedServiceId, setSelectedServiceId] = useState("");
+
   const [selectedSlot, setSelectedSlot] = useState(null);
+
   const [creatingBooking, setCreatingBooking] = useState(false);
 
   const [showClientModal, setShowClientModal] = useState(false);
+
   const [bookingCreated, setBookingCreated] = useState(null);
+
+  const [staffMembers, setStaffMembers] = useState([]);
+
+  const [selectedStaffId, setSelectedStaffId] = useState("any");
+
+  const [reservedBookings, setReservedBookings] = useState([]);
 
   const [clientForm, setClientForm] = useState({
     firstName: "",
@@ -104,13 +153,16 @@ export default function BookingSection({ profile }) {
     note: "",
   });
 
-  const shouldShowBooking =
-    profile?.show_booking === true && bookingServices.length > 0;
-
   const selectedService =
-    bookingServices.find((service) => service.id === selectedServiceId) ||
+    bookingServices.find(
+      (service) => service.id === selectedServiceId
+    ) ||
     bookingServices[0] ||
     null;
+
+  const shouldShowBooking =
+    profile?.show_booking === true &&
+    bookingServices.length > 0;
 
   const workingHours = profile?.working_hours || {
     start: 8,
@@ -118,14 +170,8 @@ export default function BookingSection({ profile }) {
     interval: 1,
   };
 
-  const workingDays = profile?.working_days || [1, 2, 3, 4, 5, 6];
-
-  const initialReservedSlots = useMemo(() => {
-  return normalizeReservedSlots([
-    ...(Array.isArray(profile?.reserved_slots) ? profile.reserved_slots : []),
-    ...(Array.isArray(profile?.bookings) ? profile.bookings : []),
-  ]);
-}, [profile]);
+  const workingDays =
+    profile?.working_days || [1, 2, 3, 4, 5, 6];
 
   const today = useMemo(() => new Date(), []);
 
@@ -136,39 +182,101 @@ export default function BookingSection({ profile }) {
   });
 
   const [selectedDate, setSelectedDate] = useState(today);
-  const [reservedSlots, setReservedSlots] = useState(initialReservedSlots);
 
   const selectedDateKey = dateKey(selectedDate);
 
   useEffect(() => {
+    async function loadStaff() {
+      if (!profile?.id) return;
+
+      const { data, error } = await supabase
+        .from("profile_staff")
+        .select("*")
+        .eq("profile_page_id", profile.id)
+        .eq("ativo", true)
+        .order("nome");
+
+      if (error) {
+        console.error("❌ erro ao buscar funcionários:", error);
+        return;
+      }
+
+      setStaffMembers(data || []);
+    }
+
+    loadStaff();
+  }, [profile?.id]);
+
+  useEffect(() => {
+    async function loadReservedBookings() {
+      if (!profile?.id) return;
+
+      const { data, error } = await supabase
+        .from("profile_bookings")
+        .select("*")
+        .eq("profile_page_id", profile.id)
+        .in("status", [
+          "pending",
+          "confirmed",
+          "waiting_payment",
+        ]);
+
+      if (error) {
+        console.error("❌ erro reservas:", error);
+        return;
+      }
+
+      setReservedBookings(data || []);
+    }
+
+    loadReservedBookings();
+  }, [profile?.id]);
+
+  useEffect(() => {
     function applyServices(services) {
-      const normalized = normalizeBookingServices(services);
+      const normalized =
+        normalizeBookingServices(services);
 
       setBookingServices(normalized);
+
       setSelectedServiceId(normalized[0]?.id || "");
+
       setSelectedSlot(null);
+
       setBookingCreated(null);
     }
 
     function applySingleService(service) {
       if (!service?.id) return;
+
       applyServices([service]);
     }
 
-    const savedServices = window.sessionStorage.getItem("selected_booking_services");
-    const savedService = window.sessionStorage.getItem("selected_booking_service");
+    const savedServices =
+      window.sessionStorage.getItem(
+        "selected_booking_services"
+      );
+
+    const savedService =
+      window.sessionStorage.getItem(
+        "selected_booking_service"
+      );
 
     if (savedServices) {
       try {
         applyServices(JSON.parse(savedServices));
       } catch {
-        window.sessionStorage.removeItem("selected_booking_services");
+        window.sessionStorage.removeItem(
+          "selected_booking_services"
+        );
       }
     } else if (savedService) {
       try {
         applySingleService(JSON.parse(savedService));
       } catch {
-        window.sessionStorage.removeItem("selected_booking_service");
+        window.sessionStorage.removeItem(
+          "selected_booking_service"
+        );
       }
     }
 
@@ -180,27 +288,68 @@ export default function BookingSection({ profile }) {
       applySingleService(event.detail);
     }
 
-    window.addEventListener("booking-services-selected", handleServicesSelected);
-    window.addEventListener("booking-service-selected", handleServiceSelected);
+    window.addEventListener(
+      "booking-services-selected",
+      handleServicesSelected
+    );
+
+    window.addEventListener(
+      "booking-service-selected",
+      handleServiceSelected
+    );
 
     return () => {
-      window.removeEventListener("booking-services-selected", handleServicesSelected);
-      window.removeEventListener("booking-service-selected", handleServiceSelected);
+      window.removeEventListener(
+        "booking-services-selected",
+        handleServicesSelected
+      );
+
+      window.removeEventListener(
+        "booking-service-selected",
+        handleServiceSelected
+      );
     };
   }, []);
 
-  function isWorkingDay(date) {
-    return workingDays.includes(date.getDay());
+    const availableStaff = useMemo(() => {
+    if (!selectedService) return [];
+
+    if (
+      selectedService.allow_all_staff === true ||
+      !selectedService.allowed_staff_ids?.length
+    ) {
+      return staffMembers;
+    }
+
+    return staffMembers.filter((staff) =>
+      selectedService.allowed_staff_ids.includes(staff.id)
+    );
+  }, [selectedService, staffMembers]);
+
+  const usingStaffSystem =
+    availableStaff.length > 0;
+
+  function isWorkingDay(date, staff = null) {
+    const baseWorkingDays =
+      staff?.working_days ||
+      workingDays;
+
+    return baseWorkingDays.includes(date.getDay());
   }
 
   function isPastSlot(slot) {
     const now = new Date();
 
-    if (!isSameDay(selectedDate, now)) return false;
+    if (!isSameDay(selectedDate, now)) {
+      return false;
+    }
 
-    const [hour, minute] = slot.split(":").map(Number);
+    const [hour, minute] = slot
+      .split(":")
+      .map(Number);
 
     const slotDate = new Date(selectedDate);
+
     slotDate.setHours(hour, minute || 0, 0, 0);
 
     return slotDate <= now;
@@ -208,70 +357,210 @@ export default function BookingSection({ profile }) {
 
   const calendarDays = useMemo(() => {
     const year = visibleMonth.getFullYear();
+
     const month = visibleMonth.getMonth();
 
     const firstDay = new Date(year, month, 1);
+
     const startWeekDay = firstDay.getDay();
-    const startDate = new Date(year, month, 1 - startWeekDay);
 
-    return Array.from({ length: 42 }).map((_, index) => {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + index);
+    const startDate = new Date(
+      year,
+      month,
+      1 - startWeekDay
+    );
 
-      const disabled = isBeforeToday(date) || !workingDays.includes(date.getDay());
+    return Array.from({ length: 42 }).map(
+      (_, index) => {
+        const date = new Date(startDate);
 
-      return {
-        date,
-        key: dateKey(date),
-        dayNumber: date.getDate(),
-        isCurrentMonth: date.getMonth() === month,
-        isToday: isSameDay(date, today),
-        isSelected: isSameDay(date, selectedDate),
-        disabled,
-      };
-    });
-  }, [visibleMonth, selectedDate, today, workingDays]);
+        date.setDate(
+          startDate.getDate() + index
+        );
+
+        const disabled =
+          isBeforeToday(date) ||
+          !workingDays.includes(date.getDay());
+
+        return {
+          date,
+
+          key: dateKey(date),
+
+          dayNumber: date.getDate(),
+
+          isCurrentMonth:
+            date.getMonth() === month,
+
+          isToday: isSameDay(date, today),
+
+          isSelected: isSameDay(
+            date,
+            selectedDate
+          ),
+
+          disabled,
+        };
+      }
+    );
+  }, [
+    visibleMonth,
+    selectedDate,
+    today,
+    workingDays,
+  ]);
 
   const slots = useMemo(() => {
     const list = [];
 
-    const start = Number(workingHours.start || 8);
-    const end = Number(workingHours.end || 18);
-    const interval = Number(workingHours.interval || 1);
+    const start = Number(
+      workingHours.start || 8
+    );
 
-    for (let h = start; h < end; h += interval) {
+    const end = Number(
+      workingHours.end || 18
+    );
+
+    const interval = Number(
+      workingHours.interval || 1
+    );
+
+    for (
+      let h = start;
+      h < end;
+      h += interval
+    ) {
       const hour = Math.floor(h);
-      const minute = h % 1 === 0.5 ? "30" : "00";
+
+      const minute =
+        h % 1 === 0.5 ? "30" : "00";
+
       list.push(`${pad(hour)}:${minute}`);
     }
 
     return list;
   }, [workingHours]);
 
-  function getSlotId(dayKey, slot) {
-    return `${dayKey}-${slot}`;
+  function getReservedStaffIds(
+    date,
+    slot
+  ) {
+    return reservedBookings
+      .filter(
+        (booking) =>
+          booking.date === date &&
+          booking.time === slot
+      )
+      .map(
+        (booking) =>
+          booking.staff_id || "owner"
+      );
   }
 
   function isReserved(slot) {
-    return reservedSlots.includes(getSlotId(selectedDateKey, slot));
+    if (!usingStaffSystem) {
+      return reservedBookings.some(
+        (booking) =>
+          booking.date ===
+            selectedDateKey &&
+          booking.time === slot
+      );
+    }
+
+    if (selectedStaffId === "any") {
+      const reservedIds =
+        getReservedStaffIds(
+          selectedDateKey,
+          slot
+        );
+
+      const freeStaff =
+        availableStaff.filter(
+          (staff) =>
+            !reservedIds.includes(staff.id)
+        );
+
+      return freeStaff.length === 0;
+    }
+
+    return reservedBookings.some(
+      (booking) =>
+        booking.date ===
+          selectedDateKey &&
+        booking.time === slot &&
+        booking.staff_id ===
+          selectedStaffId
+    );
+  }
+
+  function getAvailableStaffForSlot(slot) {
+    const reservedIds =
+      getReservedStaffIds(
+        selectedDateKey,
+        slot
+      );
+
+    return availableStaff.filter(
+      (staff) =>
+        !reservedIds.includes(staff.id)
+    );
   }
 
   function isUnavailable(slot) {
-    return isReserved(slot) || isPastSlot(slot) || !isWorkingDay(selectedDate);
+    if (isPastSlot(slot)) {
+      return true;
+    }
+
+    if (!usingStaffSystem) {
+      return (
+        isReserved(slot) ||
+        !isWorkingDay(selectedDate)
+      );
+    }
+
+    if (
+      selectedStaffId !== "any"
+    ) {
+      const selectedStaff =
+        availableStaff.find(
+          (staff) =>
+            staff.id === selectedStaffId
+        );
+
+      if (
+        !isWorkingDay(
+          selectedDate,
+          selectedStaff
+        )
+      ) {
+        return true;
+      }
+    }
+
+    return isReserved(slot);
   }
 
   function reservedCountForDay(dayKey) {
-    return reservedSlots.filter((item) => item.startsWith(`${dayKey}-`)).length;
+    return reservedBookings.filter(
+      (booking) =>
+        booking.date === dayKey
+    ).length;
   }
 
   function availableCountForSelectedDay() {
-    return slots.filter((slot) => !isUnavailable(slot)).length;
+    return slots.filter(
+      (slot) => !isUnavailable(slot)
+    ).length;
   }
 
   function goToPreviousMonth() {
     setVisibleMonth((current) => {
       const next = new Date(current);
-      next.setMonth(next.getMonth() - 1);
+
+      next.setMonth(
+        next.getMonth() - 1
+      );
+
       return next;
     });
   }
@@ -279,129 +568,204 @@ export default function BookingSection({ profile }) {
   function goToNextMonth() {
     setVisibleMonth((current) => {
       const next = new Date(current);
-      next.setMonth(next.getMonth() + 1);
+
+      next.setMonth(
+        next.getMonth() + 1
+      );
+
       return next;
     });
   }
 
   function selectDate(date) {
-    if (isBeforeToday(date)) return;
-    if (!isWorkingDay(date)) return;
+    if (isBeforeToday(date)) {
+      return;
+    }
+
+    if (!isWorkingDay(date)) {
+      return;
+    }
 
     setSelectedDate(date);
+
     setSelectedSlot(null);
+
     setBookingCreated(null);
   }
 
   function handleSelect(slot) {
-    if (isUnavailable(slot)) return;
+    if (isUnavailable(slot)) {
+      return;
+    }
+
     setSelectedSlot(slot);
+
     setBookingCreated(null);
   }
 
-  function buildWhatsAppText(customerName = "") {
-    const servicesText = bookingServices
-      .map((service) => {
-        const qtyText = service.qty > 1 ? `${service.qty}x ` : "";
-        const priceText =
-          service.price_type === "quote"
-            ? "\n   💰 Valor: Sob orçamento"
-            : service.price
-            ? `\n   💰 Valor: ${formatMoney(service.price)}`
-            : "";
-
-        const durationText = service.duration
-          ? `\n   ⏱️ Duração estimada: ${service.duration} min`
-          : "";
-
-        return `🛠️ ${qtyText}${service.name}${priceText}${durationText}`;
-      })
-      .join("\n\n");
-
-    return encodeURIComponent(
-      `Olá, ${professionalName}!\n\nSolicitei um agendamento pela sua página profissional.\n\n👤 Cliente: ${
-        customerName || "Cliente"
-      }\n\n${servicesText}\n\n📅 Dia: ${formatFullDate(
-        selectedDate
-      )}\n⏰ Horário: ${selectedSlot}\n\nAguardo confirmação.`
-    );
-  }
-
-  function openClientModal() {
-    if (!selectedSlot) return;
-    setShowClientModal(true);
-  }
-
-  function updateClientForm(field, value) {
+  function updateClientForm(
+    field,
+    value
+  ) {
     setClientForm((prev) => ({
       ...prev,
       [field]: value,
     }));
   }
 
-  async function submitBookingRequest(event) {
-    event.preventDefault();
-
-    if (!selectedSlot || bookingServices.length === 0 || creatingBooking) return;
-
-    if (!profile?.id) {
-      alert("Não foi possível identificar a página do profissional.");
+  function openClientModal() {
+    if (!selectedSlot) {
       return;
     }
 
-    const firstName = clientForm.firstName.trim();
-    const lastName = clientForm.lastName.trim();
-    const customerPhone = onlyDigits(clientForm.phone);
+    setShowClientModal(true);
+  }
 
-    if (!firstName) {
-      alert("Informe seu nome.");
+  function buildWhatsAppText(
+    customerName = "",
+    assignedStaff = null
+  ) {
+    const servicesText =
+      bookingServices
+        .map((service) => {
+          const qtyText =
+            service.qty > 1
+              ? `${service.qty}x `
+              : "";
+
+          const priceText =
+            service.price_type ===
+            "quote"
+              ? "\n💰 Valor: Sob orçamento"
+              : service.price
+              ? `\n💰 Valor: ${formatMoney(
+                  service.price
+                )}`
+              : "";
+
+          return `🛠️ ${qtyText}${service.name}${priceText}`;
+        })
+        .join("\n\n");
+
+    const professionalText =
+      assignedStaff
+        ? `\n👤 Profissional: ${assignedStaff.nome}\n`
+        : "";
+
+    return encodeURIComponent(
+      `Olá, ${professionalName}! 👋
+
+Acabei de solicitar um agendamento pela sua página.
+
+👤 Cliente: ${
+        customerName || "Cliente"
+      }
+${professionalText}
+${servicesText}
+
+📅 Data: ${formatFullDate(
+        selectedDate
+      )}
+
+⏰ Horário: ${selectedSlot}
+
+Aguardo confirmação.`
+    );
+  }
+async function submitBookingRequest(event) {
+  event.preventDefault();
+
+  if (!selectedSlot || bookingServices.length === 0 || creatingBooking) return;
+
+  if (!profile?.id) {
+    alert("Não foi possível identificar a página do profissional.");
+    return;
+  }
+
+  const firstName = clientForm.firstName.trim();
+  const lastName = clientForm.lastName.trim();
+  const customerPhone = onlyDigits(clientForm.phone);
+
+  if (!firstName) {
+    alert("Informe seu nome.");
+    return;
+  }
+
+  if (!customerPhone || customerPhone.length < 10) {
+    alert("Informe um WhatsApp válido com DDD.");
+    return;
+  }
+
+  const customerName = `${firstName} ${lastName}`.trim();
+
+  let assignedStaff = null;
+
+  if (usingStaffSystem) {
+    if (selectedStaffId === "any") {
+      const freeStaff = getAvailableStaffForSlot(selectedSlot);
+
+      if (freeStaff.length === 0) {
+        alert("Esse horário acabou de ficar indisponível. Escolha outro horário.");
+        setShowClientModal(false);
+        return;
+      }
+
+      assignedStaff = freeStaff[0];
+    } else {
+      assignedStaff =
+        availableStaff.find((staff) => staff.id === selectedStaffId) || null;
+    }
+  }
+
+  if (isReserved(selectedSlot)) {
+    alert("Esse horário acabou de ficar indisponível. Escolha outro horário.");
+    setShowClientModal(false);
+    return;
+  }
+
+  setCreatingBooking(true);
+
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+  const bookingPayload = {
+    profile_page_id: profile.id,
+    date: selectedDateKey,
+    time: selectedSlot,
+    services: bookingServices,
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    note: clientForm.note.trim() || null,
+    status: "pending",
+    expires_at: expiresAt,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (assignedStaff?.id) {
+    bookingPayload.assigned_staff_id = assignedStaff.id;
+    bookingPayload.staff_id = assignedStaff.id;
+    bookingPayload.staff_name = assignedStaff.nome || null;
+  }
+
+  try {
+    const response = await fetch("/api/profile-bookings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(bookingPayload),
+    });
+
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error("Erro ao criar reserva:", json);
+      alert(json.error || "Não foi possível solicitar esse agendamento.");
       return;
     }
 
-    if (!customerPhone || customerPhone.length < 10) {
-      alert("Informe um WhatsApp válido com DDD.");
-      return;
-    }
+    const data = json.booking;
 
-    const customerName = `${firstName} ${lastName}`.trim();
-    const slotId = getSlotId(selectedDateKey, selectedSlot);
-
-    if (reservedSlots.includes(slotId)) {
-      alert("Esse horário acabou de ficar indisponível. Escolha outro horário.");
-      setShowClientModal(false);
-      return;
-    }
-
-    setCreatingBooking(true);
-
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    const { data, error } = await supabase
-      .from("profile_bookings")
-      .insert({
-        profile_page_id: profile.id,
-        date: selectedDateKey,
-        time: selectedSlot,
-        services: bookingServices,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        note: clientForm.note.trim() || null,
-        status: "pending",
-        expires_at: expiresAt,
-        updated_at: new Date().toISOString(),
-      })
-      .select("id,date,time,status,services,customer_name,customer_phone,note,expires_at")
-      .single();
-
-    setCreatingBooking(false);
-
-    if (error) {
-      console.error("Erro ao criar reserva:", error);
-      alert(error.message || "Não foi possível solicitar esse agendamento.");
-      return;
-    }
-
-    setReservedSlots((prev) => (prev.includes(slotId) ? prev : [...prev, slotId]));
+    setReservedBookings((prev) => [...prev, data]);
     setBookingCreated(data);
     setShowClientModal(false);
 
@@ -411,19 +775,29 @@ export default function BookingSection({ profile }) {
       phone: "",
       note: "",
     });
+
+    alert("Agendamento enviado com sucesso!");
+  } catch (err) {
+    console.error("Erro ao criar agendamento:", err);
+    alert("Erro ao solicitar agendamento.");
+  } finally {
+    setCreatingBooking(false);
   }
+}
 
   function openWhatsAppAfterBooking() {
-  const customerName = bookingCreated?.customer_name || "Cliente";
+    const customerName = bookingCreated?.customer_name || "Cliente";
 
-  const text = encodeURIComponent(
-    `Olá, ${professionalName}! 👋\n\nAcabei de solicitar um agendamento pela sua página profissional.\n\n👤 Cliente: ${customerName}\n📅 Data: ${formatFullDate(selectedDate)}\n⏰ Horário: ${selectedSlot}\n\nQuando puder, confirma pra mim se esse horário está disponível?`
-  );
+    const assignedStaff =
+      staffMembers.find((staff) => staff.id === bookingCreated?.staff_id) ||
+      null;
 
-  const whatsappUrl = `https://wa.me/${professionalWhatsapp}?text=${text}`;
+    const text = buildWhatsAppText(customerName, assignedStaff);
 
-  window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-}
+    const whatsappUrl = `https://wa.me/${professionalWhatsapp}?text=${text}`;
+
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+  }
 
   if (!shouldShowBooking) return null;
 
@@ -435,8 +809,8 @@ export default function BookingSection({ profile }) {
             <span className="eyebrow">Agendamento</span>
             <h2>Escolha o melhor horário</h2>
             <p>
-              Você selecionou serviço com agenda online. Agora escolha uma data e
-              um horário disponível para solicitar o agendamento.
+              Você selecionou serviço com agenda online. Agora escolha uma data,
+              profissional e horário disponível.
             </p>
           </div>
 
@@ -475,6 +849,36 @@ export default function BookingSection({ profile }) {
             </select>
           )}
         </div>
+
+        {usingStaffSystem && (
+          <div className="booking-staff-box">
+            <div>
+              <span>Profissional</span>
+              <strong>Escolha quem vai atender</strong>
+              <small>
+                Você pode escolher um profissional específico ou deixar o sistema
+                encontrar alguém disponível.
+              </small>
+            </div>
+
+            <select
+              value={selectedStaffId}
+              onChange={(e) => {
+                setSelectedStaffId(e.target.value);
+                setSelectedSlot(null);
+                setBookingCreated(null);
+              }}
+            >
+              <option value="any">Qualquer profissional disponível</option>
+
+              {availableStaff.map((staff) => (
+                <option key={staff.id} value={staff.id}>
+                  {staff.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="booking-layout">
           <div className="booking-calendar">
@@ -532,7 +936,7 @@ export default function BookingSection({ profile }) {
             </div>
           </div>
 
-          <div className="booking-times">
+                    <div className="booking-times">
             <div className="times-head">
               <div>
                 <span>Horários para</span>
@@ -595,11 +999,26 @@ export default function BookingSection({ profile }) {
                   )} às ${selectedSlot}`
                 : "Escolha uma data e um horário"}
             </strong>
+
+            {usingStaffSystem && selectedSlot && (
+              <small>
+                {selectedStaffId === "any"
+                  ? "O sistema direcionará para um profissional disponível."
+                  : `Profissional: ${
+                      availableStaff.find((staff) => staff.id === selectedStaffId)
+                        ?.nome || "selecionado"
+                    }`}
+              </small>
+            )}
           </div>
 
           {bookingCreated ? (
-            <button type="button" className="booking-cta" onClick={openWhatsAppAfterBooking}>
-              Avisar no WhatsApp
+            <button
+              type="button"
+              className="booking-cta"
+              onClick={openWhatsAppAfterBooking}
+            >
+              Solicitação enviada
             </button>
           ) : (
             <button
@@ -675,8 +1094,24 @@ export default function BookingSection({ profile }) {
               </label>
 
               <div className="booking-modal-summary">
-                <strong>{formatFullDate(selectedDate)} às {selectedSlot}</strong>
-                <span>{bookingServices.map((service) => service.name).join(" • ")}</span>
+                <strong>
+                  {formatFullDate(selectedDate)} às {selectedSlot}
+                </strong>
+
+                <span>
+                  {bookingServices.map((service) => service.name).join(" • ")}
+                </span>
+
+                {usingStaffSystem && (
+                  <span>
+                    {selectedStaffId === "any"
+                      ? "Profissional: qualquer disponível"
+                      : `Profissional: ${
+                          availableStaff.find((staff) => staff.id === selectedStaffId)
+                            ?.nome || "selecionado"
+                        }`}
+                  </span>
+                )}
               </div>
 
               <div className="booking-modal-actions">
@@ -688,7 +1123,11 @@ export default function BookingSection({ profile }) {
                   Voltar
                 </button>
 
-                <button type="submit" className="booking-modal-primary" disabled={creatingBooking}>
+                <button
+                  type="submit"
+                  className="booking-modal-primary"
+                  disabled={creatingBooking}
+                >
                   {creatingBooking ? "Enviando..." : "Enviar solicitação"}
                 </button>
               </div>

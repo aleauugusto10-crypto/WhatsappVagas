@@ -1,4 +1,5 @@
 import { supabase } from "../../src/lib/supabase";
+import { notifyStaffNewOrder } from "../../src/lib/staffNotifications.js";
 async function sendText(phone, text) {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -20,9 +21,7 @@ async function sendText(phone, text) {
         messaging_product: "whatsapp",
         to: phone,
         type: "text",
-        text: {
-          body: text,
-        },
+        text: { body: text },
       }),
     }
   );
@@ -49,12 +48,9 @@ function onlyDigits(value = "") {
 
 function normalizeBRPhone(phone = "") {
   let digits = onlyDigits(phone);
-
   if (!digits) return "";
 
-  if (!digits.startsWith("55")) {
-    digits = `55${digits}`;
-  }
+  if (!digits.startsWith("55")) digits = `55${digits}`;
 
   const country = digits.slice(0, 2);
   const ddd = digits.slice(2, 4);
@@ -65,6 +61,33 @@ function normalizeBRPhone(phone = "") {
   }
 
   return `${country}${ddd}${number}`;
+}
+
+function buildItemLines(items = []) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "Itens não informados";
+  }
+
+  return items
+    .map((item) => {
+      const qty = Number(item.qty || 1);
+
+      const price =
+        item.price_type === "quote"
+          ? "Sob orçamento"
+          : money(Number(item.price || 0) * qty);
+
+      let line = `• ${qty}x ${item.title || "Item"} — ${price}`;
+
+      if (Array.isArray(item.selected_variants)) {
+        item.selected_variants.forEach((variant) => {
+          line += `\n   ↳ ${variant.variant_name}: ${variant.label}`;
+        });
+      }
+
+      return line;
+    })
+    .join("\n");
 }
 
 export default async function handler(req, res) {
@@ -81,6 +104,11 @@ export default async function handler(req, res) {
       items,
       total,
       has_quote,
+
+      source_channel = "whatsapp_automation",
+      automation_status = "waiting_owner_confirmation",
+      profile_owner_name = "",
+      profile_owner_phone = "",
     } = req.body || {};
 
     if (!profile_page_id) {
@@ -101,59 +129,142 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: "Perfil não encontrado." });
     }
 
+    const cleanCustomerPhone = normalizeBRPhone(customer_phone);
+    const cleanOwnerPhone = normalizeBRPhone(
+      profile_owner_phone || profile.whatsapp
+       );
+
     const { data: order, error } = await supabase
       .from("profile_orders")
       .insert({
         profile_page_id,
-        customer_name,
-        customer_phone: onlyDigits(customer_phone),
+
+        customer_name: String(customer_name || "").trim(),
+
+        customer_phone: cleanCustomerPhone,
+
         note: String(note || "").trim(),
+
         items: Array.isArray(items) ? items : [],
+
         total: Number(total || 0),
+
         has_quote: !!has_quote,
+
         status: "pending",
+
+        source_channel,
+
+        automation_status,
+
+        profile_owner_name:
+          profile_owner_name ||
+          profile.nome ||
+          "",
+
+        profile_owner_phone:
+          cleanOwnerPhone,
+
+        created_at: new Date().toISOString(),
+
         updated_at: new Date().toISOString(),
       })
       .select()
       .single();
 
     if (error) {
-      console.error("Erro ao salvar pedido:", error);
-      return res.status(500).json({ error: "Erro ao salvar pedido." });
+      console.error("❌ Erro ao salvar pedido:", error);
+
+      return res.status(500).json({
+        error:
+          error.message ||
+          "Erro ao salvar pedido.",
+      });
     }
 
-    const ownerPhone = normalizeBRPhone(profile.whatsapp);
+    /*
+      =====================================
+      AVISO PARA O DONO DA PÁGINA
+      =====================================
+    */
 
-    if (ownerPhone) {
-      const itemLines = Array.isArray(items)
-        ? items
-            .map((item) => {
-              const price =
-                item.price_type === "quote"
-                  ? "Sob orçamento"
-                  : money(Number(item.price || 0) * Number(item.qty || 1));
-
-              return `• ${item.qty || 1}x ${item.title || "Item"} — ${price}`;
-            })
-            .join("\n")
-        : "Itens não informados";
-
+    if (cleanOwnerPhone) {
       await sendText(
-        ownerPhone,
+        cleanOwnerPhone,
+
         `🔔 *Novo pedido recebido!*\n\n` +
-          `📌 Página: ${profile.nome || "Perfil profissional"}\n` +
+
+          `🧾 Pedido: ${order.id}\n` +
+
+          `📌 Página: ${
+            profile.nome || "Perfil profissional"
+          }\n\n` +
+
           `👤 Cliente: ${customer_name}\n` +
-          `📞 WhatsApp: ${onlyDigits(customer_phone)}\n\n` +
-          `🛍️ *Itens:*\n${itemLines}\n\n` +
-          `💰 Total: ${has_quote ? "Sob orçamento / parcial " + money(total) : money(total)}\n` +
-          `${note ? `\n📝 Observação:\n${note}\n` : ""}\n` +
-          `Acesse seu painel RendaJá para confirmar, entregar ou excluir o pedido.`
+
+          `📞 WhatsApp: ${cleanCustomerPhone}\n\n` +
+
+          `🛍️ *Itens do pedido:*\n\n` +
+
+          `${buildItemLines(items)}\n\n` +
+
+          `💰 Total: ${
+            has_quote
+              ? `Sob orçamento / parcial ${money(total)}`
+              : money(total)
+          }\n` +
+
+          `${
+            note
+              ? `\n📝 Observação:\n${note}\n`
+              : ""
+          }\n` +
+
+          `Acesse o painel RendaJá para confirmar ou finalizar esse pedido.`
+      );
+    
+    }
+  await notifyStaffNewOrder(order);
+    /*
+      =====================================
+      MENSAGEM AUTOMÁTICA PARA CLIENTE
+      =====================================
+    */
+
+    if (cleanCustomerPhone) {
+      await sendText(
+        cleanCustomerPhone,
+
+        `✨ *Recebemos sua solicitação!*\n\n` +
+
+          `Seu pedido foi enviado com sucesso para:\n` +
+
+          `🏪 ${profile.nome || "a loja"}\n\n` +
+
+          `🧾 Código do pedido:\n${order.id}\n\n` +
+
+          `Agora é só aguardar a confirmação.\n\n` +
+
+          `Você receberá atualizações automáticas diretamente aqui no WhatsApp. 💬`
       );
     }
 
-    return res.status(200).json({ ok: true, order });
+    return res.status(200).json({
+      ok: true,
+      order,
+    });
+
   } catch (err) {
-    console.error("Erro geral profile-orders:", err);
-    return res.status(500).json({ error: "Erro interno ao criar pedido." });
+
+    console.error(
+      "❌ Erro geral profile-orders:",
+      err
+    );
+
+    return res.status(500).json({
+      error:
+        err.message ||
+        "Erro interno ao criar pedido.",
+    });
   }
 }
