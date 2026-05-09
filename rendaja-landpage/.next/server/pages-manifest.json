@@ -4,7 +4,5 @@
   "/_document": "pages/_document.js",
   "/dashboard": "pages/dashboard.js",
   "/p/[slug]": "pages/p/[slug].js",
-  "/api/finance/finalize-order": "pages/api/finance/finalize-order.js",
-  "/dashboard-preview": "pages/dashboard-preview.js",
-  "/api/profile-orders": "pages/api/profile-orders.js"
+  "/dashboard-preview": "pages/dashboard-preview.js"
 }

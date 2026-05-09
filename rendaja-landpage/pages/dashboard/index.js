@@ -359,7 +359,7 @@ async function loadOrders(profileId) {
     .from("profile_orders")
     .select("*")
     .eq("profile_page_id", profileId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
   if (error) {
     console.error("Erro ao buscar pedidos:", error);

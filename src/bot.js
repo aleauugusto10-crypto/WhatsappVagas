@@ -451,20 +451,26 @@ if (staff.temp_action === "finish_booking" && staff.temp_booking_id) {
     return sendStaffMenu(phone, staff);
   }
 
-  if (text === "staff_orders") {
+  if (text === "staff_orders" || text.startsWith("staff_orders_page_")) {
   if (!staff.can_view_orders) {
     return sendText(phone, "Você não tem permissão para ver pedidos.");
   }
 
   const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+const page = text.startsWith("staff_orders_page_")
+  ? Number(text.replace("staff_orders_page_", "") || 0)
+  : 0;
 
+const pageSize = 9;
+const from = page * pageSize;
+const to = from + pageSize;
   let query = supabase
     .from("profile_orders")
     .select("*")
     .eq("profile_page_id", profilePageId)
     .in("status", ["pending", "confirmed"])
-    .order("created_at", { ascending: false })
-    .limit(10);
+    .order("created_at", { ascending: true })
+.range(from, to);
 
   const canSeeGeneralOrders =
     staff.role === "manager" ||
@@ -489,13 +495,21 @@ if (staff.temp_action === "finish_booking" && staff.temp_booking_id) {
     return sendText(phone, "📦 Nenhum pedido pendente no momento.");
   }
 
-  const rows = data.map((order, index) => ({
+  let rows = data.slice(0, 9).map((order, index) => ({
   id: `staff_order_${order.id}`,
-  title: `Pedido ${index + 1}`,
+  title: `Pedido ${from + index + 1}`,
   description: `${String(order.customer_name || "Cliente").slice(0, 28)} • ${
     order.has_quote ? "Orçamento" : money(order.total || 0)
   }`,
 }));
+
+if (data.length > 9) {
+  rows.push({
+    id: `staff_orders_page_${page + 1}`,
+    title: "Próxima página",
+    description: "Ver mais pedidos",
+  });
+}
 
   return sendList(phone, "📦 *Pedidos disponíveis:*\n\nEscolha um para ver detalhes:", [
     {
@@ -948,6 +962,76 @@ if (staff.temp_action === "finish_order" && staff.temp_order_id) {
         currency: "BRL",
       })}*`
   );
+}
+
+if (text.startsWith("staff_order_") && !text.startsWith("staff_orders_page_")) {
+  const orderId = text.replace("staff_order_", "");
+  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+
+  const { data: order, error } = await supabase
+    .from("profile_orders")
+    .select("*")
+    .eq("id", orderId)
+    .eq("profile_page_id", profilePageId)
+    .maybeSingle();
+
+  if (error || !order) {
+    console.error("❌ erro staff_order detalhe:", error);
+    return sendText(phone, "Não consegui encontrar esse pedido.");
+  }
+
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  const itemsText = items.length
+    ? items
+        .map((item) => {
+          const qty = item.qty || 1;
+          const title = item.title || item.name || "Item";
+          const price =
+            item.price_type === "quote"
+              ? "Sob orçamento"
+              : money(Number(item.price || 0) * Number(qty));
+
+          return `• ${qty}x ${title} — ${price}`;
+        })
+        .join("\n")
+    : "Itens não informados";
+
+  await sendText(
+    phone,
+    `📦 *Detalhes do pedido*\n\n` +
+      `👤 Cliente: ${order.customer_name || "Cliente"}\n` +
+      `📞 WhatsApp: ${order.customer_phone || "Não informado"}\n` +
+      `📌 Status: ${order.status || "pending"}\n` +
+      `💰 Total: ${
+        order.has_quote ? "Sob orçamento" : money(order.total || 0)
+      }\n\n` +
+      `🛍️ *Itens:*\n${itemsText}\n` +
+      `${order.note ? `\n📝 Observação:\n${order.note}` : ""}`
+  );
+
+  const buttons = [];
+
+  if (order.status === "pending" && staff.can_confirm_orders) {
+    buttons.push({
+      id: `staff_confirm_order_${order.id}`,
+      title: "Confirmar",
+    });
+  }
+
+  if (order.status !== "delivered" && staff.can_finalize_orders) {
+    buttons.push({
+      id: `staff_finish_order_${order.id}`,
+      title: "Finalizar",
+    });
+  }
+
+  buttons.push({
+    id: "staff_orders",
+    title: "Pedidos",
+  });
+
+  return sendActionButtons(phone, "O que deseja fazer?", buttons.slice(0, 3));
 }
 if (text.startsWith("staff_booking_")) {
   const bookingId = text.replace("staff_booking_", "");
