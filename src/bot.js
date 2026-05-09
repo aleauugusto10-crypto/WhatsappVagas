@@ -590,7 +590,28 @@ if (staff.temp_action === "finish_booking" && staff.temp_booking_id) {
 
   return sendPaymentMethodList(phone);
 }
+const ownerBookingPendingAction = ownerTempActions.get(phone);
 
+if (ownerBookingPendingAction?.action === "finish_booking") {
+  const amount = parseMoneyFromText(text);
+
+  if (!amount || amount <= 0) {
+    return sendText(
+      phone,
+      "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *80* ou *80,00*"
+    );
+  }
+
+  ownerTempActions.set(phone, {
+    action: "finish_payment_method",
+    type: "booking",
+    bookingId: ownerBookingPendingAction.bookingId,
+    profilePageId: ownerBookingPendingAction.profilePageId,
+    amount,
+  });
+
+  return sendPaymentMethodList(phone);
+}
 if (["menu", "oi", "inicio", "início", "staff_menu"].includes(text)) {
     return sendStaffMenu(phone, staff);
   }
