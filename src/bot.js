@@ -637,6 +637,8 @@ if (text.startsWith("staff_cancel_booking_")) {
 
   return sendText(phone, "🚫 Agendamento cancelado.");
 }
+
+
 if (text.startsWith("staff_confirm_order_")) {
   const orderId = text.replace("staff_confirm_order_", "");
 
@@ -646,20 +648,32 @@ if (text.startsWith("staff_confirm_order_")) {
 
   const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
 
-  const { error } = await supabase
-    .from("profile_orders")
-    .update({
-      status: "confirmed",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId)
-    .eq("profile_page_id", profilePageId);
+  const { data: order, error } = await supabase
+  .from("profile_orders")
+  .update({
+    status: "confirmed",
+    updated_at: new Date().toISOString(),
+  })
+  .eq("id", orderId)
+  .eq("profile_page_id", profilePageId)
+  .select()
+  .single();
 
   if (error) {
     console.error("❌ erro confirmar pedido:", error);
     return sendText(phone, "Erro ao confirmar pedido.");
   }
+const customerPhone = normalizeBRPhone(order.customer_phone);
 
+if (customerPhone) {
+  await sendText(
+    customerPhone,
+    `Olá, ${order.customer_name || "tudo bem"}! ✅\n\n` +
+      `Seu pedido foi confirmado e já está em atendimento.\n\n` +
+      `Em alguns instantes, um atendente da loja poderá entrar em contato diretamente por este WhatsApp para confirmar os detalhes e dar continuidade ao seu pedido.\n\n` +
+      `Fique atento às próximas mensagens 📲`
+  );
+}
   return sendText(phone, "✅ Pedido confirmado com sucesso.");
 }
 
