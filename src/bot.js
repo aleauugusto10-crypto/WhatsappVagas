@@ -153,6 +153,35 @@ function money(value = 0) {
     currency: "BRL",
   });
 }
+function paymentMethodLabel(method) {
+  const map = {
+    pix: "Pix",
+    cash: "Dinheiro",
+    card: "Cartão",
+    debit_card: "Cartão de débito",
+    credit_card: "Cartão de crédito",
+    transfer: "Transferência",
+    other: "Outro",
+  };
+
+  return map[method] || "Outro";
+}
+
+function sendPaymentMethodList(phone) {
+  return sendList(phone, "💳 Como o cliente pagou?", [
+    {
+      title: "Forma de pagamento",
+      rows: [
+        { id: "paymethod_pix", title: "Pix" },
+        { id: "paymethod_cash", title: "Dinheiro" },
+        { id: "paymethod_debit_card", title: "Cartão débito" },
+        { id: "paymethod_credit_card", title: "Cartão crédito" },
+        { id: "paymethod_transfer", title: "Transferência" },
+        { id: "paymethod_other", title: "Outro" },
+      ],
+    },
+  ]);
+}
 async function getLastUserPayment(userId) {
   const { data, error } = await supabase
     .from("pagamentos_plataforma")
@@ -352,102 +381,217 @@ async function sendStaffMenu(phone, staff) {
 }
 
 async function handleStaffMenu({ phone, text, staff }) {
+const pendingPaymentAction = ownerTempActions.get(phone);
 
-if (staff.temp_action === "finish_booking" && staff.temp_booking_id) {
-  const amount = parseMoneyFromText(text);
+if (
+  pendingPaymentAction?.action === "finish_payment_method" &&
+  text.startsWith("paymethod_")
+) {
+  const paymentMethod = text.replace("paymethod_", "");
+  const amount = Number(pendingPaymentAction.amount || 0);
+  const profilePageId = pendingPaymentAction.profilePageId;
 
-  if (!amount || amount <= 0) {
-    return sendText(
-      phone,
-      "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *80* ou *80,00*"
-    );
-  }
+  if (pendingPaymentAction.type === "order") {
+    const { data: order, error: orderError } = await supabase
+      .from("profile_orders")
+      .update({
+        status: "delivered",
+        paid_amount: amount,
+        payment_status: "paid",
+        payment_method: paymentMethod,
+        finalized_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", pendingPaymentAction.orderId)
+      .eq("profile_page_id", profilePageId)
+      .select()
+      .single();
 
-  const bookingId = staff.temp_booking_id;
-  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
-  const commissionAmount = calcStaffCommission(staff, amount);
+    if (orderError) {
+      console.error("❌ erro finalizar pedido:", orderError);
+      return sendText(phone, "Erro ao finalizar pedido.");
+    }
 
-  const { data: booking, error: bookingError } = await supabase
-    .from("profile_bookings")
-    .update({
-      status: "completed",
-      total: amount,
-      paid_amount: amount,
-      payment_status: "paid",
-      payment_method: "manual",
-      assigned_staff_id: staff.id,
-      finalized_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", bookingId)
-    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`)
-    .select()
-    .single();
+    const commissionAmount =
+      staff.role === "owner" ? 0 : calcStaffCommission(staff, amount);
 
-  if (bookingError) {
-    console.error("❌ erro finalizar booking:", bookingError);
-    return sendText(phone, "Erro ao finalizar atendimento.");
-  }
-
-  const { error: movementError } = await supabase
-    .from("finance_movements")
-    .insert({
+    await supabase.from("finance_movements").insert({
       profile_page_id: profilePageId,
       type: "income",
       amount,
-      payment_method: "manual",
-      description: `Atendimento finalizado - ${booking.customer_name || "Cliente"}`,
-      note: "Finalizado pelo funcionário via WhatsApp",
-      source_type: "booking",
-      source_id: bookingId,
-
-      staff_id: staff.id,
-      staff_name: staff.nome,
-
-      registered_by_id: staff.id,
-      registered_by_name: staff.nome,
+      payment_method: paymentMethod,
+      description: `Pedido finalizado - ${order.customer_name || "Cliente"}`,
+      note:
+        staff.role === "owner"
+          ? "Finalizado pelo dono via WhatsApp"
+          : "Finalizado pelo funcionário via WhatsApp",
+      source_type: "order",
+      source_id: order.id,
+      items: Array.isArray(order.items) ? order.items : [],
+      customer_name: order.customer_name || null,
+      customer_phone: order.customer_phone || null,
+      staff_id: staff.role === "owner" ? null : staff.id,
+      staff_name: staff.role === "owner" ? null : staff.nome,
+      registered_by_id: staff.role === "owner" ? "owner" : staff.id,
+      registered_by_name: staff.nome || "Dono",
       registered_by_role: staff.role || "staff",
-
       commission_amount: commissionAmount,
-      commission_type: staff.commission_type || "none",
-      commission_to_staff_id: staff.id,
-      commission_to_staff_name: staff.nome,
-
+      commission_type: staff.role === "owner" ? "none" : staff.commission_type || "none",
+      commission_to_staff_id: staff.role === "owner" ? null : staff.id,
+      commission_to_staff_name: staff.role === "owner" ? null : staff.nome,
       created_at: new Date().toISOString(),
     });
 
-  if (movementError) {
-    console.error("❌ erro movement booking:", movementError);
-    return sendText(
+    if (staff.role !== "owner") {
+      await supabase
+        .from("profile_staff")
+        .update({
+          temp_action: null,
+          temp_order_id: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", staff.id);
+    }
+
+    ownerTempActions.delete(phone);
+
+    const customerPhone = normalizeBRPhone(order.customer_phone);
+
+    if (customerPhone) {
+      await sendText(
+        customerPhone,
+        `✅ *Pedido finalizado!*\n\nSeu pedido foi concluído com sucesso.\n\nObrigado pela preferência! 🙌`
+      );
+    }
+
+    return sendActionButtons(
       phone,
-      "Atendimento finalizado, mas houve erro ao lançar no financeiro."
+      `✅ Pedido finalizado!\n\nValor: *${money(amount)}*\nPagamento: *${paymentMethodLabel(paymentMethod)}*`,
+      [
+        { id: "staff_orders", title: "Pedidos" },
+        { id: "staff_menu", title: "Menu" },
+      ]
     );
   }
 
-  await supabase
-    .from("profile_staff")
-    .update({
-      temp_action: null,
-      temp_booking_id: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", staff.id);
+  if (pendingPaymentAction.type === "booking") {
+    const { data: booking, error: bookingError } = await supabase
+      .from("profile_bookings")
+      .update({
+        status: "completed",
+        total: amount,
+        paid_amount: amount,
+        payment_status: "paid",
+        payment_method: paymentMethod,
+        assigned_staff_id: staff.role === "owner" ? null : staff.id,
+        finalized_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", pendingPaymentAction.bookingId)
+      .eq("profile_page_id", profilePageId)
+      .select()
+      .single();
 
+    if (bookingError) {
+      console.error("❌ erro finalizar agendamento:", bookingError);
+      return sendText(phone, "Erro ao finalizar agendamento.");
+    }
 
-  return sendText(
-    phone,
-    `✅ Atendimento finalizado!\n\n` +
-      `Valor recebido: *${amount.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      })}*\n` +
-      `Comissão gerada: *${commissionAmount.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      })}*`
-  );
+    const commissionAmount =
+      staff.role === "owner" ? 0 : calcStaffCommission(staff, amount);
+
+    await supabase.from("finance_movements").insert({
+      profile_page_id: profilePageId,
+      type: "income",
+      amount,
+      payment_method: paymentMethod,
+      description: `Atendimento finalizado - ${booking.customer_name || "Cliente"}`,
+      note:
+        staff.role === "owner"
+          ? "Finalizado pelo dono via WhatsApp"
+          : "Finalizado pelo funcionário via WhatsApp",
+      source_type: "booking",
+      source_id: booking.id,
+      customer_name: booking.customer_name || null,
+      customer_phone: booking.customer_phone || null,
+      staff_id: staff.role === "owner" ? null : staff.id,
+      staff_name: staff.role === "owner" ? null : staff.nome,
+      registered_by_id: staff.role === "owner" ? "owner" : staff.id,
+      registered_by_name: staff.nome || "Dono",
+      registered_by_role: staff.role || "staff",
+      commission_amount: commissionAmount,
+      commission_type: staff.role === "owner" ? "none" : staff.commission_type || "none",
+      commission_to_staff_id: staff.role === "owner" ? null : staff.id,
+      commission_to_staff_name: staff.role === "owner" ? null : staff.nome,
+      created_at: new Date().toISOString(),
+    });
+
+    if (staff.role !== "owner") {
+      await supabase
+        .from("profile_staff")
+        .update({
+          temp_action: null,
+          temp_booking_id: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", staff.id);
+    }
+
+    ownerTempActions.delete(phone);
+
+    const customerPhone = normalizeBRPhone(booking.customer_phone);
+
+    if (customerPhone) {
+      await sendText(
+        customerPhone,
+        `✅ *Atendimento finalizado!*\n\nSeu atendimento foi concluído com sucesso.\n\nObrigado pela preferência! 🙌`
+      );
+    }
+
+    return sendActionButtons(
+      phone,
+      `✅ Atendimento finalizado!\n\nValor: *${money(amount)}*\nPagamento: *${paymentMethodLabel(paymentMethod)}*`,
+      [
+        { id: "staff_bookings", title: "Agenda" },
+        { id: "staff_menu", title: "Menu" },
+      ]
+    );
+  }
 }
-  if (["menu", "oi", "inicio", "início", "staff_menu"].includes(text)) {
+if (staff.temp_action === "finish_booking" && staff.temp_booking_id) {
+
+  const amount = parseMoneyFromText(text);
+
+  if (!amount || amount <= 0) {
+
+    return sendText(
+
+      phone,
+
+      "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *80* ou *80,00*"
+
+    );
+
+  }
+
+  ownerTempActions.set(phone, {
+
+    action: "finish_payment_method",
+
+    type: "booking",
+
+    bookingId: staff.temp_booking_id,
+
+    profilePageId: staff.profile_page_id || staff.profiles_pages?.id,
+
+    amount,
+
+  });
+
+  return sendPaymentMethodList(phone);
+}
+
+if (["menu", "oi", "inicio", "início", "staff_menu"].includes(text)) {
     return sendStaffMenu(phone, staff);
   }
 
@@ -799,178 +943,69 @@ if (text.startsWith("staff_finish_booking_")) {
 const ownerPendingAction = ownerTempActions.get(phone);
 
 if (ownerPendingAction?.action === "finish_order") {
+
   const amount = parseMoneyFromText(text);
 
   if (!amount || amount <= 0) {
+
     return sendText(
+
       phone,
+
       "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *120* ou *120,00*"
+
     );
+
   }
 
-  const orderId = ownerPendingAction.orderId;
-  const profilePageId = ownerPendingAction.profilePageId;
+  ownerTempActions.set(phone, {
 
-  const { data: order, error: orderError } = await supabase
-    .from("profile_orders")
-    .update({
-      status: "delivered",
-      paid_amount: amount,
-      payment_status: "paid",
-      payment_method: "manual",
-      finalized_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId)
-    .eq("profile_page_id", profilePageId)
-    .select()
-    .single();
+    action: "finish_payment_method",
 
-  if (orderError) {
-    console.error("❌ erro finalizar pedido dono:", orderError);
-    return sendText(phone, "Erro ao finalizar pedido.");
-  }
+    type: "order",
 
-  await supabase.from("finance_movements").insert({
-    profile_page_id: profilePageId,
-    type: "income",
+    orderId: ownerPendingAction.orderId,
+
+    profilePageId: ownerPendingAction.profilePageId,
+
     amount,
-    payment_method: "manual",
-    description: `Pedido finalizado - ${order.customer_name || "Cliente"}`,
-    note: "Finalizado pelo dono via WhatsApp",
-    source_type: "order",
-    source_id: orderId,
-    items: Array.isArray(order.items) ? order.items : [],
-    customer_name: order.customer_name || null,
-    customer_phone: order.customer_phone || null,
-    registered_by_id: "owner",
-    registered_by_name: staff.nome || "Dono",
-    registered_by_role: "owner",
-    commission_amount: 0,
-    commission_type: "none",
-    created_at: new Date().toISOString(),
+
   });
 
-  ownerTempActions.delete(phone);
+  return sendPaymentMethodList(phone);
 
-  const customerPhone = normalizeBRPhone(order.customer_phone);
-
-  if (customerPhone) {
-    await sendText(
-      customerPhone,
-      `✅ *Pedido finalizado!*\n\n` +
-        `Seu pedido foi concluído com sucesso.\n\n` +
-        `Obrigado pela preferência! 🙌`
-    );
-  }
-
-  return sendActionButtons(
-    phone,
-    `✅ Pedido finalizado!\n\nValor recebido: *${amount.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    })}*`,
-    [
-      { id: "staff_orders", title: "Pedidos" },
-      { id: "staff_menu", title: "Menu" },
-    ]
-  );
 }
 if (staff.temp_action === "finish_order" && staff.temp_order_id) {
+
   const amount = parseMoneyFromText(text);
 
   if (!amount || amount <= 0) {
+
     return sendText(
+
       phone,
+
       "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *120* ou *120,00*"
+
     );
+
   }
 
-  const orderId = staff.temp_order_id;
-  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
-  const commissionAmount = calcStaffCommission(staff, amount);
+  ownerTempActions.set(phone, {
 
-  const { data: order, error: orderError } = await supabase
-    .from("profile_orders")
-    .update({
-      status: "delivered",
-      paid_amount: amount,
-      payment_status: "paid",
-      payment_method: "manual",
-      finalized_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId)
-    .eq("profile_page_id", profilePageId)
-    .select()
-    .single();
+    action: "finish_payment_method",
 
-  if (orderError) {
-    console.error("❌ erro finalizar pedido:", orderError);
-    return sendText(phone, "Erro ao finalizar pedido.");
-  }
+    type: "order",
 
-  const { error: movementError } = await supabase
-    .from("finance_movements")
-    .insert({
-      profile_page_id: profilePageId,
-      type: "income",
-      amount,
-      payment_method: "manual",
-      description: `Pedido finalizado - ${order.customer_name || "Cliente"}`,
-      note: "Finalizado pelo funcionário via WhatsApp",
-      source_type: "order",
-      source_id: orderId,
+    orderId: staff.temp_order_id,
 
-      items: Array.isArray(order.items) ? order.items : [],
+    profilePageId: staff.profile_page_id || staff.profiles_pages?.id,
 
-      customer_name: order.customer_name || null,
-      customer_phone: order.customer_phone || null,
+    amount,
 
-      staff_id: staff.id,
-      staff_name: staff.nome,
+  });
 
-      registered_by_id: staff.id,
-      registered_by_name: staff.nome,
-      registered_by_role: staff.role || "staff",
-
-      commission_amount: commissionAmount,
-      commission_type: staff.commission_type || "none",
-      commission_to_staff_id: staff.id,
-      commission_to_staff_name: staff.nome,
-
-      created_at: new Date().toISOString(),
-    });
-
-  if (movementError) {
-    console.error("❌ erro movement pedido:", movementError);
-    return sendText(
-      phone,
-      "Pedido finalizado, mas houve erro ao lançar no financeiro."
-    );
-  }
-
-  await supabase
-    .from("profile_staff")
-    .update({
-      temp_action: null,
-      temp_order_id: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", staff.id);
-
-  return sendText(
-    phone,
-    `✅ Pedido finalizado!\n\n` +
-      `Valor recebido: *${amount.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      })}*\n` +
-      `Comissão gerada: *${commissionAmount.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      })}*`
-  );
+  return sendPaymentMethodList(phone);
 }
 
 if (text.startsWith("staff_order_") && !text.startsWith("staff_orders_page_")) {
