@@ -874,7 +874,31 @@ if (text === "staff_bookings") {
     );
   }
 
-  
+  const { data: confirmedBooking, error } = await confirmBookingQuery
+    .select()
+    .single();
+
+  if (error) {
+    console.error("❌ erro confirmar booking:", error);
+    return sendText(phone, "Erro ao confirmar agendamento.");
+  }
+
+  await sendText(phone, "✅ Agendamento confirmado com sucesso.");
+
+  return sendActionButtons(phone, "O que deseja fazer agora?", [
+    {
+      id: `staff_finish_booking_${confirmedBooking.id}`,
+      title: "Finalizar",
+    },
+    {
+      id: `staff_booking_${confirmedBooking.id}`,
+      title: "Ver agenda",
+    },
+    {
+      id: "staff_bookings",
+      title: "Agenda",
+    },
+  ]);
 }
 
 if (text.startsWith("staff_cancel_booking_")) {
