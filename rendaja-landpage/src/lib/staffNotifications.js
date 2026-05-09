@@ -247,7 +247,26 @@ export async function notifyStaffNewOrder(order) {
       );
     }
 
-    if (!targets.length) return;
+    const { data: profile } = await supabase
+  .from("profiles_pages")
+  .select("id, nome, whatsapp")
+  .eq("id", order.profile_page_id)
+  .maybeSingle();
+
+if (profile?.whatsapp) {
+  targets.push({
+    id: `owner_${profile.id}`,
+    nome: profile.nome || "Dono",
+    telefone: profile.whatsapp,
+    whatsapp_enabled: true,
+    can_view_orders: true,
+    can_confirm_orders: true,
+    can_finalize_orders: true,
+    role: "owner",
+  });
+}
+
+if (!targets.length) return;
 
     const itemsText = getOrderItemsText(order.items);
     const totalText = order.has_quote ? "Sob orçamento" : money(order.total || 0);
@@ -323,7 +342,26 @@ export async function notifyStaffNewBooking(booking) {
       );
     }
 
-    if (!targets.length) return;
+    const { data: profile } = await supabase
+  .from("profiles_pages")
+  .select("id, nome, whatsapp")
+  .eq("id", booking.profile_page_id)
+  .maybeSingle();
+
+if (profile?.whatsapp) {
+  targets.push({
+    id: `owner_${profile.id}`,
+    nome: profile.nome || "Dono",
+    telefone: profile.whatsapp,
+    whatsapp_enabled: true,
+    can_view_bookings: true,
+    can_confirm_bookings: true,
+    can_finalize_bookings: true,
+    role: "owner",
+  });
+}
+
+if (!targets.length) return;
 
     const servicesText = getBookingServicesText(booking.services);
 
