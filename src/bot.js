@@ -518,20 +518,27 @@ if (data.length > 9) {
     },
   ]);
 }
-
-  if (text === "staff_bookings") {
+if (text === "staff_bookings") {
   if (!staff.can_view_bookings) {
     return sendText(phone, "Você não tem permissão para ver agendamentos.");
   }
 
-  const { data, error } = await supabase
+  const profilePageId = staff.profile_page_id || staff.profiles_pages?.id;
+
+  let query = supabase
     .from("profile_bookings")
     .select("*")
-    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`)
+    .eq("profile_page_id", profilePageId)
     .in("status", ["pending", "confirmed"])
     .order("date", { ascending: true })
     .order("time", { ascending: true })
     .limit(10);
+
+  if (staff.role !== "owner") {
+    query = query.or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("❌ erro staff_bookings:", error);
@@ -539,16 +546,18 @@ if (data.length > 9) {
   }
 
   if (!data?.length) {
-    return sendText(phone, "📅 Você não possui agendamentos pendentes no momento.");
+    return sendText(phone, "📅 Nenhum agendamento pendente no momento.");
   }
 
-  const rows = data.map((booking) => ({
+  const rows = data.map((booking, index) => ({
     id: `staff_booking_${booking.id}`,
-    title: `${booking.customer_name || "Cliente"} • ${booking.date}`,
-    description: `${booking.time || ""} • ${booking.status || "pendente"}`,
+    title: `Agenda ${index + 1}`,
+    description: `${String(booking.customer_name || "Cliente").slice(0, 24)} • ${
+      booking.date || ""
+    } ${booking.time || ""}`,
   }));
 
-  return sendList(phone, "📅 *Seus agendamentos:*\n\nEscolha um para ver detalhes:", [
+  return sendList(phone, "📅 *Agendamentos disponíveis:*\n\nEscolha um para ver detalhes:", [
     {
       title: "Agendamentos",
       rows,
