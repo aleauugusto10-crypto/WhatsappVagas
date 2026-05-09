@@ -27,6 +27,7 @@ import {
   processApprovedMercadoPagoPayment,
   createProfilePageSubscriptionPayment,
 } from "./services/payments.js";
+const ownerTempActions = new Map();
 const processingUsers = new Set();
 async function findOwnerProfileByPhone(phone) {
   const candidates = getBRPhoneCandidates(phone);
@@ -674,7 +675,22 @@ if (customerPhone) {
       `Fique atento às próximas mensagens 📲`
   );
 }
-  return sendText(phone, "✅ Pedido confirmado com sucesso.");
+  await sendText(phone, "✅ Pedido confirmado com sucesso.");
+
+return sendActionButtons(phone, "O que deseja fazer agora?", [
+  {
+    id: `staff_finish_order_${order.id}`,
+    title: "Finalizar",
+  },
+  {
+    id: `staff_order_${order.id}`,
+    title: "Ver pedido",
+  },
+  {
+    id: "staff_orders",
+    title: "Pedidos",
+  },
+]);
 }
 
 if (text.startsWith("staff_finish_order_")) {
@@ -689,16 +705,26 @@ if (text.startsWith("staff_finish_order_")) {
     "💰 Para finalizar esse pedido, envie o valor recebido.\n\nExemplo: *120* ou *120,00*"
   );
 
-  await supabase
-    .from("profile_staff")
-    .update({
-      temp_action: "finish_order",
-      temp_order_id: orderId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", staff.id);
+if (staff.role === "owner") {
+  ownerTempActions.set(phone, {
+    action: "finish_order",
+    orderId,
+    profilePageId: staff.profile_page_id || staff.profiles_pages?.id,
+  });
 
   return;
+}
+
+await supabase
+  .from("profile_staff")
+  .update({
+    temp_action: "finish_order",
+    temp_order_id: orderId,
+    updated_at: new Date().toISOString(),
+  })
+  .eq("id", staff.id);
+
+return;
 }
 if (text.startsWith("staff_cancel_order_")) {
   const orderId = text.replace("staff_cancel_order_", "");
@@ -742,6 +768,86 @@ if (text.startsWith("staff_finish_booking_")) {
     .eq("id", staff.id);
 
   return;
+}
+const ownerPendingAction = ownerTempActions.get(phone);
+
+if (ownerPendingAction?.action === "finish_order") {
+  const amount = parseMoneyFromText(text);
+
+  if (!amount || amount <= 0) {
+    return sendText(
+      phone,
+      "Valor inválido. Envie apenas o valor recebido.\n\nExemplo: *120* ou *120,00*"
+    );
+  }
+
+  const orderId = ownerPendingAction.orderId;
+  const profilePageId = ownerPendingAction.profilePageId;
+
+  const { data: order, error: orderError } = await supabase
+    .from("profile_orders")
+    .update({
+      status: "delivered",
+      paid_amount: amount,
+      payment_status: "paid",
+      payment_method: "manual",
+      finalized_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .eq("profile_page_id", profilePageId)
+    .select()
+    .single();
+
+  if (orderError) {
+    console.error("❌ erro finalizar pedido dono:", orderError);
+    return sendText(phone, "Erro ao finalizar pedido.");
+  }
+
+  await supabase.from("finance_movements").insert({
+    profile_page_id: profilePageId,
+    type: "income",
+    amount,
+    payment_method: "manual",
+    description: `Pedido finalizado - ${order.customer_name || "Cliente"}`,
+    note: "Finalizado pelo dono via WhatsApp",
+    source_type: "order",
+    source_id: orderId,
+    items: Array.isArray(order.items) ? order.items : [],
+    customer_name: order.customer_name || null,
+    customer_phone: order.customer_phone || null,
+    registered_by_id: "owner",
+    registered_by_name: staff.nome || "Dono",
+    registered_by_role: "owner",
+    commission_amount: 0,
+    commission_type: "none",
+    created_at: new Date().toISOString(),
+  });
+
+  ownerTempActions.delete(phone);
+
+  const customerPhone = normalizeBRPhone(order.customer_phone);
+
+  if (customerPhone) {
+    await sendText(
+      customerPhone,
+      `✅ *Pedido finalizado!*\n\n` +
+        `Seu pedido foi concluído com sucesso.\n\n` +
+        `Obrigado pela preferência! 🙌`
+    );
+  }
+
+  return sendActionButtons(
+    phone,
+    `✅ Pedido finalizado!\n\nValor recebido: *${amount.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })}*`,
+    [
+      { id: "staff_orders", title: "Pedidos" },
+      { id: "staff_menu", title: "Menu" },
+    ]
+  );
 }
 if (staff.temp_action === "finish_order" && staff.temp_order_id) {
   const amount = parseMoneyFromText(text);
@@ -980,30 +1086,7 @@ if (staff) {
     staff,
   });
 }
-if (text.startsWith("staff_")) {
-  return handleStaffMenu({
-    phone,
-    text,
-    staff: {
-      id: "owner",
-      nome: "Dono",
-      telefone: phone,
-      role: "owner",
-      whatsapp_enabled: true,
 
-      can_view_orders: true,
-      can_confirm_orders: true,
-      can_finalize_orders: true,
-
-      can_view_bookings: true,
-      can_confirm_bookings: true,
-      can_finalize_bookings: true,
-
-      profile_page_id: null,
-      profiles_pages: null,
-    },
-  });
-}
     const phoneCandidates = getBRPhoneCandidates(rawPhone);
 
 let { data: user } = await supabase
