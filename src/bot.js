@@ -874,14 +874,7 @@ if (text === "staff_bookings") {
     );
   }
 
-  const { error } = await confirmBookingQuery;
-
-  if (error) {
-    console.error("❌ erro confirmar booking:", error);
-    return sendText(phone, "Erro ao confirmar agendamento.");
-  }
-
-  return sendText(phone, "✅ Agendamento confirmado com sucesso.");
+  
 }
 
 if (text.startsWith("staff_cancel_booking_")) {
