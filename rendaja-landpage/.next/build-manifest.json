@@ -27,11 +27,6 @@
       "static/chunks/main.js",
       "static/chunks/pages/dashboard.js"
     ],
-    "/dashboard-preview": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/dashboard-preview.js"
-    ],
     "/p/[slug]": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",

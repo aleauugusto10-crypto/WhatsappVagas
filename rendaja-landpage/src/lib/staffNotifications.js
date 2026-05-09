@@ -1,5 +1,109 @@
 import { supabase } from "./supabase.js";
-import { sendActionButtons, sendText } from "../services/whatsapp.js";
+function getWhatsappConfig() {
+  return {
+    token: process.env.WHATSAPP_TOKEN,
+    phoneNumberId:
+      process.env.WHATSAPP_PHONE_NUMBER_ID ||
+      process.env.META_PHONE_NUMBER_ID ||
+      process.env.PHONE_NUMBER_ID,
+  };
+}
+
+async function sendText(phone, text) {
+  const { token, phoneNumberId } = getWhatsappConfig();
+
+  if (!token || !phoneNumberId) {
+    console.error("❌ WhatsApp env ausente:", {
+      hasToken: !!token,
+      phoneNumberId,
+    });
+    return null;
+  }
+
+  const res = await fetch(
+    `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: phone,
+        type: "text",
+        text: { body: text },
+      }),
+    }
+  );
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    console.error("❌ ERRO AO ENVIAR WHATSAPP:", {
+      status: res.status,
+      data,
+    });
+  }
+
+  return data;
+}
+
+async function sendActionButtons(phone, text, buttons = []) {
+  const { token, phoneNumberId } = getWhatsappConfig();
+
+  if (!token || !phoneNumberId) {
+    console.error("❌ WhatsApp env ausente:", {
+      hasToken: !!token,
+      phoneNumberId,
+    });
+    return null;
+  }
+
+  const safeButtons = buttons.slice(0, 3).map((button) => ({
+    type: "reply",
+    reply: {
+      id: button.id,
+      title: String(button.title).slice(0, 20),
+    },
+  }));
+
+  const res = await fetch(
+    `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: phone,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: {
+            text,
+          },
+          action: {
+            buttons: safeButtons,
+          },
+        },
+      }),
+    }
+  );
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    console.error("❌ ERRO AO ENVIAR BOTÕES WHATSAPP:", {
+      status: res.status,
+      data,
+    });
+  }
+
+  return data;
+}
 
 function onlyDigits(value = "") {
   return String(value || "").replace(/\D/g, "");

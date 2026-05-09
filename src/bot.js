@@ -943,7 +943,30 @@ if (user && user.telefone !== phone) {
     user = normalizedUser;
   }
 }
+const orderCodeMatch = String(text || "").match(
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+);
 
+if (!user && orderCodeMatch) {
+  const orderId = orderCodeMatch[0];
+
+  const { data: order } = await supabase
+    .from("profile_orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (order) {
+    await sendText(
+      phone,
+      `📦 Pedido encontrado!\n\n` +
+        `Status atual: *${order.status || "pending"}*\n\n` +
+        `Assim que a loja confirmar seu pedido você será avisado aqui no WhatsApp.`
+    );
+
+    return;
+  }
+}
     if (!user) {
       const { data: created } = await supabase
         .from("usuarios")
