@@ -1045,12 +1045,23 @@ if (text.startsWith("staff_order_") && !text.startsWith("staff_orders_page_")) {
 if (text.startsWith("staff_booking_")) {
   const bookingId = text.replace("staff_booking_", "");
 
-  const { data: booking, error } = await supabase
-    .from("profile_bookings")
-    .select("*")
-    .eq("id", bookingId)
-    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`)
-    .maybeSingle();
+  let bookingQuery = supabase
+  .from("profile_bookings")
+  .select("*")
+  .eq("id", bookingId);
+
+if (staff.role === "owner") {
+  bookingQuery = bookingQuery.eq(
+    "profile_page_id",
+    staff.profile_page_id || staff.profiles_pages?.id
+  );
+} else {
+  bookingQuery = bookingQuery.or(
+    `staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`
+  );
+}
+
+const { data: booking, error } = await bookingQuery.maybeSingle();
 
   if (error || !booking) {
     console.error("❌ erro staff_booking detalhe:", error);
