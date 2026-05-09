@@ -45,6 +45,31 @@ async function findOwnerProfileByPhone(phone) {
 
   return data || null;
 }
+
+function buildOwnerStaff(ownerProfile, phone) {
+  return {
+    id: null,
+    nome: ownerProfile.nome || "Dono",
+    telefone: phone,
+    role: "owner",
+    profile_page_id: ownerProfile.id,
+    profiles_pages: ownerProfile,
+
+    whatsapp_enabled: true,
+
+    can_view_orders: true,
+    can_confirm_orders: true,
+    can_finalize_orders: true,
+
+    can_view_bookings: true,
+    can_confirm_bookings: true,
+    can_finalize_bookings: true,
+
+    commission_type: "none",
+    commission_value: 0,
+  };
+}
+
 async function getCategorias(contexto) {
   const { data, error } = await supabase
     .from("categorias")
@@ -381,6 +406,19 @@ async function sendStaffMenu(phone, staff) {
 }
 
 async function handleStaffMenu({ phone, text, staff }) {
+const isOwner = staff?.role === "owner";
+const staffId = isOwner ? null : staff?.id;
+const profilePageId = staff?.profile_page_id || staff?.profiles_pages?.id;
+
+console.log("🧑‍💼 STAFF DEBUG:", {
+  phone,
+  text,
+  role: staff?.role,
+  staffId: staff?.id,
+  isOwner,
+  profilePageId,
+});
+
 const pendingPaymentAction = ownerTempActions.get(phone);
 
 if (
@@ -432,8 +470,8 @@ if (
       customer_phone: order.customer_phone || null,
       staff_id: staff.role === "owner" ? null : staff.id,
       staff_name: staff.role === "owner" ? null : staff.nome,
-      registered_by_id: staff.role === "owner" ? "owner" : staff.id,
-      registered_by_name: staff.nome || "Dono",
+      registered_by_id: staff.role === "owner" ? null : staff.id,
+      registered_by_name: staff.role === "owner" ? "Dono" : staff.nome,
       registered_by_role: staff.role || "staff",
       commission_amount: commissionAmount,
       commission_type: staff.role === "owner" ? "none" : staff.commission_type || "none",
@@ -516,8 +554,8 @@ if (
       customer_phone: booking.customer_phone || null,
       staff_id: staff.role === "owner" ? null : staff.id,
       staff_name: staff.role === "owner" ? null : staff.nome,
-      registered_by_id: staff.role === "owner" ? "owner" : staff.id,
-      registered_by_name: staff.nome || "Dono",
+      registered_by_id: staff.role === "owner" ? null : staff.id,
+      registered_by_name: staff.role === "owner" ? "Dono" : staff.nome,
       registered_by_role: staff.role || "staff",
       commission_amount: commissionAmount,
       commission_type: staff.role === "owner" ? "none" : staff.commission_type || "none",
@@ -644,10 +682,14 @@ const to = from + pageSize;
     staff.can_finalize_orders;
 
   if (!canSeeGeneralOrders) {
-    query = query.or(
-      `staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id},seller_staff_id.eq.${staff.id}`
-    );
+  if (!staffId) {
+    return sendText(phone, "Funcionário inválido para ver pedidos.");
   }
+
+  query = query.or(
+    `staff_id.eq.${staffId},assigned_staff_id.eq.${staffId},seller_staff_id.eq.${staffId}`
+  );
+}
 
   const { data, error } = await query;
 
@@ -699,9 +741,13 @@ if (text === "staff_bookings") {
     .order("time", { ascending: true })
     .limit(10);
 
-  if (staff.role !== "owner") {
-    query = query.or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`);
+  if (!isOwner) {
+  if (!staffId) {
+    return sendText(phone, "Funcionário inválido para ver agendamentos.");
   }
+
+  query = query.or(`staff_id.eq.${staffId},assigned_staff_id.eq.${staffId}`);
+}
 
   const { data, error } = await query;
 
@@ -790,18 +836,45 @@ if (text === "staff_bookings") {
   if (text.startsWith("staff_confirm_booking_")) {
   const bookingId = text.replace("staff_confirm_booking_", "");
 
+  const isOwner = staff?.role === "owner" || staff?.id === "owner";
+  const staffId = isOwner ? null : staff?.id;
+  const profilePageId = staff?.profile_page_id || staff?.profiles_pages?.id;
+
+  console.log("✅ CONFIRM BOOKING DEBUG:", {
+    bookingId,
+    role: staff?.role,
+    staffIdOriginal: staff?.id,
+    isOwner,
+    staffId,
+    profilePageId,
+  });
+
   if (!staff.can_confirm_bookings) {
     return sendText(phone, "Você não tem permissão para confirmar agendamentos.");
   }
 
-  const { error } = await supabase
+  let confirmBookingQuery = supabase
     .from("profile_bookings")
     .update({
       status: "confirmed",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", bookingId)
-    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`);
+    .eq("id", bookingId);
+
+  if (isOwner) {
+    confirmBookingQuery = confirmBookingQuery.eq("profile_page_id", profilePageId);
+  } else {
+    if (!staffId || staffId === "owner") {
+      console.error("❌ staffId inválido ao confirmar booking:", staff);
+      return sendText(phone, "Erro interno: funcionário inválido para confirmar agendamento.");
+    }
+
+    confirmBookingQuery = confirmBookingQuery.or(
+      `staff_id.eq.${staffId},assigned_staff_id.eq.${staffId}`
+    );
+  }
+
+  const { error } = await confirmBookingQuery;
 
   if (error) {
     console.error("❌ erro confirmar booking:", error);
@@ -814,14 +887,30 @@ if (text === "staff_bookings") {
 if (text.startsWith("staff_cancel_booking_")) {
   const bookingId = text.replace("staff_cancel_booking_", "");
 
-  const { error } = await supabase
+  let cancelBookingQuery = supabase
     .from("profile_bookings")
     .update({
       status: "cancelled",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", bookingId)
-    .or(`staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`);
+    .eq("id", bookingId);
+
+  if (isOwner) {
+  cancelBookingQuery = cancelBookingQuery.eq(
+    "profile_page_id",
+    profilePageId
+  );
+} else {
+  if (!staffId) {
+    return sendText(phone, "Funcionário inválido para cancelar agendamento.");
+  }
+
+  cancelBookingQuery = cancelBookingQuery.or(
+    `staff_id.eq.${staffId},assigned_staff_id.eq.${staffId}`
+  );
+}
+
+  const { error } = await cancelBookingQuery;
 
   if (error) {
     console.error("❌ erro cancelar booking:", error);
@@ -830,7 +919,6 @@ if (text.startsWith("staff_cancel_booking_")) {
 
   return sendText(phone, "🚫 Agendamento cancelado.");
 }
-
 
 if (text.startsWith("staff_confirm_order_")) {
   const orderId = text.replace("staff_confirm_order_", "");
@@ -1116,14 +1204,18 @@ if (text.startsWith("staff_booking_")) {
   .select("*")
   .eq("id", bookingId);
 
-if (staff.role === "owner") {
+if (isOwner) {
   bookingQuery = bookingQuery.eq(
     "profile_page_id",
-    staff.profile_page_id || staff.profiles_pages?.id
+    profilePageId
   );
 } else {
+  if (!staffId) {
+    return sendText(phone, "Funcionário inválido para ver agendamento.");
+  }
+
   bookingQuery = bookingQuery.or(
-    `staff_id.eq.${staff.id},assigned_staff_id.eq.${staff.id}`
+    `staff_id.eq.${staffId},assigned_staff_id.eq.${staffId}`
   );
 }
 
@@ -1231,25 +1323,7 @@ if (pendingOwnerAction) {
     return handleStaffMenu({
       phone,
       text,
-      staff: {
-        id: "owner",
-        nome: ownerProfile.nome || "Dono",
-        telefone: phone,
-        role: "owner",
-        profile_page_id: ownerProfile.id,
-        profiles_pages: ownerProfile,
-
-        whatsapp_enabled: true,
-        can_view_orders: true,
-        can_confirm_orders: true,
-        can_finalize_orders: true,
-        can_view_bookings: true,
-        can_confirm_bookings: true,
-        can_finalize_bookings: true,
-
-        commission_type: "none",
-        commission_value: 0,
-      },
+      staff: buildOwnerStaff(ownerProfile, phone),
     });
   }
 }
@@ -1260,25 +1334,7 @@ if (pendingOwnerAction) {
     return handleStaffMenu({
       phone,
       text,
-      staff: {
-        id: "owner",
-        nome: ownerProfile.nome || "Dono",
-        telefone: phone,
-        role: "owner",
-        profile_page_id: ownerProfile.id,
-        profiles_pages: ownerProfile,
-
-        whatsapp_enabled: true,
-        can_view_orders: true,
-        can_confirm_orders: true,
-        can_finalize_orders: true,
-        can_view_bookings: true,
-        can_confirm_bookings: true,
-        can_finalize_bookings: true,
-
-        commission_type: "none",
-        commission_value: 0,
-      },
+      staff: buildOwnerStaff(ownerProfile, phone),
     });
   }
 }

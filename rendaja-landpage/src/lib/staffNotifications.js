@@ -255,7 +255,7 @@ export async function notifyStaffNewOrder(order) {
 
 if (profile?.whatsapp) {
   targets.push({
-    id: `owner_${profile.id}`,
+    id: null,
     nome: profile.nome || "Dono",
     telefone: profile.whatsapp,
     whatsapp_enabled: true,
@@ -350,7 +350,7 @@ export async function notifyStaffNewBooking(booking) {
 
 if (profile?.whatsapp) {
   targets.push({
-    id: `owner_${profile.id}`,
+    id: null,
     nome: profile.nome || "Dono",
     telefone: profile.whatsapp,
     whatsapp_enabled: true,

@@ -112,10 +112,9 @@ function formatMoney(value) {
   });
 }
 
-function buildSlotId(date, time, staffId = "owner") {
+function buildSlotId(date, time, staffId = "no_staff") {
   return `${date}-${time}-${staffId}`;
 }
-
 export default function BookingSection({ profile }) {
   const professionalName =
     profile?.name ||
@@ -452,9 +451,9 @@ export default function BookingSection({ profile }) {
           booking.time === slot
       )
       .map(
-        (booking) =>
-          booking.staff_id || "owner"
-      );
+  (booking) =>
+    booking.staff_id || booking.assigned_staff_id || "no_staff"
+);
   }
 
   function isReserved(slot) {
