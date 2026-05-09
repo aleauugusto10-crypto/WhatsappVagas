@@ -2,6 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/api/profile-orders": "pages/api/profile-orders.js",
   "/p/[slug]": "pages/p/[slug].js",
   "/dashboard-preview": "pages/dashboard-preview.js",
   "/dashboard": "pages/dashboard.js"

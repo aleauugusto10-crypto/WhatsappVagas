@@ -28,7 +28,22 @@ import {
   createProfilePageSubscriptionPayment,
 } from "./services/payments.js";
 const processingUsers = new Set();
+async function findOwnerProfileByPhone(phone) {
+  const candidates = getBRPhoneCandidates(phone);
 
+  const { data, error } = await supabase
+    .from("profiles_pages")
+    .select("*")
+    .in("whatsapp", candidates)
+    .maybeSingle();
+
+  if (error) {
+    console.error("❌ erro findOwnerProfileByPhone:", error);
+    return null;
+  }
+
+  return data || null;
+}
 async function getCategorias(contexto) {
   const { data, error } = await supabase
     .from("categorias")
@@ -229,6 +244,35 @@ await sendText(
     phone,
     `⏳ Pedido criado, aguardando pagamento.\nID: ${payment.id}`
   );
+}
+if (text.startsWith("staff_")) {
+  const ownerProfile = await findOwnerProfileByPhone(phone);
+
+  if (ownerProfile) {
+    return handleStaffMenu({
+      phone,
+      text,
+      staff: {
+        id: "owner",
+        nome: ownerProfile.nome || "Dono",
+        telefone: phone,
+        role: "owner",
+        profile_page_id: ownerProfile.id,
+        profiles_pages: ownerProfile,
+
+        whatsapp_enabled: true,
+        can_view_orders: true,
+        can_confirm_orders: true,
+        can_finalize_orders: true,
+        can_view_bookings: true,
+        can_confirm_bookings: true,
+        can_finalize_bookings: true,
+
+        commission_type: "none",
+        commission_value: 0,
+      },
+    });
+  }
 }
 async function findStaffByPhone(phone) {
   const candidates = getBRPhoneCandidates(phone);
@@ -919,6 +963,30 @@ if (staff) {
     phone,
     text,
     staff,
+  });
+}
+if (text.startsWith("staff_")) {
+  return handleStaffMenu({
+    phone,
+    text,
+    staff: {
+      id: "owner",
+      nome: "Dono",
+      telefone: phone,
+      role: "owner",
+      whatsapp_enabled: true,
+
+      can_view_orders: true,
+      can_confirm_orders: true,
+      can_finalize_orders: true,
+
+      can_view_bookings: true,
+      can_confirm_bookings: true,
+      can_finalize_bookings: true,
+
+      profile_page_id: null,
+      profiles_pages: null,
+    },
   });
 }
     const phoneCandidates = getBRPhoneCandidates(rawPhone);
