@@ -1048,6 +1048,37 @@ if (!phone) return;
       msg?.interactive?.list_reply?.id ||
       msg?.text?.body?.toLowerCase().trim() ||
       "";
+      const pendingOwnerAction = ownerTempActions.get(phone);
+
+if (pendingOwnerAction) {
+  const ownerProfile = await findOwnerProfileByPhone(phone);
+
+  if (ownerProfile) {
+    return handleStaffMenu({
+      phone,
+      text,
+      staff: {
+        id: "owner",
+        nome: ownerProfile.nome || "Dono",
+        telefone: phone,
+        role: "owner",
+        profile_page_id: ownerProfile.id,
+        profiles_pages: ownerProfile,
+
+        whatsapp_enabled: true,
+        can_view_orders: true,
+        can_confirm_orders: true,
+        can_finalize_orders: true,
+        can_view_bookings: true,
+        can_confirm_bookings: true,
+        can_finalize_bookings: true,
+
+        commission_type: "none",
+        commission_value: 0,
+      },
+    });
+  }
+}
       if (text.startsWith("staff_")) {
   const ownerProfile = await findOwnerProfileByPhone(phone);
 
