@@ -66,9 +66,11 @@ function buildStatusMessage({ order, profile, status }) {
   if (status === "confirmed") {
     return `Olá, ${customerName}! ✅
 
-Seu pedido em ${companyName} foi confirmado.
+Seu pedido em ${companyName} foi recebido com sucesso e já está em atendimento. 🤝
 
-Agora ele será preparado e você receberá novas atualizações por aqui.`;
+Em alguns instantes, um atendente da loja poderá entrar em contato por WhatsApp para confirmar os detalhes e dar continuidade ao seu pedido.
+
+Fique atento às próximas mensagens 📲`;
   }
 
   if (status === "cancelled") {

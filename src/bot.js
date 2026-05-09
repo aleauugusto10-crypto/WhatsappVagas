@@ -960,7 +960,7 @@ if (!user && orderCodeMatch) {
     await sendText(
       phone,
       `📦 Pedido encontrado!\n\n` +
-        `Status atual: *${order.status || "pending"}*\n\n` +
+        `Status atual: *${order.status || "pendente"}*\n\n` +
         `Assim que a loja confirmar seu pedido você será avisado aqui no WhatsApp.`
     );
 
