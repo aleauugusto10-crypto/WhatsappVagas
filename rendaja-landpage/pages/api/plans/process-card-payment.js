@@ -1,4 +1,4 @@
-import { supabase } from "../../../../src/supabase.js";
+import { supabase } from "../../../src/supabase.js";
 
 const MP_BASE_URL = "https://api.mercadopago.com";
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;

@@ -1,4 +1,4 @@
-import { supabase } from "../../../../src/supabase.js";
+import { supabase } from "../../../src/supabase.js";
 import { createMercadoPagoPixIntent } from "../../../../src/services/payments.js";
 
 const MP_BASE_URL = "https://api.mercadopago.com";
