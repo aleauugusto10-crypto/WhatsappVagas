@@ -71,18 +71,14 @@ export default function ProfilePlanSignupModal({
 }) {
 
   const [form, setForm] = useState({
-
-    name: "",
-
-    businessName: "",
-
-    phone: "",
-
-    workArea: "",
-
-    referenceImage: null,
-
-  });
+  name: "",
+  businessName: "",
+  phone: "",
+  workArea: "",
+  city: city || "",
+  state: state || "",
+  referenceImage: null,
+});
 
   const [sending, setSending] = useState(false);
 
@@ -176,11 +172,9 @@ export default function ProfilePlanSignupModal({
 
       let referenceImageUrl = "";
 
-      if (form.referenceImage) {
-
-        referenceImageUrl = await uploadReferenceImage(form.referenceImage);
-
-      }
+      if (plan.code !== "free" && form.referenceImage) {
+  referenceImageUrl = await uploadReferenceImage(form.referenceImage);
+}
 
       const res = await fetch("/api/profile-plan-signup", {
 
@@ -206,9 +200,8 @@ export default function ProfilePlanSignupModal({
 
           referenceImageUrl,
 
-          city,
-
-          state,
+          city: form.city.trim(),
+state: form.state.trim().toUpperCase(),
 
         }),
 
@@ -461,52 +454,52 @@ export default function ProfilePlanSignupModal({
                 />
 
               </label>
+<label>
+  <span>Cidade</span>
+  <input
+    value={form.city}
+    onChange={(e) => setField("city", e.target.value)}
+    placeholder="Ex: Itabaiana"
+  />
+</label>
 
-              <label className="full">
+<label>
+  <span>Estado</span>
+  <input
+    value={form.state}
+    onChange={(e) => setField("state", e.target.value.toUpperCase())}
+    placeholder="Ex: SE"
+    maxLength={2}
+  />
+</label>
+             {plan.code !== "free" && (
+  <label className="full">
+    <span>Imagem de referência</span>
 
-                <span>Imagem de referência</span>
+    <input
+      type="file"
+      accept="image/*"
+      onChange={(e) => {
+        const file = e.target.files?.[0] || null;
+        setField("referenceImage", file);
 
-                <input
+        if (file) {
+          setPreviewUrl(URL.createObjectURL(file));
+        }
+      }}
+    />
 
-                  type="file"
+    <small>
+      Pode ser uma logomarca, fachada, cartão, produto ou identidade visual da marca.
+    </small>
 
-                  accept="image/*"
-
-                  onChange={(e) => {
-
-                    const file = e.target.files?.[0] || null;
-
-                    setField("referenceImage", file);
-
-                    if (file) {
-
-                      setPreviewUrl(URL.createObjectURL(file));
-
-                    }
-
-                  }}
-
-                />
-
-                <small>
-
-                  Pode ser uma logomarca, fachada, cartão, produto ou
-
-                  identidade visual da marca.
-
-                </small>
-
-                {previewUrl && (
-
-                  <div className="plan-signup-preview">
-
-                    <img src={previewUrl} alt="Prévia" />
-
-                  </div>
-
-                )}
-
-              </label>
+    {previewUrl && (
+      <div className="plan-signup-preview">
+        <img src={previewUrl} alt="Prévia" />
+      </div>
+    )}
+  </label>
+)}
 
             </div>
 

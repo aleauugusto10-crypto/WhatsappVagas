@@ -557,7 +557,9 @@ Regras obrigatórias:
 - Nunca use texto como ícone.
 - Nunca use "cloud", "database", "support", "web", "mobile" ou nomes de ícones.
 - Nunca use SVG, HTML, classes CSS ou nomes de biblioteca de ícones.
-
+- As cores de texto das seções devem ser sempre escuras/preta.
+- Use text_color, store_text_color e services_text_color como "#07111f".
+- Nunca use texto claro em fundo claro.
 - Crie 1 a 3 categorias em store_categories.
 - Cada categoria precisa ter: id, name, active.
 - Crie 2 a 4 itens em store_items.
@@ -757,7 +759,7 @@ about_image_url: images.about_image_url || user.reference_image_url || "",
 secondary_color: safePalette.secondary_color,
 accent_color: safePalette.accent_color,
     background_color: cleanText(ai.background_color, "#f7f3ed"),
-    text_color: cleanText(ai.text_color, "#07111f"),
+    text_color: "#07111f",
 
     
     hero_bg_color: cleanText(ai.hero_bg_color, ai.secondary_color || "#06111d"),
@@ -767,8 +769,8 @@ hero_overlay_color: cleanText(ai.hero_overlay_color, ai.hero_bg_color || "#06111
     portfolio_bg_color: cleanText(ai.portfolio_bg_color, ai.secondary_color || "#06111d"),
     reviews_bg_color: cleanText(ai.reviews_bg_color, ai.background_color || "#f7f3ed"),
     store_bg_color: cleanText(ai.store_bg_color, "#ffffff"),
-    store_text_color: cleanText(ai.store_text_color, ai.text_color || "#07111f"),
-    services_bg_color: cleanText(ai.services_bg_color, ai.background_color || "#f7f3ed"),
+    store_text_color: "#07111f",
+services_text_color: "#07111f",
     services_text_color: cleanText(ai.services_text_color, ai.text_color || "#07111f"),
     cta_bg_color: cleanText(ai.cta_bg_color, ai.primary_color || "#d9a84e"),
 
@@ -811,7 +813,20 @@ created_by_ai: true,
 }
 
 export async function generateProfilePagePayload(user = {}) {
-  const images = user.reference_image_url
+  const isFreePlan =
+  user.plan_code === "free" ||
+  user.planCode === "free";
+
+const images =
+  isFreePlan
+    ? {
+        logo_url: "",
+        hero_image_url: "",
+        about_image_url: "",
+        reference_image_url: "",
+        gallery: [],
+      }
+    : user.reference_image_url
     ? {
         logo_url: user.reference_image_url,
         hero_image_url: user.reference_image_url,

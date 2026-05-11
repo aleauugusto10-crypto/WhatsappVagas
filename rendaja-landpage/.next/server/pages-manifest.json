@@ -3,6 +3,6 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/p/[slug]": "pages/p/[slug].js",
-  "/dashboard": "pages/dashboard.js",
-  "/dashboard-preview": "pages/dashboard-preview.js"
+  "/dashboard-preview": "pages/dashboard-preview.js",
+  "/dashboard": "pages/dashboard.js"
 }
