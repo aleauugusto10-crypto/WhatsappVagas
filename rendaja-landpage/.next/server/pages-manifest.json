@@ -2,7 +2,11 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/api/plans/check-payment": "pages/api/plans/check-payment.js",
   "/dashboard-preview": "pages/dashboard-preview.js",
+  "/api/reviews/admin": "pages/api/reviews/admin.js",
   "/p/[slug]": "pages/p/[slug].js",
-  "/login": "pages/login.js"
+  "/api/staff": "pages/api/staff.js",
+  "/api/reviews/[profileId]": "pages/api/reviews/[profileId].js",
+  "/dashboard": "pages/dashboard.js"
 }

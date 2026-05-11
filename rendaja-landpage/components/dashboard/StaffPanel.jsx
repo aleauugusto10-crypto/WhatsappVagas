@@ -626,15 +626,14 @@ whatsappEnabled: form.whatsappEnabled,
 {item.affiliate_code && (
   <div className="staff-affiliate-box">
     <small>Link de comissão</small>
-
-    <a
-      href={`${window.location.origin}/${item.affiliate_slug}`}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {window.location.origin}/{item.affiliate_slug}
-    </a>
+<a
+  href={`${window.location.origin}/p/${profile?.slug}?ref=${item.affiliate_code}`}
+  target="_blank"
+  rel="noreferrer"
+  onClick={(e) => e.stopPropagation()}
+>
+  {window.location.origin}/p/{profile?.slug}?ref={item.affiliate_code}
+</a>
   </div>
 )}
                   {item.next_payment_date && (

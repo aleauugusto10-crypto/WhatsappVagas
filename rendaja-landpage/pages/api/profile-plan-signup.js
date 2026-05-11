@@ -1,4 +1,9 @@
-import { supabase } from "../../src/lib/supabase.js";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 import { createMercadoPagoPixIntent } from "../../../src/services/payments.js";
 
 function cleanPhone(phone = "") {
@@ -15,9 +20,9 @@ function cleanPhone(phone = "") {
 
 const PLAN_PRICES = {
   free: 0,
-  store_start: 50,
-  equipe_pro: 150,
-  complete_pro: 350,
+  store_start: 1,
+  equipe_pro: 2,
+  complete_pro: 3,
 };
 
 const PLAN_LABELS = {
@@ -35,17 +40,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const {
-      planCode = "free",
-      name,
-      businessName,
-      phone,
-      businessType,
-      workArea,
-      referenceImageUrl,
-      city,
-      state,
-    } = req.body || {};
+ const {
+  planCode = "free",
+
+  name,
+  businessName,
+  phone,
+  businessType,
+  workArea,
+  referenceImageUrl,
+  affiliateRef,
+  city,
+  state,
+  affiliateCode,
+} = req.body || {};
 
     const finalBusinessType = businessType || workArea;
 
@@ -149,18 +157,23 @@ export default async function handler(req, res) {
           plano_codigo: planCode,
 
           metadata: {
-            pending_signup_id:
-              pendingSignup.id,
+  pending_signup_id:
+    pendingSignup.id,
+affiliate_ref: affiliateRef || null,
+  plan_code: planCode,
 
-            plan_code: planCode,
+  plan_name:
+    PLAN_LABELS[planCode] ||
+    planCode,
 
-            plan_name:
-              PLAN_LABELS[planCode] ||
-              planCode,
+  affiliate_code:
+    affiliateCode || null,
 
-            source:
-              "public_profile_plans_section",
-          },
+  commission_percent: 10,
+
+  source:
+    "public_profile_plans_section",
+},
         })
         .select()
         .single();

@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { supabase } from "../../src/lib/supabase";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import Hero from "../../components/Hero";
 import Gallery from "../../components/Gallery";
 import Reviews from "../../components/Reviews";
@@ -508,6 +509,7 @@ export async function getServerSideProps({ params }) {
 ========================= */
 
 export default function Page({ profile, isPreview }) {
+  const router = useRouter();
   if (!profile) {
     return (
       <main className="page-shell">
@@ -520,6 +522,17 @@ export default function Page({ profile, isPreview }) {
   }
 
   const normalizedProfile = applyProfileDefaults(profile);
+  useEffect(() => {
+  if (!router.isReady) return;
+
+  const ref = router.query?.ref;
+
+  if (ref) {
+    localStorage.setItem("affiliate_ref", ref);
+
+    console.log("💰 afiliado salvo:", ref);
+  }
+}, [router.isReady, router.query]);
   const whatsapp = normalizePhoneBR(normalizedProfile.whatsapp);
 
   const title = buildTitle(normalizedProfile);

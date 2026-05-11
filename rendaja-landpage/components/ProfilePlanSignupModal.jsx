@@ -75,13 +75,16 @@ export default function ProfilePlanSignupModal({
 
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [payment, setPayment] = useState(null);
+  const [preparedPixPayment, setPreparedPixPayment] = useState(null);
   const [paymentProfile, setPaymentProfile] = useState(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [cardError, setCardError] = useState("");
   const [cardResult, setCardResult] = useState(null);
   const [brickReady, setBrickReady] = useState(false);
   const [copied, setCopied] = useState(false);
-
+const [step, setStep] = useState("form");
+const [pendingSignupId, setPendingSignupId] = useState(null);
+const [creatingProfile, setCreatingProfile] = useState(false);
   if (!plan) return null;
 
   function setField(field, value) {
@@ -90,34 +93,53 @@ export default function ProfilePlanSignupModal({
       [field]: value,
     }));
   }
+  function getAffiliateCode() {
+  if (typeof window === "undefined") return "";
 
-  useEffect(() => {
-    if (!payment?.id) return;
-    if (paymentConfirmed) return;
+  const params = new URLSearchParams(window.location.search);
+  const refFromUrl = params.get("ref") || params.get("affiliate") || "";
 
-    const timer = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/plans/check-payment?paymentId=${payment.id}`);
-        const data = await res.json().catch(() => ({}));
+  if (refFromUrl) {
+    localStorage.setItem("affiliate_ref", refFromUrl);
+    return refFromUrl;
+  }
 
-        if (data.status === "pago" || data.paid === true) {
-          clearInterval(timer);
+  return localStorage.getItem("affiliate_ref") || "";
+}
+useEffect(() => {
+  if (!payment?.id) return;
+  if (createdProfile) return;
 
-          setPaymentConfirmed(true);
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch(
+        `/api/plans/check-payment?paymentId=${payment.id}&pendingSignupId=${pendingSignupId || ""}`
+      );
 
-          if (paymentProfile) {
-            setCreatedProfile(paymentProfile);
-            setPaymentProfile(null);
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao verificar pagamento:", err);
+      const data = await res.json().catch(() => ({}));
+
+      if (data.status === "pago" || data.paid === true) {
+        setPaymentConfirmed(true);
+        setCreatingProfile(true);
       }
-    }, 4000);
 
-    return () => clearInterval(timer);
-  }, [payment?.id, paymentConfirmed, paymentProfile]);
+      if (data.profile?.slug) {
+        clearInterval(timer);
 
+        setCreatingProfile(false);
+
+        setCreatedProfile({
+          ...data.profile,
+          publicUrl: `/p/${data.profile.slug}`,
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao verificar pagamento:", err);
+    }
+  }, 4000);
+
+  return () => clearInterval(timer);
+}, [payment?.id, pendingSignupId, createdProfile]);
   async function submitSignup() {
     if (sending) return;
 
@@ -165,16 +187,22 @@ export default function ProfilePlanSignupModal({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          planCode: plan.code,
-          name: form.name.trim(),
-          businessName: form.businessName.trim(),
-          phone: form.phone.trim(),
-          workArea: form.workArea.trim(),
-          referenceImageUrl,
-          city: form.city.trim(),
-          state: form.state.trim().toUpperCase(),
-        }),
+   body: JSON.stringify({
+  planCode: plan.code,
+
+  affiliateRef:
+    typeof window !== "undefined"
+      ? localStorage.getItem("affiliate_ref")
+      : null,
+
+  name: form.name.trim(),
+  businessName: form.businessName.trim(),
+  phone: form.phone.trim(),
+  workArea: form.workArea.trim(),
+  referenceImageUrl,
+  city: form.city.trim(),
+  state: form.state.trim().toUpperCase(),
+}),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -184,27 +212,32 @@ export default function ProfilePlanSignupModal({
         return;
       }
 
-      const profileCreated = {
-        ...data.profile,
-        publicUrl: data.profile_url || `/p/${data.profile?.slug}`,
-      };
-
       if (plan.code === "free") {
-        setCreatedProfile(profileCreated);
-        return;
-      }
+  setCreatedProfile({
+    ...data.profile,
+    publicUrl: data.profile_url || `/p/${data.profile?.slug}`,
+  });
+  return;
+}
 
-      setPaymentProfile(profileCreated);
-      setPayment(null);
-      setCardError("");
-      setCardResult(null);
-      setPaymentConfirmed(false);
-      setPaymentMethod("card");
-      setBrickReady(false);
+setPendingSignupId(data.pendingSignupId || null);
+setPreparedPixPayment(data.payment || null);
+setPayment(null);
 
-      setTimeout(() => {
-        setBrickReady(true);
-      }, 250);
+setPaymentProfile(null);
+setCardError("");
+setCardResult(null);
+setPaymentConfirmed(false);
+setCreatingProfile(false);
+
+setPaymentMethod("card");
+setStep("payment");
+
+setBrickReady(false);
+
+setTimeout(() => {
+  setBrickReady(true);
+}, 250);
     } catch (err) {
       console.error("Erro ao cadastrar plano:", err);
       alert(err?.message || "Erro ao criar cadastro.");
@@ -214,39 +247,15 @@ export default function ProfilePlanSignupModal({
   }
 
   async function generatePixPayment() {
-    if (!paymentProfile?.id || !plan?.code || sending) return;
+  if (sending) return;
 
-    setSending(true);
-    setPayment(null);
-
-    try {
-      const res = await fetch("/api/plans/create-payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          profilePageId: paymentProfile.id,
-          planCode: plan.code,
-          paymentMethod: "pix",
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        alert(data.error || "Erro ao gerar Pix.");
-        return;
-      }
-
-      setPayment(data.payment || data);
-    } catch (err) {
-      console.error("Erro ao gerar Pix:", err);
-      alert("Erro ao gerar Pix.");
-    } finally {
-      setSending(false);
-    }
+  if (!preparedPixPayment?.qr_code) {
+    alert("Pix ainda não foi preparado. Volte e tente novamente.");
+    return;
   }
+
+  setPayment(preparedPixPayment);
+}
 
   async function processCardPayment({ formData }) {
     if (!paymentProfile?.id || !plan?.code) return;
@@ -308,15 +317,17 @@ export default function ProfilePlanSignupModal({
           ×
         </button>
 
-        {paymentProfile && !createdProfile ? (
+        {step === "payment" && !createdProfile ? (
           <div className="plan-payment-content">
-            {paymentConfirmed ? (
-              <div className="plan-signup-success">
-                <span>✅ Pagamento confirmado</span>
-                <h2>Sua vitrine foi ativada</h2>
-                <p>Seu plano foi liberado com sucesso.</p>
-              </div>
-            ) : !payment?.qr_code ? (
+            {creatingProfile ? (
+  <div className="plan-signup-success">
+    <span>✅ Pagamento confirmado</span>
+    <h2>Criando sua vitrine com IA...</h2>
+    <p>
+      Estamos preparando sua página profissional. Isso pode levar alguns segundos.
+    </p>
+  </div>
+) : !payment?.qr_code ? (
               <>
                 <div className="plan-signup-head">
                   <span>{PLAN_LABELS[plan.code] || plan.name}</span>
@@ -423,10 +434,15 @@ export default function ProfilePlanSignupModal({
                   <>
                     <div className="pix-owner-notice">
                       <strong>Pagamento via Pix</strong>
-                      <p>
-                        Gere o Pix, copie o código ou escaneie o QR Code. Assim
-                        que o pagamento for confirmado, sua vitrine será ativada.
-                      </p>
+                    <p>
+  Gere o Pix, copie o código ou escaneie o QR Code. Assim que o pagamento for
+  confirmado, sua vitrine será ativada automaticamente.
+  <br />
+  <br />
+  🔒 O Pix poderá aparecer em nome de{" "}
+  <strong>ALEXANDRE AUGUSTO S. CARVALHO</strong>, responsável pela plataforma.
+  Não se preocupe, este pagamento é totalmente seguro.
+</p>
                     </div>
 
                     <button

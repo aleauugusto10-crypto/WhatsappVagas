@@ -1129,6 +1129,109 @@ export async function createProfileFromPendingSignupPayment(payment) {
 
   return profile;
 }
+
+async function createAffiliateCommissionFromPayment(payment, profile = null) {
+  if (!payment?.id) return null;
+
+  const md = payment.metadata || {};
+  const affiliateCode = String(
+  md.affiliate_ref ||
+  md.affiliate_code ||
+  ""
+).trim();
+
+  if (!affiliateCode) {
+    return null;
+  }
+
+  const saleAmount = Number(payment.valor || 0);
+  const commissionPercent = Number(md.commission_percent || 10);
+  const commissionAmount = Number(
+    ((saleAmount * commissionPercent) / 100).toFixed(2)
+  );
+
+  if (!saleAmount || saleAmount <= 0 || !commissionAmount) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("affiliate_commissions")
+    .upsert(
+      {
+        affiliate_code: affiliateCode,
+        affiliate_user_id: null,
+
+        payment_id: payment.id,
+        profile_page_id:
+          profile?.id ||
+          md.profile_page_id ||
+          null,
+
+        buyer_user_id:
+          payment.usuario_id ||
+          md.usuario_id ||
+          null,
+
+        plan_code:
+          md.plan_code ||
+          payment.plano_codigo ||
+          "store_start",
+
+        sale_amount: saleAmount,
+        commission_percent: commissionPercent,
+        commission_amount: commissionAmount,
+
+        status: "pending",
+
+        metadata: {
+          source: "profile_plan_sale",
+          payment_reference: payment.referencia_tipo,
+          profile_slug:
+            profile?.slug ||
+            md.profile_slug ||
+            null,
+        },
+      },
+      {
+        onConflict: "payment_id",
+      }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error("❌ erro ao criar comissão de afiliado:", error);
+    return null;
+  }
+
+  console.log("✅ comissão de afiliado criada:", {
+    affiliateCode,
+    payment_id: payment.id,
+    commissionAmount,
+  });
+const { data: staff } = await supabase
+  .from("profile_staff")
+  .select("*")
+  .eq("affiliate_code", affiliateCode)
+  .maybeSingle();
+
+if (staff) {
+  const current = Number(
+    staff.pending_commission_amount || 0
+  );
+
+  await supabase
+    .from("profile_staff")
+    .update({
+      pending_commission_amount:
+        current + commissionAmount,
+    })
+    .eq("id", staff.id);
+
+  console.log("💰 comissão somada no funcionário");
+}
+  return data;
+}
 export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const mpPayment = await getMercadoPagoPayment(mpPaymentId);
 
@@ -1159,7 +1262,8 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   // Se já está pago internamente, não reaplica efeitos
   if (internalPayment.status === "pago") {
   console.log("🔁 pagamento já marcado como pago, garantindo efeitos...");
-await createProfileFromPendingSignupPayment(internalPayment);
+const existingProfile = await createProfileFromPendingSignupPayment(internalPayment);
+await createAffiliateCommissionFromPayment(internalPayment, existingProfile);
   await activateProfilePageFromPayment(internalPayment);
   await activateProfilePlanFromPayment(internalPayment);
 
@@ -1183,7 +1287,8 @@ await activateCompanyJobCreditsFromPayment(internalPayment);
   });
 
   if (!paid) return null;
-await createProfileFromPendingSignupPayment(paid);
+const createdProfile = await createProfileFromPendingSignupPayment(paid);
+await createAffiliateCommissionFromPayment(paid, createdProfile);
   await activateSubscriptionFromPayment(paid);
 await activateAlertPlanFromPayment(paid);
 await activateProfilePlanFromPayment(paid);
