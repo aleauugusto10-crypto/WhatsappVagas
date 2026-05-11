@@ -269,7 +269,9 @@ function SearchResultItem({ item, mobile = false }) {
               Falar no WhatsApp
             </a>
           )}
-
+<a href="/login" className="my-showcase-button">
+  Minha vitrine
+</a>
           <button
             type="button"
             className={`mobile-menu-button ${menuOpen ? "active" : ""}`}
@@ -321,6 +323,9 @@ function SearchResultItem({ item, mobile = false }) {
 
             <a href="/p/compretudo-shop-itabaiana-se" onClick={closeMenu}>Início</a>
 <a href="/shopping" onClick={closeMenu}>Shopping</a>
+<a href="/login" onClick={closeMenu} className="mobile-showcase-link">
+  Minha vitrine
+</a>
             {showAbout && <a href="#sobre" onClick={closeMenu}>Sobre</a>}
             {showServices && <a href="#servicos" onClick={closeMenu}>Serviços</a>}
             {showStore && <a href="#loja" onClick={closeMenu}>Loja</a>}

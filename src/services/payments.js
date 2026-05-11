@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { supabase } from "../supabase.js";
 import { sendText } from "../services/whatsapp.js";
-
+import { generateProfilePagePayload } from "../lib/pageGenerator.js";
 const MP_BASE_URL = "https://api.mercadopago.com";
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 const MP_WEBHOOK_SECRET = process.env.MERCADO_PAGO_WEBHOOK_SECRET || "";
@@ -919,6 +919,216 @@ async function sendAlertPlanWelcomeMessage(subscription) {
     console.error("❌ erro ao enviar mensagem de boas-vindas:", err);
   }
 }
+
+
+const PROFILE_PLAN_CREDITS = {
+  store_start: 30,
+  equipe_pro: 100,
+  complete_pro: 250,
+};
+
+function normalizeSlug(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 55);
+}
+
+async function uniqueProfileSlug(base = "") {
+  const clean = normalizeSlug(base || "minha-vitrine");
+
+  const { data: existing } = await supabase
+    .from("profiles_pages")
+    .select("id")
+    .eq("slug", clean)
+    .maybeSingle();
+
+  if (!existing) return clean;
+
+  return `${clean}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+export async function createProfileFromPendingSignupPayment(payment) {
+  if (payment.referencia_tipo !== "profile_pending_signup") return null;
+  if (payment.status !== "pago") return null;
+
+  const pendingSignupId = payment.metadata?.pending_signup_id;
+
+  if (!pendingSignupId) {
+    console.error("❌ pagamento sem pending_signup_id:", payment.id);
+    return null;
+  }
+
+  const { data: pending, error: pendingError } = await supabase
+    .from("profile_pending_signups")
+    .select("*")
+    .eq("id", pendingSignupId)
+    .maybeSingle();
+
+  if (pendingError || !pending) {
+    console.error("❌ cadastro pendente não encontrado:", pendingError);
+    return null;
+  }
+
+  if (pending.created_profile_id) {
+    console.log("🔁 vitrine já criada para este pagamento:", pending.created_profile_id);
+
+    const { data: existingProfile } = await supabase
+      .from("profiles_pages")
+      .select("*")
+      .eq("id", pending.created_profile_id)
+      .maybeSingle();
+
+    return existingProfile || null;
+  }
+
+  const planCode = pending.plan_code || payment.plano_codigo || "store_start";
+  const now = new Date();
+
+  const nextPayment = new Date(now);
+  nextPayment.setDate(nextPayment.getDate() + 30);
+
+  const graceUntil = new Date(nextPayment);
+  graceUntil.setDate(graceUntil.getDate() + 15);
+
+  const { data: user, error: userError } = await supabase
+    .from("usuarios")
+    .upsert(
+      {
+        nome: pending.name,
+        telefone: pending.phone,
+        tipo: "profissional",
+        cidade: pending.city || null,
+        estado: pending.state || null,
+        categoria_principal: pending.work_area,
+        area_principal: pending.work_area,
+        etapa: "perfil_criado",
+      },
+      { onConflict: "telefone" }
+    )
+    .select()
+    .single();
+
+  if (userError || !user) {
+    console.error("❌ erro ao criar usuário pós-pagamento:", userError);
+    return null;
+  }
+
+  const aiPayload = await generateProfilePagePayload({
+    id: user.id,
+    nome: pending.name,
+    nome_empresa: pending.business_name,
+    businessName: pending.business_name,
+    telefone: pending.phone,
+    phone: pending.phone,
+    whatsapp: pending.phone,
+    cidade: pending.city || "",
+    estado: pending.state || "",
+    ramo_empresa: pending.work_area,
+    workArea: pending.work_area,
+    servico_principal: pending.work_area,
+    categoria_principal: pending.work_area,
+    area_principal: pending.work_area,
+    reference_image_url: pending.reference_image_url || "",
+    plan_code: planCode,
+    planCode,
+  });
+
+  const finalSlug = await uniqueProfileSlug(
+    `${pending.business_name}-${pending.work_area}-${pending.city || ""}-${pending.state || ""}`
+  );
+
+  const credits = PROFILE_PLAN_CREDITS[planCode] || 0;
+
+  const profilePayload = {
+    ...aiPayload,
+
+    user_id: user.id,
+    slug: finalSlug,
+
+    nome: aiPayload.nome || pending.business_name,
+    servico: aiPayload.servico || pending.work_area,
+    cidade: pending.city || "",
+    estado: pending.state || "",
+    whatsapp: pending.phone,
+
+    is_active: true,
+    is_preview: false,
+    preview_expires_at: null,
+
+    plan_code: planCode,
+    plan_status: "active",
+
+    monthly_credits: credits,
+    monthly_credits_balance: credits,
+    monthly_credits_used: 0,
+    monthly_credits_reset_at: nextPayment.toISOString(),
+
+    next_payment_at: nextPayment.toISOString(),
+    plan_next_billing_at: nextPayment.toISOString(),
+    plan_expires_at: nextPayment.toISOString(),
+    payment_grace_until: graceUntil.toISOString(),
+
+    billing_notice_count: 0,
+    last_billing_notice_at: null,
+
+    plan_started_at: now.toISOString(),
+    subscription_started_at: now.toISOString(),
+    activated_at: now.toISOString(),
+    last_payment_id: payment.id,
+    last_payment_at: now.toISOString(),
+
+    show_store: true,
+    show_booking: true,
+
+    created_by_ai: true,
+    updated_at: now.toISOString(),
+  };
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles_pages")
+    .upsert(profilePayload, { onConflict: "user_id" })
+    .select("*")
+    .single();
+
+  if (profileError || !profile) {
+    console.error("❌ erro ao criar vitrine pós-pagamento:", profileError);
+    return null;
+  }
+
+  await supabase
+    .from("profile_pending_signups")
+    .update({
+      status: "completed",
+      created_profile_id: profile.id,
+      updated_at: now.toISOString(),
+    })
+    .eq("id", pending.id);
+
+  await supabase
+    .from("pagamentos_plataforma")
+    .update({
+      usuario_id: user.id,
+      metadata: {
+        ...(payment.metadata || {}),
+        profile_page_id: profile.id,
+        profile_slug: profile.slug,
+        usuario_id: user.id,
+      },
+    })
+    .eq("id", payment.id);
+
+  console.log("✅ vitrine criada após pagamento:", {
+    profile_id: profile.id,
+    slug: profile.slug,
+    planCode,
+  });
+
+  return profile;
+}
 export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   const mpPayment = await getMercadoPagoPayment(mpPaymentId);
 
@@ -949,7 +1159,7 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   // Se já está pago internamente, não reaplica efeitos
   if (internalPayment.status === "pago") {
   console.log("🔁 pagamento já marcado como pago, garantindo efeitos...");
-
+await createProfileFromPendingSignupPayment(internalPayment);
   await activateProfilePageFromPayment(internalPayment);
   await activateProfilePlanFromPayment(internalPayment);
 
@@ -973,7 +1183,7 @@ await activateCompanyJobCreditsFromPayment(internalPayment);
   });
 
   if (!paid) return null;
-
+await createProfileFromPendingSignupPayment(paid);
   await activateSubscriptionFromPayment(paid);
 await activateAlertPlanFromPayment(paid);
 await activateProfilePlanFromPayment(paid);

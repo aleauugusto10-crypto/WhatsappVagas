@@ -1,560 +1,638 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { QRCodeCanvas } from "qrcode.react";
 
 import { supabase } from "../src/lib/supabaseClient";
 
+const MercadoPayment = dynamic(
+  () => import("@mercadopago/sdk-react").then((mod) => mod.Payment),
+  { ssr: false }
+);
+
 const PLAN_LABELS = {
-
   free: "Plano Gratuito",
-
   store_start: "Loja Start",
-
   equipe_pro: "Equipe Pro",
-
   complete_pro: "Finance Premium",
-
 };
 
+function money(value = 0) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 function buildFileName(file) {
-
   const ext = file?.name?.split(".")?.pop() || "jpg";
-
   return `profile-reference-${Date.now()}.${ext}`;
-
 }
 
 async function uploadReferenceImage(file) {
-
   if (!file) return "";
 
   const fileName = buildFileName(file);
 
   const { error } = await supabase.storage
-
     .from("profile-pages")
-
     .upload(fileName, file, {
-
       cacheControl: "3600",
-
       upsert: false,
-
+      contentType: file.type,
     });
 
   if (error) {
-
     console.error("Erro upload imagem:", error);
-
     throw new Error("Erro ao enviar imagem.");
-
   }
 
   const { data } = supabase.storage
-
     .from("profile-pages")
-
     .getPublicUrl(fileName);
 
   return data?.publicUrl || "";
-
 }
 
 export default function ProfilePlanSignupModal({
-
   plan,
-
   city = "",
-
   state = "",
-
   onClose,
-
 }) {
-
   const [form, setForm] = useState({
-  name: "",
-  businessName: "",
-  phone: "",
-  workArea: "",
-  city: city || "",
-  state: state || "",
-  referenceImage: null,
-});
+    name: "",
+    businessName: "",
+    phone: "",
+    workArea: "",
+    city: city || "",
+    state: state || "",
+    referenceImage: null,
+  });
 
   const [sending, setSending] = useState(false);
-
   const [createdProfile, setCreatedProfile] = useState(null);
-
   const [previewUrl, setPreviewUrl] = useState("");
 
-  const [pixData, setPixData] = useState(null);
-
+  const [paymentMethod, setPaymentMethod] = useState("card");
+  const [payment, setPayment] = useState(null);
+  const [paymentProfile, setPaymentProfile] = useState(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [cardError, setCardError] = useState("");
+  const [cardResult, setCardResult] = useState(null);
+  const [brickReady, setBrickReady] = useState(false);
   const [copied, setCopied] = useState(false);
 
   if (!plan) return null;
 
   function setField(field, value) {
-
     setForm((prev) => ({
-
       ...prev,
-
       [field]: value,
-
     }));
-
   }
 
-  function startPaymentPolling(paymentId) {
+  useEffect(() => {
+    if (!payment?.id) return;
+    if (paymentConfirmed) return;
 
-    const interval = setInterval(async () => {
-
+    const timer = setInterval(async () => {
       try {
-
-        const res = await fetch(
-
-          `/api/profile-payment-status?paymentId=${paymentId}`
-
-        );
-
+        const res = await fetch(`/api/plans/check-payment?paymentId=${payment.id}`);
         const data = await res.json().catch(() => ({}));
 
-        if (!data?.paid || !data?.profile) return;
+        if (data.status === "pago" || data.paid === true) {
+          clearInterval(timer);
 
-        clearInterval(interval);
+          setPaymentConfirmed(true);
 
-        setPixData(null);
-
-        setCreatedProfile({
-
-          ...data.profile,
-
-          publicUrl: `/p/${data.profile.slug}`,
-
-        });
-
+          if (paymentProfile) {
+            setCreatedProfile(paymentProfile);
+            setPaymentProfile(null);
+          }
+        }
       } catch (err) {
-
-        console.error("Erro verificando pagamento:", err);
-
+        console.error("Erro ao verificar pagamento:", err);
       }
-
     }, 4000);
 
-  }
-
-  async function copyPixCode() {
-
-    if (!pixData?.copyPaste) return;
-
-    await navigator.clipboard.writeText(pixData.copyPaste);
-
-    setCopied(true);
-
-    setTimeout(() => setCopied(false), 1600);
-
-  }
+    return () => clearInterval(timer);
+  }, [payment?.id, paymentConfirmed, paymentProfile]);
 
   async function submitSignup() {
-
     if (sending) return;
 
-    if (!form.name.trim()) return alert("Informe seu nome.");
+    if (!form.name.trim()) {
+      alert("Informe seu nome.");
+      return;
+    }
 
-    if (!form.businessName.trim()) return alert("Informe o nome comercial.");
+    if (!form.businessName.trim()) {
+      alert("Informe o nome comercial.");
+      return;
+    }
 
-    if (!form.phone.trim()) return alert("Informe seu WhatsApp.");
+    if (!form.phone.trim()) {
+      alert("Informe seu WhatsApp.");
+      return;
+    }
 
-    if (!form.workArea.trim()) return alert("Informe seu ramo de trabalho.");
+    if (!form.workArea.trim()) {
+      alert("Informe seu ramo de trabalho.");
+      return;
+    }
+
+    if (!form.city.trim()) {
+      alert("Informe sua cidade.");
+      return;
+    }
+
+    if (!form.state.trim()) {
+      alert("Informe seu estado.");
+      return;
+    }
 
     setSending(true);
 
     try {
-
       let referenceImageUrl = "";
 
       if (plan.code !== "free" && form.referenceImage) {
-  referenceImageUrl = await uploadReferenceImage(form.referenceImage);
-}
+        referenceImageUrl = await uploadReferenceImage(form.referenceImage);
+      }
 
       const res = await fetch("/api/profile-plan-signup", {
-
         method: "POST",
-
         headers: {
-
           "Content-Type": "application/json",
-
         },
-
         body: JSON.stringify({
-
           planCode: plan.code,
-
           name: form.name.trim(),
-
           businessName: form.businessName.trim(),
-
           phone: form.phone.trim(),
-
           workArea: form.workArea.trim(),
-
           referenceImageUrl,
-
           city: form.city.trim(),
-state: form.state.trim().toUpperCase(),
-
+          state: form.state.trim().toUpperCase(),
         }),
-
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-
         alert(data.error || "Erro ao criar cadastro.");
-
         return;
-
       }
 
-      if (data.payment) {
-
-        setPixData({
-
-          paymentId: data.payment.id,
-
-          qrCode: data.payment.qr_code,
-
-          qrCodeBase64: data.payment.qr_code_base64,
-
-          copyPaste: data.payment.qr_code,
-
-          profileUrl: data.profile_url,
-
-        });
-
-        startPaymentPolling(data.payment.id);
-
-        return;
-
-      }
-
-      setCreatedProfile({
-
+      const profileCreated = {
         ...data.profile,
-
         publicUrl: data.profile_url || `/p/${data.profile?.slug}`,
+      };
 
+      if (plan.code === "free") {
+        setCreatedProfile(profileCreated);
+        return;
+      }
+
+      setPaymentProfile(profileCreated);
+      setPayment(null);
+      setCardError("");
+      setCardResult(null);
+      setPaymentConfirmed(false);
+      setPaymentMethod("card");
+      setBrickReady(false);
+
+      setTimeout(() => {
+        setBrickReady(true);
+      }, 250);
+    } catch (err) {
+      console.error("Erro ao cadastrar plano:", err);
+      alert(err?.message || "Erro ao criar cadastro.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function generatePixPayment() {
+    if (!paymentProfile?.id || !plan?.code || sending) return;
+
+    setSending(true);
+    setPayment(null);
+
+    try {
+      const res = await fetch("/api/plans/create-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          profilePageId: paymentProfile.id,
+          planCode: plan.code,
+          paymentMethod: "pix",
+        }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data.error || "Erro ao gerar Pix.");
+        return;
+      }
+
+      setPayment(data.payment || data);
     } catch (err) {
-
-      console.error("Erro ao cadastrar plano:", err);
-
-      alert(err?.message || "Erro ao criar cadastro.");
-
+      console.error("Erro ao gerar Pix:", err);
+      alert("Erro ao gerar Pix.");
     } finally {
-
       setSending(false);
-
     }
+  }
 
+  async function processCardPayment({ formData }) {
+    if (!paymentProfile?.id || !plan?.code) return;
+
+    setSending(true);
+    setCardError("");
+    setCardResult(null);
+
+    try {
+      const res = await fetch("/api/plans/process-card-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          profilePageId: paymentProfile.id,
+          planCode: plan.code,
+          formData,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setCardError(data.error || "Erro ao processar cartão.");
+        return;
+      }
+
+      setCardResult(data);
+
+      if (data.approved) {
+        setPaymentConfirmed(true);
+        setCreatedProfile(paymentProfile);
+        setPaymentProfile(null);
+      }
+    } catch (err) {
+      console.error("Erro no cartão:", err);
+      setCardError("Erro ao processar cartão.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function copyPix() {
+    if (!payment?.qr_code) return;
+
+    await navigator.clipboard.writeText(payment.qr_code);
+    setCopied(true);
+
+    setTimeout(() => {
+      setCopied(false);
+    }, 1800);
   }
 
   return (
-
     <div className="plan-signup-backdrop" onClick={onClose}>
-
       <div className="plan-signup-modal" onClick={(e) => e.stopPropagation()}>
-
         <button type="button" className="plan-signup-close" onClick={onClose}>
-
           ×
-
         </button>
 
-        {pixData ? (
+        {paymentProfile && !createdProfile ? (
+          <div className="plan-payment-content">
+            {paymentConfirmed ? (
+              <div className="plan-signup-success">
+                <span>✅ Pagamento confirmado</span>
+                <h2>Sua vitrine foi ativada</h2>
+                <p>Seu plano foi liberado com sucesso.</p>
+              </div>
+            ) : !payment?.qr_code ? (
+              <>
+                <div className="plan-signup-head">
+                  <span>{PLAN_LABELS[plan.code] || plan.name}</span>
+                  <h2>Finalize sua ativação</h2>
+                  <p>Escolha como deseja pagar sem sair da página.</p>
+                </div>
 
-          <div className="plan-signup-success">
+                <div className="plan-signup-summary">
+                  <strong>{PLAN_LABELS[plan.code] || plan.name}</strong>
+                  <span>Ativação hoje: {money(plan.setup || 0)}</span>
+                </div>
 
-            <span>💳 Pagamento Pix</span>
+                <div className="payment-method-box">
+                  <button
+                    type="button"
+                    className={paymentMethod === "card" ? "active" : ""}
+                    onClick={() => {
+                      setPaymentMethod("card");
+                      setPayment(null);
+                      setCardError("");
+                      setCardResult(null);
+                      setBrickReady(false);
 
-            <h2>Finalize o pagamento para ativar sua vitrine</h2>
+                      setTimeout(() => {
+                        setBrickReady(true);
+                      }, 250);
+                    }}
+                  >
+                    Cartão
+                  </button>
 
-            <p>
+                  <button
+                    type="button"
+                    className={paymentMethod === "pix" ? "active" : ""}
+                    onClick={() => {
+                      setPaymentMethod("pix");
+                      setBrickReady(false);
+                      setCardError("");
+                      setCardResult(null);
+                    }}
+                  >
+                    Pix
+                  </button>
+                </div>
 
-              Assim que o Pix for confirmado, sua página será ativada
+                {paymentMethod === "card" && brickReady && (
+                  <div className="card-brick-box">
+                    <MercadoPayment
+                      key={`payment-${plan.code}-${plan.setup}`}
+                      initialization={{
+                        amount: Number(plan.setup || 0),
+                      }}
+                      customization={{
+                        paymentMethods: {
+                          creditCard: "all",
+                          debitCard: "all",
+                        },
+                      }}
+                      onSubmit={async ({ formData }) => {
+                        await processCardPayment({ formData });
+                      }}
+                      onReady={() => {
+                        console.log("✅ Payment Brick pronto");
+                      }}
+                      onError={(error) => {
+                        console.error("❌ Payment Brick erro:", error);
 
-              automaticamente.
+                        setCardError(
+                          error?.message ||
+                            error?.cause?.[0]?.description ||
+                            "Erro ao carregar pagamento com cartão."
+                        );
+                      }}
+                    />
 
-            </p>
+                    {sending && (
+                      <p className="dashboard-note">Processando pagamento...</p>
+                    )}
 
-            {pixData.qrCodeBase64 && (
+                    {cardError && (
+                      <div className="card-payment-error">{cardError}</div>
+                    )}
 
-              <img
+                    {cardResult?.approved && (
+                      <div className="card-payment-success">
+                        <strong>Pagamento aprovado ✅</strong>
+                        <p>Seu plano foi ativado com sucesso.</p>
+                      </div>
+                    )}
 
-                src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                    {cardResult && !cardResult.approved && (
+                      <div className="card-payment-error">
+                        <strong>Pagamento não aprovado</strong>
+                        <p>
+                          {cardResult.message ||
+                            "O Mercado Pago não aprovou esse pagamento."}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                alt="QR Code Pix"
+                {paymentMethod === "pix" && (
+                  <>
+                    <div className="pix-owner-notice">
+                      <strong>Pagamento via Pix</strong>
+                      <p>
+                        Gere o Pix, copie o código ou escaneie o QR Code. Assim
+                        que o pagamento for confirmado, sua vitrine será ativada.
+                      </p>
+                    </div>
 
-                className="pix-qrcode"
+                    <button
+                      type="button"
+                      className="plan-signup-submit"
+                      onClick={generatePixPayment}
+                      disabled={sending}
+                    >
+                      {sending ? "Gerando Pix..." : "Gerar Pix"}
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="plan-signup-head">
+                  <span>Pix gerado</span>
+                  <h2>Finalize o pagamento</h2>
+                  <p>
+                    Copie o código Pix abaixo ou escaneie o QR Code. A ativação
+                    será automática após confirmação.
+                  </p>
+                </div>
 
-              />
+                <div className="pix-qr-wrapper">
+                  <QRCodeCanvas value={payment.qr_code} size={220} level="H" />
+                </div>
 
+                <textarea
+                  readOnly
+                  value={payment.qr_code}
+                  className="pix-copy-code"
+                />
+
+                <button
+                  type="button"
+                  className="plan-signup-submit"
+                  onClick={copyPix}
+                >
+                  {copied ? "Código copiado ✅" : "Copiar código Pix"}
+                </button>
+
+                <small>Aguardando confirmação automática do pagamento...</small>
+              </>
             )}
-
-            <textarea
-
-              readOnly
-
-              value={pixData.copyPaste || ""}
-
-              className="pix-copy-code"
-
-            />
-
-            <button
-
-              type="button"
-
-              className="plan-signup-submit"
-
-              onClick={copyPixCode}
-
-            >
-
-              {copied ? "Código copiado ✅" : "Copiar código Pix"}
-
-            </button>
-
-            <small>Aguardando confirmação automática do pagamento...</small>
-
           </div>
-
         ) : createdProfile ? (
-
           <div className="plan-signup-success">
-
             <span>✨ Sua vitrine foi criada</span>
 
             <h2>Seu perfil profissional já está online</h2>
 
             <p>
-
               Sempre que quiser editar sua vitrine, acessar pedidos, produtos ou
-
               serviços, basta entrar no painel usando seu WhatsApp.
-
             </p>
 
             <div className="created-profile-link">
-
               <small>Link do seu perfil</small>
-
               <strong>{createdProfile.publicUrl}</strong>
-
             </div>
 
             <a href={createdProfile.publicUrl} target="_blank" rel="noreferrer">
-
               Ver minha vitrine
-
             </a>
 
             <a href="/login" className="secondary">
-
               Acessar painel
-
             </a>
-
           </div>
-
         ) : (
-
           <>
-
             <div className="plan-signup-head">
-
               <span>{PLAN_LABELS[plan.code] || plan.name}</span>
 
               <h2>Vamos criar sua vitrine</h2>
 
               <p>
-
                 Nossa IA irá gerar automaticamente uma página profissional
-
                 elegante baseada no seu negócio.
-
               </p>
-
             </div>
 
             <div className="plan-signup-grid">
-
               <label>
-
                 <span>Seu nome</span>
 
                 <input
-
                   value={form.name}
-
                   onChange={(e) => setField("name", e.target.value)}
-
                   placeholder="Ex: Alexandre Carvalho"
-
                 />
-
               </label>
 
               <label>
-
                 <span>Nome comercial</span>
 
                 <input
-
                   value={form.businessName}
-
                   onChange={(e) => setField("businessName", e.target.value)}
-
                   placeholder="Ex: CompreTudo.shop"
-
                 />
-
               </label>
 
               <label>
-
                 <span>WhatsApp</span>
 
                 <input
-
                   value={form.phone}
-
                   onChange={(e) => setField("phone", e.target.value)}
-
                   placeholder="Ex: 79999999999"
-
                 />
-
               </label>
 
               <label>
-
                 <span>Ramo de trabalho</span>
 
                 <input
-
                   value={form.workArea}
-
                   onChange={(e) => setField("workArea", e.target.value)}
-
                   placeholder="Ex: Loja de roupas, pizzaria, estética..."
-
                 />
-
               </label>
-<label>
-  <span>Cidade</span>
-  <input
-    value={form.city}
-    onChange={(e) => setField("city", e.target.value)}
-    placeholder="Ex: Itabaiana"
-  />
-</label>
 
-<label>
-  <span>Estado</span>
-  <input
-    value={form.state}
-    onChange={(e) => setField("state", e.target.value.toUpperCase())}
-    placeholder="Ex: SE"
-    maxLength={2}
-  />
-</label>
-             {plan.code !== "free" && (
-  <label className="full">
-    <span>Imagem de referência</span>
+              <label>
+                <span>Cidade</span>
 
-    <input
-      type="file"
-      accept="image/*"
-      onChange={(e) => {
-        const file = e.target.files?.[0] || null;
-        setField("referenceImage", file);
+                <input
+                  value={form.city}
+                  onChange={(e) => setField("city", e.target.value)}
+                  placeholder="Ex: Itabaiana"
+                />
+              </label>
 
-        if (file) {
-          setPreviewUrl(URL.createObjectURL(file));
-        }
-      }}
-    />
+              <label>
+                <span>Estado</span>
 
-    <small>
-      Pode ser uma logomarca, fachada, cartão, produto ou identidade visual da marca.
-    </small>
+                <input
+                  value={form.state}
+                  onChange={(e) =>
+                    setField("state", e.target.value.toUpperCase())
+                  }
+                  placeholder="Ex: SE"
+                  maxLength={2}
+                />
+              </label>
 
-    {previewUrl && (
-      <div className="plan-signup-preview">
-        <img src={previewUrl} alt="Prévia" />
-      </div>
-    )}
-  </label>
-)}
+              {plan.code !== "free" && (
+                <label className="full">
+                  <span>Imagem de referência</span>
 
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+
+                      setField("referenceImage", file);
+
+                      if (file) {
+                        setPreviewUrl(URL.createObjectURL(file));
+                      } else {
+                        setPreviewUrl("");
+                      }
+                    }}
+                  />
+
+                  <small>
+                    Pode ser uma logomarca, fachada, cartão, produto ou
+                    identidade visual da marca.
+                  </small>
+
+                  {previewUrl && (
+                    <div className="plan-signup-preview">
+                      <img src={previewUrl} alt="Prévia" />
+                    </div>
+                  )}
+                </label>
+              )}
             </div>
 
             <div className="plan-signup-summary">
-
               <strong>{PLAN_LABELS[plan.code] || plan.name}</strong>
 
               {plan.code === "free" ? (
-
                 <span>Cadastro gratuito</span>
-
               ) : (
-
-                <span>
-
-                  Ativação: R$ {Number(plan.setup || 0).toFixed(2)}
-
-                </span>
-
+                <span>Ativação: {money(plan.setup || 0)}</span>
               )}
-
             </div>
 
             <button
-
               type="button"
-
               className="plan-signup-submit"
-
               onClick={submitSignup}
-
               disabled={sending}
-
             >
-
               {sending
-
                 ? "Criando sua vitrine..."
-
                 : plan.code === "free"
-
                 ? "Criar vitrine grátis"
-
-                : "Gerar Pix e criar vitrine"}
-
+                : "Criar vitrine e escolher pagamento"}
             </button>
-
           </>
-
         )}
-
       </div>
-
     </div>
-
   );
-
 }

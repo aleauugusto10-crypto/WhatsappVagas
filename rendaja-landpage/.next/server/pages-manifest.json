@@ -2,10 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/p/[slug]": "pages/p/[slug].js",
-  "/dashboard": "pages/dashboard.js",
   "/dashboard-preview": "pages/dashboard-preview.js",
-  "/shopping": "pages/shopping.js",
-  "/api/reviews/[profileId]": "pages/api/reviews/[profileId].js",
-  "/api/shopping/search": "pages/api/shopping/search.js"
+  "/p/[slug]": "pages/p/[slug].js",
+  "/login": "pages/login.js"
 }
