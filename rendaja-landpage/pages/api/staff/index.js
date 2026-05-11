@@ -8,17 +8,35 @@ function normalizeCommissionType(value) {
   if (["none", "percent", "fixed"].includes(value)) return value;
   return "none";
 }
-function generateAffiliateCode(nome = "") {
-  const clean = String(nome || "funcionario")
+
+function baseAffiliateCode(nome = "") {
+  return String(nome || "funcionario")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
-
-  const random = Math.floor(1000 + Math.random() * 9000);
-
-  return `${clean || "func"}${random}`;
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 18) || "func";
 }
+
+async function generateUniqueAffiliateCode(nome = "") {
+  const base = baseAffiliateCode(nome);
+
+  for (let i = 0; i < 8; i++) {
+    const random = Math.floor(1000 + Math.random() * 9000);
+    const code = `${base}${random}`;
+
+    const { data } = await supabase
+      .from("profile_staff")
+      .select("id")
+      .or(`affiliate_code.eq.${code},affiliate_slug.eq.${code}`)
+      .maybeSingle();
+
+    if (!data) return code;
+  }
+
+  return `${base}${Date.now()}`;
+}
+
 async function upsertStaffRecurringExpense(staff) {
   if (!staff?.id || !staff?.profile_page_id) return;
 
@@ -48,25 +66,21 @@ async function upsertStaffRecurringExpense(staff) {
   }
 
   const payload = {
-  profile_page_id: staff.profile_page_id,
-  title: `Pagamento funcionário - ${staff.nome}`,
-
-  amount: fixedSalary,
-  base_amount: fixedSalary,
-  fixed_salary: fixedSalary,
-  pending_commission_amount: 0,
-
-  staff_id: staff.id,
-
-  payment_method: "cash",
-  category: "staff_payment",
-  frequency: staff.payment_frequency || "monthly",
-  next_due_date: staff.next_payment_date || null,
-
-  note: `${noteKey} | Pagamento recorrente do funcionário ${staff.nome}`,
-  is_active: true,
-  updated_at: new Date().toISOString(),
-};
+    profile_page_id: staff.profile_page_id,
+    title: `Pagamento funcionário - ${staff.nome}`,
+    amount: fixedSalary,
+    base_amount: fixedSalary,
+    fixed_salary: fixedSalary,
+    pending_commission_amount: 0,
+    staff_id: staff.id,
+    payment_method: "cash",
+    category: "staff_payment",
+    frequency: staff.payment_frequency || "monthly",
+    next_due_date: staff.next_payment_date || null,
+    note: `${noteKey} | Pagamento recorrente do funcionário ${staff.nome}`,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  };
 
   if (existing?.id) {
     await supabase
@@ -101,56 +115,53 @@ export default async function handler(req, res) {
 
       if (error) throw error;
 
-const staffList = data || [];
+      const staffList = data || [];
 
-const { data: commissions, error: commissionError } = await supabase
-  .from("finance_movements")
-  .select("commission_amount, commission_to_staff_id, created_at")
-  .eq("profile_page_id", profilePageId)
-  .gt("commission_amount", 0);
+      const { data: commissions, error: commissionError } = await supabase
+        .from("finance_movements")
+        .select("commission_amount, commission_to_staff_id, created_at")
+        .eq("profile_page_id", profilePageId)
+        .gt("commission_amount", 0);
 
-if (commissionError) throw commissionError;
+      if (commissionError) throw commissionError;
 
-const enrichedStaff = staffList.map((staff) => {
-  const lastPaidAt = staff.last_commission_payment_at
-    ? new Date(staff.last_commission_payment_at)
-    : null;
+      const enrichedStaff = staffList.map((staff) => {
+        const lastPaidAt = staff.last_commission_payment_at
+          ? new Date(staff.last_commission_payment_at)
+          : null;
 
-  const pendingCommission = (commissions || [])
-    .filter((movement) => {
-      if (String(movement.commission_to_staff_id) !== String(staff.id)) {
-        return false;
-      }
+        const pendingCommission = (commissions || [])
+          .filter((movement) => {
+            if (String(movement.commission_to_staff_id) !== String(staff.id)) {
+              return false;
+            }
 
-      if (lastPaidAt && new Date(movement.created_at) <= lastPaidAt) {
-        return false;
-      }
+            if (lastPaidAt && new Date(movement.created_at) <= lastPaidAt) {
+              return false;
+            }
 
-      return true;
-    })
-    .reduce(
-      (acc, movement) => acc + Number(movement.commission_amount || 0),
-      0
-    );
+            return true;
+          })
+          .reduce((acc, movement) => acc + Number(movement.commission_amount || 0), 0);
 
-  return {
-    ...staff,
-    pending_commission_amount: pendingCommission,
-  };
-});
+        return {
+          ...staff,
+          pending_commission_amount: pendingCommission,
+        };
+      });
 
-return res.status(200).json(enrichedStaff);
+      return res.status(200).json(enrichedStaff);
     }
 
     if (req.method === "POST") {
-  const {
-  profilePageId,
-  nome,
-  telefone,
-  email,
-  role = "staff",
-  positionTitle = "",
-  fixedSalary = 0,
+      const {
+        profilePageId,
+        nome,
+        telefone,
+        email,
+        role = "staff",
+        positionTitle = "",
+        fixedSalary = 0,
         paymentFrequency = "monthly",
         nextPaymentDate = null,
         commissionType = "none",
@@ -159,13 +170,13 @@ return res.status(200).json(enrichedStaff);
         workingDays = [1, 2, 3, 4, 5, 6],
         workingHours = { start: 8, end: 18, interval: 1 },
         canViewOrders = false,
-canViewBookings = false,
-canConfirmOrders = false,
-canConfirmBookings = false,
-canFinalizeOrders = false,
-canFinalizeBookings = false,
-receivesCommission = false,
-whatsappEnabled = true,
+        canViewBookings = false,
+        canConfirmOrders = false,
+        canConfirmBookings = false,
+        canFinalizeOrders = false,
+        canFinalizeBookings = false,
+        receivesCommission = false,
+        whatsappEnabled = true,
       } = req.body || {};
 
       if (!profilePageId) {
@@ -177,43 +188,42 @@ whatsappEnabled = true,
       }
 
       const finalCommissionType = normalizeCommissionType(commissionType);
-const affiliateCode = generateAffiliateCode(nome);
+      const affiliateCode = await generateUniqueAffiliateCode(nome);
+
       const payload = {
         profile_page_id: profilePageId,
         nome: String(nome).trim(),
         telefone: onlyDigits(telefone) || null,
         email: email || null,
-role,
-fixed_salary: Number(fixedSalary || 0),
+        role,
+        fixed_salary: Number(fixedSalary || 0),
         payment_frequency: paymentFrequency || "monthly",
         next_payment_date: nextPaymentDate || null,
         commission_type: finalCommissionType,
         commission_value:
           finalCommissionType === "none" ? 0 : Number(commissionValue || 0),
         specialties: Array.isArray(specialties) ? specialties : [],
-        working_days: Array.isArray(workingDays)
-          ? workingDays
-          : [1, 2, 3, 4, 5, 6],
+        working_days: Array.isArray(workingDays) ? workingDays : [1, 2, 3, 4, 5, 6],
         working_hours: workingHours || { start: 8, end: 18, interval: 1 },
         ativo: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         position_title: positionTitle || null,
 
-can_view_orders: !!canViewOrders,
-can_view_bookings: !!canViewBookings,
-can_confirm_orders: !!canConfirmOrders,
-can_confirm_bookings: !!canConfirmBookings,
-can_finalize_orders: !!canFinalizeOrders,
-can_finalize_bookings: !!canFinalizeBookings,
+        can_view_orders: !!canViewOrders,
+        can_view_bookings: !!canViewBookings,
+        can_confirm_orders: !!canConfirmOrders,
+        can_confirm_bookings: !!canConfirmBookings,
+        can_finalize_orders: !!canFinalizeOrders,
+        can_finalize_bookings: !!canFinalizeBookings,
 
-receives_commission:
-  receivesCommission === true || finalCommissionType !== "none",
+        receives_commission:
+          receivesCommission === true || finalCommissionType !== "none",
 
-whatsapp_enabled: whatsappEnabled !== false,
+        whatsapp_enabled: whatsappEnabled !== false,
 
-affiliate_code: affiliateCode,
-affiliate_slug: affiliateCode,
+        affiliate_code: affiliateCode,
+        affiliate_slug: affiliateCode,
       };
 
       const { data, error } = await supabase
@@ -228,59 +238,72 @@ affiliate_slug: affiliateCode,
 
       return res.status(201).json(data);
     }
-if (req.method === "PATCH") {
-  const { staffId, updates = {} } = req.body || {};
 
-  if (!staffId) {
+    if (req.method === "PATCH") {
+      const { staffId, updates = {} } = req.body || {};
+
+      if (!staffId) {
         return res.status(400).json({ error: "staffId obrigatório." });
+      }
+
+      const { data: currentStaff, error: currentError } = await supabase
+        .from("profile_staff")
+        .select("*")
+        .eq("id", staffId)
+        .maybeSingle();
+
+      if (currentError) throw currentError;
+
+      if (!currentStaff) {
+        return res.status(404).json({ error: "Funcionário não encontrado." });
       }
 
       const payload = {
         updated_at: new Date().toISOString(),
       };
-if ("canViewOrders" in updates) payload.can_view_orders = !!updates.canViewOrders;
-if ("canViewBookings" in updates) payload.can_view_bookings = !!updates.canViewBookings;
 
-if ("canConfirmOrders" in updates) payload.can_confirm_orders = !!updates.canConfirmOrders;
-if ("canConfirmBookings" in updates) payload.can_confirm_bookings = !!updates.canConfirmBookings;
-
-if ("canFinalizeOrders" in updates) payload.can_finalize_orders = !!updates.canFinalizeOrders;
-if ("canFinalizeBookings" in updates) payload.can_finalize_bookings = !!updates.canFinalizeBookings;
-
-if ("receivesCommission" in updates) payload.receives_commission = !!updates.receivesCommission;
-if ("whatsappEnabled" in updates) payload.whatsapp_enabled = updates.whatsappEnabled !== false;
+      if ("canViewOrders" in updates) payload.can_view_orders = !!updates.canViewOrders;
+      if ("canViewBookings" in updates) payload.can_view_bookings = !!updates.canViewBookings;
+      if ("canConfirmOrders" in updates) payload.can_confirm_orders = !!updates.canConfirmOrders;
+      if ("canConfirmBookings" in updates) payload.can_confirm_bookings = !!updates.canConfirmBookings;
+      if ("canFinalizeOrders" in updates) payload.can_finalize_orders = !!updates.canFinalizeOrders;
+      if ("canFinalizeBookings" in updates) payload.can_finalize_bookings = !!updates.canFinalizeBookings;
+      if ("receivesCommission" in updates) payload.receives_commission = !!updates.receivesCommission;
+      if ("whatsappEnabled" in updates) payload.whatsapp_enabled = updates.whatsappEnabled !== false;
       if ("nome" in updates) payload.nome = String(updates.nome || "").trim();
       if ("telefone" in updates) payload.telefone = onlyDigits(updates.telefone) || null;
       if ("email" in updates) payload.email = updates.email || null;
       if ("role" in updates) payload.role = updates.role;
-if ("positionTitle" in updates) {
-  payload.position_title = updates.positionTitle || null;
-}
-      if ("fixedSalary" in updates) {
-        payload.fixed_salary = Number(updates.fixedSalary || 0);
-      }
-
-      if ("paymentFrequency" in updates) {
-        payload.payment_frequency = updates.paymentFrequency || "monthly";
-      }
-
-      if ("nextPaymentDate" in updates) {
-        payload.next_payment_date = updates.nextPaymentDate || null;
-      }
+      if ("positionTitle" in updates) payload.position_title = updates.positionTitle || null;
+      if ("fixedSalary" in updates) payload.fixed_salary = Number(updates.fixedSalary || 0);
+      if ("paymentFrequency" in updates) payload.payment_frequency = updates.paymentFrequency || "monthly";
+      if ("nextPaymentDate" in updates) payload.next_payment_date = updates.nextPaymentDate || null;
 
       if ("commissionType" in updates) {
         payload.commission_type = normalizeCommissionType(updates.commissionType);
       }
 
       if ("commissionValue" in updates) {
-  const nextType =
-    "commissionType" in updates
-      ? normalizeCommissionType(updates.commissionType)
-      : payload.commission_type || "none";
+        const nextType =
+          "commissionType" in updates
+            ? normalizeCommissionType(updates.commissionType)
+            : currentStaff.commission_type || "none";
 
-  payload.commission_value =
-    nextType === "none" ? 0 : Number(updates.commissionValue || 0);
-}
+        payload.commission_value =
+          nextType === "none" ? 0 : Number(updates.commissionValue || 0);
+      }
+
+      const needsAffiliateCode =
+        !currentStaff.affiliate_code || !currentStaff.affiliate_slug;
+
+      if (needsAffiliateCode) {
+        const code = await generateUniqueAffiliateCode(
+          payload.nome || currentStaff.nome
+        );
+
+        payload.affiliate_code = currentStaff.affiliate_code || code;
+        payload.affiliate_slug = currentStaff.affiliate_slug || code;
+      }
 
       const { data, error } = await supabase
         .from("profile_staff")

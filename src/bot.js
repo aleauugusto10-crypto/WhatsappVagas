@@ -212,12 +212,16 @@ async function getLastUserPayment(userId) {
     .from("pagamentos_plataforma")
     .select("*")
     .eq("usuario_id", userId)
+    .in("referencia_tipo", [
+      "profile_plan_setup",
+      "profile_page_subscription",
+    ])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.error("❌ erro ao buscar último pagamento:", error);
+    console.error("❌ erro ao buscar último pagamento de plano:", error);
     return null;
   }
 
@@ -242,7 +246,7 @@ async function handlePaymentCheckStatus(user, phone) {
 
   const { data: profileAtualizado, error: profileCheckError } = await supabase
     .from("profiles_pages")
-    .select("id,is_active,subscription_status,subscription_expires_at")
+    .select("id,is_active,plan_code,plan_status,plan_next_billing_at,next_payment_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -251,8 +255,10 @@ async function handlePaymentCheckStatus(user, phone) {
   }
 
   const paginaAtiva =
-    profileAtualizado?.is_active === true &&
-    profileAtualizado?.subscription_status === "active";
+  profileAtualizado?.is_active === true &&
+  profileAtualizado?.plan_status === "active" &&
+  profileAtualizado?.plan_code &&
+  profileAtualizado.plan_code !== "free";
 
   if (!paginaAtiva) {
     console.log("⚠️ pagamento confirmado, mas página ainda não ativa:", {
@@ -704,7 +710,7 @@ const page = text.startsWith("staff_orders_page_")
 
 const pageSize = 9;
 const from = page * pageSize;
-const to = from + pageSize;
+const to = from + pageSize - 1;
   let query = supabase
     .from("profile_orders")
     .select("*")
@@ -1778,7 +1784,7 @@ if (text === "abrir_suporte" || text === "suporte") {
     if (text === "prof_editar_pagina" || text === "empresa_editar_pagina") {
   const { data: profile, error } = await supabase
     .from("profiles_pages")
-    .select("id, slug, is_active, subscription_status, subscription_expires_at")
+    .select("id, slug, is_active, plan_status, subscription_expires_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -1791,7 +1797,7 @@ if (text === "abrir_suporte" || text === "suporte") {
 
   const assinaturaValida =
   profile.is_active === true &&
-  profile.subscription_status === "active";
+  profile.plan_status === "active";
 
   if (!assinaturaValida) {
     await sendText(

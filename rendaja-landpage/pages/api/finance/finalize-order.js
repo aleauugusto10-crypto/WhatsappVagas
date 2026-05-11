@@ -1,5 +1,87 @@
 import { supabaseAdmin } from "../../../src/lib/supabaseAdmin";
 
+function getReservableItems(order = {}) {
+  const reservedItems = Array.isArray(order.reserved_items)
+    ? order.reserved_items
+    : [];
+
+  if (reservedItems.length > 0) return reservedItems;
+
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  return items.filter(
+    (item) =>
+      item.type === "product" &&
+      item.stock_mode === "quantity" &&
+      item.stock_enabled === true &&
+      Number(item.qty || 0) > 0
+  );
+}
+
+async function finalizeReservedStock(order) {
+  if (!order?.profile_page_id) return;
+
+  if (order.stock_status === "completed") return;
+
+  const reservableItems = getReservableItems(order);
+  if (reservableItems.length === 0) return;
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles_pages")
+    .select("id, store_items")
+    .eq("id", order.profile_page_id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    throw new Error("Perfil não encontrado para atualizar estoque.");
+  }
+
+  const storeItems = Array.isArray(profile.store_items)
+    ? profile.store_items
+    : [];
+
+  const updatedStoreItems = storeItems.map((storeItem) => {
+    const reservedItem = reservableItems.find(
+      (item) => String(item.id) === String(storeItem.id)
+    );
+
+    if (!reservedItem) return storeItem;
+
+    const qty = Number(reservedItem.qty || 0);
+
+    const stockQty = Number(storeItem.stock_qty || 0);
+    const reservedQty = Number(storeItem.reserved_qty || 0);
+    const soldQty = Number(storeItem.sold_qty || 0);
+
+    const nextReservedQty = Math.max(0, reservedQty - qty);
+    const nextSoldQty = soldQty + qty;
+
+    const availableQty = Math.max(
+      0,
+      stockQty - nextReservedQty - nextSoldQty
+    );
+
+    return {
+      ...storeItem,
+      reserved_qty: nextReservedQty,
+      sold_qty: nextSoldQty,
+      in_stock: availableQty > 0,
+    };
+  });
+
+  const { error: updateStockError } = await supabaseAdmin
+    .from("profiles_pages")
+    .update({
+      store_items: updatedStoreItems,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.profile_page_id);
+
+  if (updateStockError) {
+    throw new Error(updateStockError.message || "Erro ao atualizar estoque.");
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -51,23 +133,26 @@ export default async function handler(req, res) {
 
     const items = Array.isArray(order.items) ? order.items : [];
 
-    const itemName =
-      items[0]?.title ||
-      items[0]?.name ||
-      "Pedido";
-console.log("🔥 FINALIZANDO PEDIDO:", {
-  orderId,
-  finalAmount,
-  payment_method,
-});
+    const itemName = items[0]?.title || items[0]?.name || "Pedido";
 
-console.log("🔥 PEDIDO ENCONTRADO:", {
-  id: order.id,
-  profile_page_id: order.profile_page_id,
-});
+    console.log("🔥 FINALIZANDO PEDIDO:", {
+      orderId,
+      finalAmount,
+      payment_method,
+    });
+
+    console.log("🔥 PEDIDO ENCONTRADO:", {
+      id: order.id,
+      profile_page_id: order.profile_page_id,
+      stock_status: order.stock_status,
+      stock_reserved: order.stock_reserved,
+      reserved_items: order.reserved_items,
+    });
+
+    await finalizeReservedStock(order);
+
     const { data: movement, error: movementError } = await supabaseAdmin
       .from("finance_movements")
-      
       .insert({
         profile_page_id: order.profile_page_id,
         source_type: "order",
@@ -101,6 +186,10 @@ console.log("🔥 PEDIDO ENCONTRADO:", {
         paid_amount: finalAmount,
         payment_method: payment_method || "pix",
         paid_at: new Date().toISOString(),
+
+        stock_reserved: false,
+        stock_status: "completed",
+
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id);
@@ -121,7 +210,7 @@ console.log("🔥 PEDIDO ENCONTRADO:", {
     console.error("Erro geral finalize-order:", err);
 
     return res.status(500).json({
-      error: "Erro interno ao finalizar pedido.",
+      error: err.message || "Erro interno ao finalizar pedido.",
     });
   }
 }

@@ -492,74 +492,85 @@ whatsappEnabled: form.whatsappEnabled,
               
             )}
           </div>
-<div className="staff-permissions-block">
-  <strong>Permissões</strong>
 
-  <label>
-    <input
-      type="checkbox"
-      checked={form.canViewOrders}
-      onChange={(e) =>
-        updateField("canViewOrders", e.target.checked)
-      }
-    />
-    Ver pedidos
-  </label>
+<div className="staff-permissions">
+  <strong className="staff-permissions-title">
+    Permissões
+  </strong>
 
-  <label>
-    <input
-      type="checkbox"
-      checked={form.canConfirmOrders}
-      onChange={(e) =>
-        updateField("canConfirmOrders", e.target.checked)
-      }
-    />
-    Confirmar pedidos
-  </label>
+  <div className="staff-permissions-grid">
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={form.canViewOrders}
+        onChange={(e) =>
+          updateField("canViewOrders", e.target.checked)
+        }
+      />
 
-  <label>
-    <input
-      type="checkbox"
-      checked={form.canFinalizeOrders}
-      onChange={(e) =>
-        updateField("canFinalizeOrders", e.target.checked)
-      }
-    />
-    Finalizar pedidos
-  </label>
+      <span>Ver pedidos</span>
+    </label>
 
-  <label>
-    <input
-      type="checkbox"
-      checked={form.canViewBookings}
-      onChange={(e) =>
-        updateField("canViewBookings", e.target.checked)
-      }
-    />
-    Ver agendamentos
-  </label>
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={form.canConfirmOrders}
+        onChange={(e) =>
+          updateField("canConfirmOrders", e.target.checked)
+        }
+      />
 
-  <label>
-    <input
-      type="checkbox"
-      checked={form.canConfirmBookings}
-      onChange={(e) =>
-        updateField("canConfirmBookings", e.target.checked)
-      }
-    />
-    Confirmar agendamentos
-  </label>
+      <span>Confirmar pedidos</span>
+    </label>
 
-  <label>
-    <input
-      type="checkbox"
-      checked={form.canFinalizeBookings}
-      onChange={(e) =>
-        updateField("canFinalizeBookings", e.target.checked)
-      }
-    />
-    Finalizar agendamentos
-  </label>
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={form.canFinalizeOrders}
+        onChange={(e) =>
+          updateField("canFinalizeOrders", e.target.checked)
+        }
+      />
+
+      <span>Finalizar pedidos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={form.canViewBookings}
+        onChange={(e) =>
+          updateField("canViewBookings", e.target.checked)
+        }
+      />
+
+      <span>Ver agendamentos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={form.canConfirmBookings}
+        onChange={(e) =>
+          updateField("canConfirmBookings", e.target.checked)
+        }
+      />
+
+      <span>Confirmar agendamentos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={form.canFinalizeBookings}
+        onChange={(e) =>
+          updateField("canFinalizeBookings", e.target.checked)
+        }
+      />
+
+      <span>Finalizar agendamentos</span>
+    </label>
+  </div>
 </div>
           <button type="submit" className="staff-submit-button">
             Criar funcionário
@@ -612,6 +623,20 @@ whatsappEnabled: form.whatsappEnabled,
 <p>
   Comissão atual: R$ {Number(item.pending_commission_amount || 0).toFixed(2)}
 </p>
+{item.affiliate_code && (
+  <div className="staff-affiliate-box">
+    <small>Link de comissão</small>
+
+    <a
+      href={`${window.location.origin}/${item.affiliate_slug}`}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {window.location.origin}/{item.affiliate_slug}
+    </a>
+  </div>
+)}
                   {item.next_payment_date && (
                     <p>Próximo pagamento: {item.next_payment_date}</p>
                   )}
@@ -801,6 +826,79 @@ whatsappEnabled: form.whatsappEnabled,
       >
         {savingEdit ? "Salvando..." : "Salvar alterações"}
       </button>
+      <div className="staff-permissions">
+  <strong className="staff-permissions-title">
+    Permissões
+  </strong>
+
+  <div className="staff-permissions-grid">
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={editForm.canViewOrders}
+        onChange={(e) =>
+          updateEditField("canViewOrders", e.target.checked)
+        }
+      />
+      <span>Ver pedidos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={editForm.canConfirmOrders}
+        onChange={(e) =>
+          updateEditField("canConfirmOrders", e.target.checked)
+        }
+      />
+      <span>Confirmar pedidos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={editForm.canFinalizeOrders}
+        onChange={(e) =>
+          updateEditField("canFinalizeOrders", e.target.checked)
+        }
+      />
+      <span>Finalizar pedidos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={editForm.canViewBookings}
+        onChange={(e) =>
+          updateEditField("canViewBookings", e.target.checked)
+        }
+      />
+      <span>Ver agendamentos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={editForm.canConfirmBookings}
+        onChange={(e) =>
+          updateEditField("canConfirmBookings", e.target.checked)
+        }
+      />
+      <span>Confirmar agendamentos</span>
+    </label>
+
+    <label className="staff-permission-item">
+      <input
+        type="checkbox"
+        checked={editForm.canFinalizeBookings}
+        onChange={(e) =>
+          updateEditField("canFinalizeBookings", e.target.checked)
+        }
+      />
+      <span>Finalizar agendamentos</span>
+    </label>
+  </div>
+</div>
     </form>
   </div>
 )}

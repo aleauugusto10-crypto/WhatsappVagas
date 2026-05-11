@@ -11,6 +11,13 @@ import ServicesSection from "../../components/ServicesSection";
 import StaffPanel from "../../components/dashboard/StaffPanel";
 import FinancePanel from "../../components/dashboard/FinancePanel";
 import { getProfileStaff } from "../../src/modules/staff/staffService";
+import PrintShopSection from "../../components/dashboard/printshop/PrintShopSection";
+
+import dynamic from "next/dynamic";
+const MercadoPayment = dynamic(
+  () => import("@mercadopago/sdk-react").then((mod) => mod.Payment),
+  { ssr: false }
+);
 import { QRCodeCanvas } from "qrcode.react";
 function money(value = 0) {
 
@@ -62,7 +69,7 @@ services_text_color: "#07111f",
   show_services: true,
   show_portfolio: true,
   show_reviews: true,
-  show_store: true,
+  show_store: false,
   show_booking: false,
   show_final_cta: true,
 
@@ -138,12 +145,101 @@ const MENU = [
   { id: "bookings", label: "Agendamentos", icon: "📅" },
   { id: "staff", label: "Equipe", icon: "👥" },
 { id: "finance", label: "Financeiro", icon: "💰" },
-
+{ id: "printshop", label: "Gráfica", icon: "🖨️" },
   { id: "reviews", label: "Avaliações", icon: "⭐" },
   { id: "jobs", label: "Vagas", icon: "💼" },
   { id: "missions", label: "Missões", icon: "🎯" },
 
 ];
+
+const DEFAULT_PLAN_FEATURES = {
+  overview: true,
+  visual: true,
+  content: true,
+  reviews: true,
+
+  store: false,
+  orders: false,
+  bookings: false,
+  finance: false,
+  staff: false,
+
+  printshop: true,
+  jobs: true,
+  missions: true,
+};
+
+function getProfileFeatures(profile) {
+  const planCode = profile?.plan_code || "free";
+
+  const fallbackByPlan = {
+    free: {
+      ...DEFAULT_PLAN_FEATURES,
+    },
+
+    store_start: {
+      ...DEFAULT_PLAN_FEATURES,
+      store: true,
+      orders: true,
+      bookings: true,
+    },
+
+    finance_pro: {
+      ...DEFAULT_PLAN_FEATURES,
+      store: true,
+      orders: true,
+      bookings: true,
+      finance: true,
+    },
+
+    complete_pro: {
+      ...DEFAULT_PLAN_FEATURES,
+      store: true,
+      orders: true,
+      bookings: true,
+      finance: true,
+      staff: true,
+    },
+  };
+
+  return {
+    ...(fallbackByPlan[planCode] || DEFAULT_PLAN_FEATURES),
+    ...(profile?.plan_features || {}),
+  };
+}
+
+function canAccessMenu(profile, menuId) {
+  const planCode = profile?.plan_code || "free";
+  const status = profile?.subscription_status || profile?.plan_status || "free";
+
+  if (
+    menuId === "overview" ||
+    menuId === "reviews" ||
+    menuId === "jobs" ||
+    menuId === "missions" ||
+    menuId === "printshop"
+  ) {
+    return true;
+  }
+
+  const active = status === "active" || status === "trial";
+
+  if (!active) return false;
+
+  if (planCode === "store_start") {
+    return ["store", "orders", "bookings"].includes(menuId);
+  }
+
+  if (planCode === "finance_pro") {
+    return ["store", "orders", "bookings", "finance"].includes(menuId);
+  }
+
+  if (planCode === "complete_pro") {
+    return ["store", "orders", "bookings", "finance", "staff"].includes(menuId);
+  }
+
+  return false;
+}
 export default function Dashboard() {
   const router = useRouter();
   const [active, setActive] = useState("overview");
@@ -244,33 +340,72 @@ useEffect(() => {
   return () => {
     supabase.removeChannel(channel);
   };
+
 }, [profile?.id]);
-  async function loadProfile() {
-    setLoading(true);
 
-    const savedUser = localStorage.getItem("rendaja_user");
-const user = savedUser ? JSON.parse(savedUser) : null;
+async function loadProfile() {
+  setLoading(true);
 
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+  const savedUser = localStorage.getItem("rendaja_user");
+  const user = savedUser ? JSON.parse(savedUser) : null;
 
-    const { data, error } = await supabase
-      .from("profiles_pages")
+  if (!user) {
+    setLoading(false);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("profiles_pages")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    console.error("Erro ao carregar perfil:", error);
+    setLoading(false);
+    return;
+  }
+
+  let planData = null;
+
+  if (data?.plan_code) {
+    const { data: plan, error: planError } = await supabase
+      .from("platform_plans")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("code", data.plan_code)
       .maybeSingle();
 
-    if (!error && data) {
-  setProfile({ ...DEFAULT_PROFILE, ...data });
-  loadBookings(data.id);
-loadOrders(data.id);
-loadReviewsAdmin(data.id);
-}
-
-    setLoading(false);
+    if (planError) {
+      console.error("Erro ao carregar plano:", planError);
+    } else {
+      planData = plan;
+    }
   }
+
+  const profileWithPlan = {
+    ...DEFAULT_PROFILE,
+    ...data,
+    plan_name: planData?.name || "Plano Gratuito",
+    plan_features:
+  typeof planData?.features === "string"
+    ? JSON.parse(planData.features)
+    : planData?.features || DEFAULT_PLAN_FEATURES,
+    plan_setup_price: planData?.setup_price || 0,
+    plan_monthly_price: planData?.monthly_price || 0,
+    plan_monthly_credits: planData?.monthly_credits || 0,
+  };
+console.log("🧠 PLAN DATA:", planData);
+console.log("🧠 FEATURES:", planData?.features);
+  setProfile(profileWithPlan);
+
+  loadBookings(data.id);
+  loadOrders(data.id);
+  loadReviewsAdmin(data.id);
+
+  setLoading(false);
+}
 function logout() {
   localStorage.removeItem("rendaja_user");
   localStorage.removeItem("rendaja_token");
@@ -306,25 +441,44 @@ if (!user?.id) {
   return;
 }
 
-    const payload = {
-      ...profile,
-      user_id: user.id,
-      slug: normalizeSlug(profile.slug || profile.nome),
-      updated_at: new Date().toISOString(),
-    };
+const payload = {
+  ...profile,
+  user_id: user.id,
+  slug: normalizeSlug(profile.slug || profile.nome),
+  updated_at: new Date().toISOString(),
+};
+
+const features = getProfileFeatures(profile);
+
+if (features.store !== true) {
+  payload.show_store = false;
+}
+
+delete payload.plan_name;
+delete payload.plan_features;
+delete payload.plan_setup_price;
+delete payload.plan_monthly_price;
+delete payload.plan_monthly_credits;
+delete payload.platform_plans;
 
     const { error } = await supabase
-      .from("profiles_pages")
-      .upsert(payload, { onConflict: "user_id" });
+  .from("profiles_pages")
+  .upsert(payload, { onConflict: "user_id" });
 
-    setSaving(false);
+setSaving(false);
+
 if (error) {
   console.error("🔥 ERRO REAL:", error);
   alert(error.message || "Erro ao salvar página.");
   return;
 }
-    setProfile(payload);
-    alert("Página salva com sucesso!");
+
+setProfile((prev) => ({
+  ...prev,
+  ...payload,
+}));
+
+alert("Página salva com sucesso!");
   }
 
 
@@ -518,17 +672,31 @@ return (
         </div>
 
         <nav className="dashboard-menu">
-          {MENU.map((item) => (
-                        <button
-              key={item.id}
-              type="button"
-              className={`dashboard-menu-item ${active === item.id ? "active" : ""}`}
-              onClick={() => setActive(item.id)}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
+          {MENU.map((item) => {
+  const locked = !canAccessMenu(profile, item.id);
+
+  return (
+    <button
+      key={item.id}
+      type="button"
+      className={`dashboard-menu-item ${active === item.id ? "active" : ""} ${
+        locked ? "locked" : ""
+      }`}
+      onClick={() => {
+        if (locked) {
+          setActive("upgrade");
+          return;
+        }
+
+        setActive(item.id);
+      }}
+    >
+      <span>{item.icon}</span>
+      {item.label}
+      {locked && <small>🔒</small>}
+    </button>
+  );
+})}
         </nav>
 
         <div className="dashboard-sidebar-footer">
@@ -580,7 +748,9 @@ return (
   )}
 </div>
         </header>
-
+{active === "upgrade" && (
+  <UpgradePanel profile={profile} />
+)}
         {active === "overview" && (
   <OverviewPanel
   profile={profile}
@@ -619,13 +789,17 @@ return (
 
 {active === "orders" && (
   <OrdersPanel
-    orders={orders}
-    loading={loadingOrders}
-    reload={() => loadOrders(profile.id)}
-  />
+  orders={orders}
+  loading={loadingOrders}
+  reload={loadOrders}
+  setField={setField}
+/>
 )}
 {active === "staff" && <StaffPanel />}
 {active === "finance" && <FinancePanel profileFromDashboard={profile} />}
+{active === "printshop" && (
+  <PrintShopSection profile={profile} />
+)}
 {active === "schedule" && <SchedulePanel />}
 {active === "reviews" && (
   <ReviewsPanel
@@ -652,6 +826,397 @@ function orderStatusLabel(status) {
   return "Pendente";
 }
 
+function UpgradePanel({ profile }) {
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("checkout");
+  const [payment, setPayment] = useState(null);
+  const [loadingPayment, setLoadingPayment] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+const [cardResult, setCardResult] = useState(null);
+const [cardError, setCardError] = useState("");
+  const plans = {
+    store_start: {
+      code: "store_start",
+      name: "Loja Start",
+      setup: 50,
+      monthly: 19.9,
+      credits: 30,
+      features: [
+        "Loja liberada na vitrine",
+        "Cadastro de produtos e serviços",
+        "Pedidos recebidos pelo painel",
+        "Agendamentos liberados",
+        "30 créditos mensais",
+      ],
+    },
+    equipe_pro: {
+      code: "equipe_pro",
+      name: "Equipe Pro",
+      setup: 150,
+      monthly: 49.9,
+      credits: 100,
+    features: [
+  "Tudo do Loja Start",
+  "Gestão completa de equipe",
+  "Múltiplos atendentes e vendedores",
+  "Controle individual de comissões",
+  "Distribuição inteligente de pedidos",
+  "Painel de desempenho da equipe",
+  "100 créditos mensais",
+],
+    },
+    complete_pro: {
+      code: "complete_pro",
+      name: "Finance Premium",
+      setup: 350,
+      monthly: 59.9,
+      credits: 250,
+     features: [
+  "Tudo do Equipe Pro",
+  "Painel financeiro avançado",
+  "Controle total de entradas e saídas",
+  "Fluxo de caixa completo",
+  "Relatórios financeiros",
+  "Controle de lucro e vendas",
+  "Gestão avançada da operação",
+  "250 créditos mensais",
+],
+    },
+  };
+
+  function openPlan(planCode) {
+    setSelectedPlan(plans[planCode]);
+    setPayment(null);
+    setPaymentMethod("checkout");
+    setCopied(false);
+  }
+
+  function closePlanModal() {
+    setSelectedPlan(null);
+    setPayment(null);
+    setCopied(false);
+    setLoadingPayment(false);
+  }
+
+  async function buyPlan() {
+    if (!selectedPlan?.code || loadingPayment) return;
+
+    setLoadingPayment(true);
+    setPayment(null);
+
+    try {
+      const res = await fetch("/api/plans/create-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          profilePageId: profile.id,
+          planCode: selectedPlan.code,
+          paymentMethod,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data.error || "Erro ao gerar pagamento.");
+        return;
+      }
+
+      if (paymentMethod === "pix") {
+        setPayment(data.payment || data);
+        return;
+      }
+
+      if (data.checkout_url) {
+        window.open(data.checkout_url, "_blank");
+        return;
+      }
+
+      alert("Pagamento criado, mas não recebi o link de checkout.");
+    } catch (err) {
+      console.error("Erro ao comprar plano:", err);
+      alert("Erro ao gerar pagamento.");
+    } finally {
+      setLoadingPayment(false);
+    }
+  }
+
+  async function copyPix() {
+    if (!payment?.qr_code) return;
+
+    await navigator.clipboard.writeText(payment.qr_code);
+    setCopied(true);
+
+    setTimeout(() => setCopied(false), 1800);
+  }
+  useEffect(() => {
+  if (!payment?.id) return;
+  if (paymentConfirmed) return;
+
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/plans/check-payment?paymentId=${payment.id}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (data.status === "pago") {
+        clearInterval(timer);
+
+        setPaymentConfirmed(true);
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 1800);
+      }
+    } catch (err) {
+      console.error("Erro ao verificar pagamento:", err);
+    }
+  }, 4000);
+
+  return () => clearInterval(timer);
+}, [payment?.id, paymentConfirmed]);
+async function processCardPayment({ formData }) {
+  setLoadingPayment(true);
+  setCardError("");
+  setCardResult(null);
+
+  try {
+    const res = await fetch("/api/plans/process-card-payment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        profilePageId: profile.id,
+        planCode: selectedPlan.code,
+        formData,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      setCardError(data.error || "Erro ao processar cartão.");
+      return;
+    }
+
+    setCardResult(data);
+  } catch (err) {
+    console.error("Erro no cartão:", err);
+    setCardError("Erro ao processar cartão.");
+  } finally {
+    setLoadingPayment(false);
+  }
+}
+  return (
+    <div className="dash-panel">
+      <PanelTitle
+        title="Recurso bloqueado"
+        text="Escolha um plano para liberar ferramentas comerciais da sua vitrine."
+      />
+
+      <div className="upgrade-plan-grid">
+        {Object.values(plans).map((plan) => (
+          <div key={plan.code} className="upgrade-plan-card">
+            <span className="card-label">{plan.name}</span>
+            <h3>{money(plan.setup)} agora</h3>
+            <p>Depois {money(plan.monthly)}/mês após 30 dias.</p>
+
+            <ul>
+              {plan.features.map((item) => (
+                <li key={item}>✅ {item}</li>
+              ))}
+            </ul>
+
+            <button
+              type="button"
+              className="finance-primary-button"
+              onClick={() => openPlan(plan.code)}
+            >
+              Ver plano
+            </button>
+          </div>
+        ))}
+      </div>
+
+    {selectedPlan && (
+  <div className="payment-modal-backdrop" onClick={closePlanModal}>
+    <div
+      className="payment-modal plan-payment-modal"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="payment-modal-close"
+        onClick={closePlanModal}
+      >
+        ×
+      </button>
+
+    {paymentConfirmed ? (
+  <div className="payment-success-state">
+    <div className="payment-success-icon">✓</div>
+    <h2>Pagamento confirmado!</h2>
+    <p>Seu plano foi ativado. Estamos atualizando seu painel...</p>
+  </div>
+) : !payment?.qr_code ? (
+  <>
+          <span className="card-label">Confirmar assinatura</span>
+          <h2>{selectedPlan.name}</h2>
+
+          <div className="payment-summary">
+            <span>Ativação hoje</span>
+            <strong>{money(selectedPlan.setup)}</strong>
+          </div>
+
+          <div className="payment-summary">
+            <span>Mensalidade</span>
+            <strong>{money(selectedPlan.monthly)}/mês após 30 dias</strong>
+          </div>
+
+          <div className="payment-summary">
+            <span>Créditos mensais</span>
+            <strong>{selectedPlan.credits}</strong>
+          </div>
+
+          <div className="plan-benefits-box">
+            {selectedPlan.features.map((item) => (
+              <span key={item}>✅ {item}</span>
+            ))}
+          </div>
+
+          <div className="payment-method-box">
+            <button
+              type="button"
+              className={paymentMethod === "checkout" ? "active" : ""}
+              onClick={() => setPaymentMethod("checkout")}
+            >
+              Cartão
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "pix" ? "active" : ""}
+              onClick={() => setPaymentMethod("pix")}
+            >
+              Pix
+            </button>
+          </div>
+
+          {paymentMethod === "checkout" && selectedPlan && (
+            <div className="card-brick-box">
+              <MercadoPayment
+  key={selectedPlan.code}
+  initialization={{
+    amount: Number(selectedPlan.setup || 0),
+  }}
+  customization={{
+  paymentMethods: {
+    creditCard: "all",
+    debitCard: "all",
+  },
+}}
+  onSubmit={async ({ formData }) => {
+    await processCardPayment({ formData });
+  }}
+  onReady={() => {
+    console.log("✅ Payment Brick pronto");
+  }}
+  onError={(error) => {
+    console.error("❌ Payment Brick erro completo:", error);
+    setCardError(
+      error?.message ||
+        error?.cause?.[0]?.description ||
+        "Erro ao carregar pagamento com cartão."
+    );
+  }}
+/>
+
+              {loadingPayment && (
+                <p className="dashboard-note">Processando pagamento...</p>
+              )}
+
+              {cardError && (
+                <div className="card-payment-error">{cardError}</div>
+              )}
+
+              {cardResult?.approved && (
+                <div className="card-payment-success">
+                  <strong>Pagamento aprovado ✅</strong>
+                  <p>Seu plano foi ativado com sucesso.</p>
+                </div>
+              )}
+
+              {cardResult && !cardResult.approved && (
+                <div className="card-payment-error">
+                  <strong>Pagamento não aprovado</strong>
+                  <p>
+                    {cardResult.message ||
+                      "O Mercado Pago não aprovou esse pagamento."}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {paymentMethod === "pix" && (
+            <>
+              <div className="pix-owner-notice">
+                <strong>Informação importante sobre o Pix</strong>
+                <p>
+                  No momento, o pagamento via Pix poderá aparecer em nome de
+                  <b> ALEXANDRE AUGUSTO S. CARVALHO</b>, desenvolvedor
+                  responsável pela plataforma. Não se preocupe, este é um
+                  pagamento seguro.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="payment-finish-button"
+                onClick={buyPlan}
+                disabled={loadingPayment}
+              >
+                {loadingPayment ? "Gerando Pix..." : "Gerar Pix"}
+              </button>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <span className="card-label">Pix gerado</span>
+          <h2>Finalize sua assinatura</h2>
+          <p>Copie o código Pix abaixo ou abra o link de pagamento.</p>
+
+          {payment.checkout_url && (
+            <a href={payment.checkout_url} target="_blank" rel="noreferrer">
+              Abrir pagamento
+            </a>
+          )}
+
+          <div className="pix-qr-wrapper">
+            <QRCodeCanvas value={payment.qr_code} size={220} level="H" />
+          </div>
+
+          <textarea readOnly value={payment.qr_code} />
+
+          <button
+            type="button"
+            className="payment-finish-button"
+            onClick={copyPix}
+          >
+            {copied ? "Código copiado ✅" : "Copiar código Pix"}
+          </button>
+        </>
+      )}
+    </div>
+  </div>
+)}
+    </div>
+  );
+}
 const SERVICE_EMOJI_CATEGORIES = [
   {
     id: "recentes",
@@ -984,8 +1549,9 @@ function ServicesEditor({ profile, setField }) {
   );
 }
 
-function OrdersPanel({ orders, loading, reload }) {
+function OrdersPanel({ orders, loading, reload, setField }) {
   const [statusFilter, setStatusFilter] = useState("all");
+  const [staffFilter, setStaffFilter] = useState("all");
   const [expandedImage, setExpandedImage] = useState(null);
   const [paymentModalOrder, setPaymentModalOrder] = useState(null);
 
@@ -1004,11 +1570,63 @@ function OrdersPanel({ orders, loading, reload }) {
     delivered: orders.filter((item) => item.status === "delivered").length,
     cancelled: orders.filter((item) => item.status === "cancelled").length,
   };
+const staffOptions = useMemo(() => {
+  const map = new Map();
 
-  const filteredOrders =
-    statusFilter === "all"
-      ? orders
-      : orders.filter((item) => item.status === statusFilter);
+  orders.forEach((order) => {
+    const staffId =
+      order.seller_staff_id ||
+      order.assigned_staff_id ||
+      order.staff_id ||
+      null;
+
+    const staffName =
+      order.seller_staff_name ||
+      order.assigned_staff_name ||
+      order.staff_name ||
+      "";
+
+    if (staffId && staffName) {
+      map.set(String(staffId), {
+        id: String(staffId),
+        name: staffName,
+        count: 0,
+      });
+    }
+  });
+
+  orders.forEach((order) => {
+    const staffId =
+      order.seller_staff_id ||
+      order.assigned_staff_id ||
+      order.staff_id ||
+      null;
+
+    if (staffId && map.has(String(staffId))) {
+      map.get(String(staffId)).count += 1;
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}, [orders]);
+  const filteredOrders = orders.filter((order) => {
+  const matchesStatus =
+    statusFilter === "all" || order.status === statusFilter;
+
+  const orderStaffId = String(
+    order.seller_staff_id ||
+      order.assigned_staff_id ||
+      order.staff_id ||
+      ""
+  );
+
+  const matchesStaff =
+    staffFilter === "all" || orderStaffId === String(staffFilter);
+
+  return matchesStatus && matchesStaff;
+});
 
   function openPaymentModal(order) {
     const suggestedAmount = order.has_quote ? "" : Number(order.total || 0);
@@ -1097,6 +1715,10 @@ function OrdersPanel({ orders, loading, reload }) {
       return;
     }
 
+    if (Array.isArray(json.updated_store_items)) {
+      setField("store_items", json.updated_store_items);
+    }
+
     await reload();
 
     if (status === "confirmed") {
@@ -1111,7 +1733,6 @@ function OrdersPanel({ orders, loading, reload }) {
     alert("Erro ao atualizar pedido.");
   }
 }
-
   async function deleteOrder(order) {
     const ok = confirm(
       "Excluir este pedido? Use isso apenas para trote, teste ou pedido inválido."
@@ -1172,7 +1793,30 @@ function OrdersPanel({ orders, loading, reload }) {
           <strong>{counts.cancelled}</strong>
         </button>
       </div>
+<div className="booking-staff-carousel">
+  <button
+    type="button"
+    className={staffFilter === "all" ? "active" : ""}
+    onClick={() => setStaffFilter("all")}
+  >
+    <span>👥</span>
+    <strong>Todos</strong>
+    <small>{orders.length}</small>
+  </button>
 
+  {staffOptions.map((staff) => (
+    <button
+      key={staff.id}
+      type="button"
+      className={staffFilter === staff.id ? "active" : ""}
+      onClick={() => setStaffFilter(staff.id)}
+    >
+      <span>{staff.name?.[0] || "V"}</span>
+      <strong>{staff.name}</strong>
+      <small>{staff.count}</small>
+    </button>
+  ))}
+</div>
       {loading ? (
         <div className="coming-box">
           <strong>Carregando pedidos...</strong>
@@ -1183,6 +1827,7 @@ function OrdersPanel({ orders, loading, reload }) {
           <p>Use o botão de atualizar para verificar se chegaram novos pedidos.</p>
         </div>
       ) : (
+        
         <div className="bookings-list order-cards-grid">
           {filteredOrders.map((order) => {
             const items = Array.isArray(order.items) ? order.items : [];
@@ -1196,6 +1841,16 @@ function OrdersPanel({ orders, loading, reload }) {
                     </span>
 
                     <h3>{order.customer_name || "Cliente não informado"}</h3>
+                    {(order.seller_staff_name ||
+  order.assigned_staff_name ||
+  order.staff_name) && (
+  <small className="booking-staff-line">
+    Vendedor:{" "}
+    {order.seller_staff_name ||
+      order.assigned_staff_name ||
+      order.staff_name}
+  </small>
+)}
                   </div>
 
                   <strong>
@@ -1415,7 +2070,7 @@ function OrdersPanel({ orders, loading, reload }) {
 function PanelTitle({ title, text }) {
   return (
     <div className="panel-title">
-      <span>RendaJá Pages</span>
+      <span>CompreTudo.shop Pages</span>
       <h2>{title}</h2>
       <p>{text}</p>
     </div>
@@ -1451,6 +2106,48 @@ function ToggleField({ label, value, onChange }) {
     >
       <span>{label}</span>
       <strong>{value ? "Ativo" : "Oculto"}</strong>
+      <i />
+    </button>
+  );
+}
+
+function LockedToggleField({
+  label,
+  value,
+  onChange,
+  locked,
+  lockedText,
+}) {
+  return (
+    <button
+      type="button"
+      className={`toggle-field ${value ? "active" : ""} ${
+        locked ? "locked" : ""
+      }`}
+      disabled={locked}
+      onClick={() => {
+        if (locked) return;
+        onChange(!value);
+      }}
+    >
+      <div className="toggle-field-left">
+        <span>{label}</span>
+
+        {locked && (
+          <small className="toggle-lock-badge">
+            🔒 Plano Loja Start
+          </small>
+        )}
+      </div>
+
+      <strong>
+        {locked
+          ? "Bloqueado"
+          : value
+          ? "Ativo"
+          : "Oculto"}
+      </strong>
+
       <i />
     </button>
   );
@@ -1788,6 +2485,8 @@ function SectionsEditor({ profile, setField, uploadImage }) {
     ]);
   }
 
+  
+
   function addGalleryImage(url = "") {
   const imageUrl =
     typeof url === "string"
@@ -1806,6 +2505,14 @@ function SectionsEditor({ profile, setField, uploadImage }) {
     },
   ]);
 }
+const planCode = profile?.plan_code || "free";
+const status = profile?.subscription_status || profile?.plan_status || "free";
+
+const planIsActive = status === "active" || status === "trial";
+
+const storeLocked =
+  !planIsActive ||
+  !["store_start", "finance_pro", "complete_pro"].includes(planCode);
   return (
     <div className="overview-stack">
       <SectionTitle
@@ -1837,12 +2544,16 @@ function SectionsEditor({ profile, setField, uploadImage }) {
           value={profile.show_reviews}
           onChange={(v) => setField("show_reviews", v)}
         />
-
-        <ToggleField
-          label="Mostrar Loja"
-          value={profile.show_store}
-          onChange={(v) => setField("show_store", v)}
-        />
+<LockedToggleField
+  label="Mostrar Loja"
+  value={storeLocked ? false : profile.show_store === true}
+  locked={storeLocked}
+  lockedText="Disponível no plano Loja Start"
+  onChange={(v) => {
+    if (storeLocked) return;
+    setField("show_store", v);
+  }}
+/>
 
         <ToggleField
           label="Mostrar CTA final"
@@ -2290,177 +3001,297 @@ function AvailabilityPanel({ profile, setField }) {
   );
 }
 
-
 function StoreItemsEditor({ profile, setField, uploadImage }) {
   const items = Array.isArray(profile.store_items) ? profile.store_items : [];
-  const [itemSearch, setItemSearch] = useState("");
-const [itemTypeFilter, setItemTypeFilter] = useState("all");
-const [categoryFilter, setCategoryFilter] = useState("all");
-const [editingItemId, setEditingItemId] = useState(null);
-const [staffMembers, setStaffMembers] = useState([]);
-const [loadingStaff, setLoadingStaff] = useState(false);
-const filteredItems = items.filter((item) => {
-  const search = itemSearch.toLowerCase();
-
-  const matchesSearch =
-    !search ||
-    String(item.title || "").toLowerCase().includes(search) ||
-    String(item.description || "").toLowerCase().includes(search);
-
-  const matchesType =
-    itemTypeFilter === "all" || item.type === itemTypeFilter;
-
-  const matchesCategory =
-    categoryFilter === "all" ||
-    item.category_id === categoryFilter ||
-    (categoryFilter === "none" && !item.category_id);
-
-  return matchesSearch && matchesType && matchesCategory;
-});
   const categories = Array.isArray(profile.store_categories)
     ? profile.store_categories
     : [];
+
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemTypeFilter, setItemTypeFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const editingItem = items.find((item) => item.id === editingItemId);
 
   const workingDays = Array.isArray(profile.working_days)
     ? profile.working_days
     : [1, 2, 3, 4, 5, 6];
 
   const workingHours = profile.working_hours || {
-    
     start: 8,
     end: 18,
     interval: 1,
   };
+
   useEffect(() => {
-  async function loadStaff() {
-    if (!profile?.id) return;
+    async function loadStaff() {
+      if (!profile?.id) return;
 
-    try {
-      setLoadingStaff(true);
+      try {
+        setLoadingStaff(true);
+        const data = await getProfileStaff(profile.id);
+        setStaffMembers(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("❌ erro ao carregar funcionários:", err);
+      } finally {
+        setLoadingStaff(false);
+      }
+    }
 
-      const data = await getProfileStaff(profile.id);
+    loadStaff();
+  }, [profile?.id]);
 
-      setStaffMembers(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("❌ erro ao carregar funcionários:", err);
-    } finally {
-      setLoadingStaff(false);
+  const searchResults = useMemo(() => {
+    const q = itemSearch.trim().toLowerCase();
+
+    if (!q) return [];
+
+    return items
+      .filter((item) => {
+        const text = `
+          ${item.title || ""}
+          ${item.description || ""}
+          ${item.reference_code || ""}
+          ${item.sku || ""}
+          ${item.category_id || ""}
+        `.toLowerCase();
+
+        return text.includes(q);
+      })
+      .slice(0, 8);
+  }, [items, itemSearch]);
+
+  const filteredItems = items.filter((item) => {
+    const search = itemSearch.trim().toLowerCase();
+
+    const matchesSearch =
+      !search ||
+      String(item.title || "").toLowerCase().includes(search) ||
+      String(item.description || "").toLowerCase().includes(search) ||
+      String(item.reference_code || "").toLowerCase().includes(search) ||
+      String(item.sku || "").toLowerCase().includes(search);
+
+    const matchesType =
+      itemTypeFilter === "all" || item.type === itemTypeFilter;
+
+    const matchesCategory =
+      categoryFilter === "all" ||
+      item.category_id === categoryFilter ||
+      (categoryFilter === "none" && !item.category_id);
+
+    return matchesSearch && matchesType && matchesCategory;
+  });
+
+  function getCategoryName(categoryId) {
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category?.name || "Sem categoria";
+  }
+
+  function getItemVariants(item) {
+    return Array.isArray(item?.variants) ? item.variants : [];
+  }
+
+  function itemCanUseAllStaff(item) {
+    return item.allow_all_staff !== false;
+  }
+
+  function getItemStaffIds(item) {
+    return Array.isArray(item.allowed_staff_ids)
+      ? item.allowed_staff_ids.map(String)
+      : [];
+  }function getAvailableStock(item) {
+  const stockQty = Number(item.stock_qty || 0);
+  const reservedQty = Number(item.reserved_qty || 0);
+  const soldQty = Number(item.sold_qty || 0);
+
+  return Math.max(0, stockQty - reservedQty - soldQty);
+}
+
+function getStockLabel(item) {
+  if (item.type !== "product") return "Serviço";
+
+  if (item.active === false || item.in_stock === false) {
+    return "Indisponível";
+  }
+
+  if (item.stock_enabled !== true) {
+    return "Disponível";
+  }
+
+  if (item.stock_mode === "quantity") {
+    const available = getAvailableStock(item);
+    const reserved = Number(item.reserved_qty || 0);
+
+    if (available <= 0) return reserved > 0 ? "Reservado" : "Sem estoque";
+    if (available === 1) return "1 peça restante";
+
+    return `${available} peças restantes`;
+  }
+
+  return "Disponível";
+}
+function getStockClass(item) {
+  if (item.type !== "product") return "ok";
+
+  if (item.active === false || item.in_stock === false) return "danger";
+
+  if (item.stock_enabled === true && item.stock_mode === "quantity") {
+    const available = getAvailableStock(item);
+
+    if (available <= 0) return "danger";
+    if (available <= 3) return "warning";
+  }
+
+  return "ok";
+}
+
+  function updateItem(id, field, value) {
+    const next = items.map((item) => {
+      if (item.id !== id) return item;
+
+      const updated = {
+        ...item,
+        [field]: value,
+      };
+
+      if (field === "type" && value === "product") {
+        updated.booking_enabled = false;
+        updated.duration_minutes = null;
+        updated.variants = Array.isArray(updated.variants) ? updated.variants : [];
+      }
+
+      if (field === "type" && value === "service") {
+        updated.duration_minutes = updated.duration_minutes || 60;
+        updated.variants_enabled = false;
+        updated.variants = [];
+        updated.stock_enabled = false;
+      }
+
+      if (field === "price_type" && value === "quote") {
+        updated.price = 0;
+      }
+
+      if (field === "stock_mode") {
+  const reservedQty = Number(updated.reserved_qty || 0);
+  const soldQty = Number(updated.sold_qty || 0);
+
+  if (value === "single") {
+    updated.stock_qty = 1;
+    updated.reserved_qty = 0;
+    updated.sold_qty = Number(updated.sold_qty || 0);
+    updated.in_stock = true;
+  }
+
+  if (value === "quantity") {
+    const qty = Number(updated.stock_qty || 0);
+    const availableQty = Math.max(0, qty - reservedQty - soldQty);
+
+    updated.stock_qty = qty;
+    updated.in_stock = availableQty > 0;
+  }
+}
+
+if (field === "stock_qty") {
+  const qty = Number(value || 0);
+  const reservedQty = Number(updated.reserved_qty || 0);
+  const soldQty = Number(updated.sold_qty || 0);
+  const availableQty = Math.max(0, qty - reservedQty - soldQty);
+
+  updated.stock_qty = qty;
+  updated.in_stock = updated.stock_mode === "quantity" ? availableQty > 0 : true;
+}
+
+      return updated;
+    });
+
+    setField("store_items", next);
+  }
+
+  function addItem() {
+    const firstCategory = categories[0];
+
+    const newItem = {
+      id: `item-${Date.now()}`,
+      type: "product",
+      title: "Novo produto",
+      description: "",
+      reference_code: "",
+      price: 0,
+      price_type: "fixed",
+      image_url: "",
+      category_id: firstCategory?.id || "",
+      active: true,
+in_stock: true,
+stock_enabled: false,
+stock_mode: "single",
+stock_qty: 1,
+reserved_qty: 0,
+sold_qty: 0,
+
+
+      booking_enabled: false,
+      duration_minutes: null,
+      variants_enabled: false,
+      variants: [],
+      allow_all_staff: true,
+      allowed_staff_ids: [],
+    };
+
+    setField("store_items", [newItem, ...items]);
+    setEditingItemId(newItem.id);
+  }
+
+  function removeItem(id) {
+    const ok = confirm("Remover este item?");
+    if (!ok) return;
+
+    setField(
+      "store_items",
+      items.filter((item) => item.id !== id)
+    );
+
+    if (editingItemId === id) {
+      setEditingItemId(null);
     }
   }
 
-  loadStaff();
-}, [profile?.id]);
-function productHasVariants(item) {
-  return item?.variants_enabled === true;
-}
+  function addCategory() {
+    const newCategory = {
+      id: `category-${Date.now()}`,
+      name: "Nova categoria",
+      active: true,
+    };
 
-function getItemVariants(item) {
-  return Array.isArray(item?.variants) ? item.variants : [];
-}
+    setField("store_categories", [...categories, newCategory]);
+  }
 
-function addVariant(itemId) {
-  const item = items.find((i) => i.id === itemId);
-  const variants = getItemVariants(item);
+  function updateCategory(id, field, value) {
+    setField(
+      "store_categories",
+      categories.map((category) =>
+        category.id === id ? { ...category, [field]: value } : category
+      )
+    );
+  }
 
-  updateItem(itemId, "variants", [
-    ...variants,
-    {
-      id: `variant-${Date.now()}`,
-      name: "Nova variação",
-      required: true,
-      options: [],
-    },
-  ]);
-}
+  function removeCategory(id) {
+    setField(
+      "store_categories",
+      categories.filter((category) => category.id !== id)
+    );
 
-function updateVariant(itemId, variantId, field, value) {
-  const item = items.find((i) => i.id === itemId);
-  const variants = getItemVariants(item);
+    setField(
+      "store_items",
+      items.map((item) =>
+        item.category_id === id ? { ...item, category_id: "" } : item
+      )
+    );
+  }
 
-  updateItem(
-    itemId,
-    "variants",
-    variants.map((variant) =>
-      variant.id === variantId ? { ...variant, [field]: value } : variant
-    )
-  );
-}
-
-function removeVariant(itemId, variantId) {
-  const item = items.find((i) => i.id === itemId);
-  const variants = getItemVariants(item);
-
-  updateItem(
-    itemId,
-    "variants",
-    variants.filter((variant) => variant.id !== variantId)
-  );
-}
-
-function addVariantOption(itemId, variantId) {
-  const item = items.find((i) => i.id === itemId);
-  const variants = getItemVariants(item);
-
-  updateItem(
-    itemId,
-    "variants",
-    variants.map((variant) => {
-      if (variant.id !== variantId) return variant;
-
-      return {
-        ...variant,
-        options: [
-          ...(Array.isArray(variant.options) ? variant.options : []),
-          {
-            id: `option-${Date.now()}`,
-            label: "Nova opção",
-            image_url: "",
-          },
-        ],
-      };
-    })
-  );
-}
-
-function updateVariantOption(itemId, variantId, optionId, field, value) {
-  const item = items.find((i) => i.id === itemId);
-  const variants = getItemVariants(item);
-
-  updateItem(
-    itemId,
-    "variants",
-    variants.map((variant) => {
-      if (variant.id !== variantId) return variant;
-
-      return {
-        ...variant,
-        options: (variant.options || []).map((option) =>
-          option.id === optionId ? { ...option, [field]: value } : option
-        ),
-      };
-    })
-  );
-}
-
-function removeVariantOption(itemId, variantId, optionId) {
-  const item = items.find((i) => i.id === itemId);
-  const variants = getItemVariants(item);
-
-  updateItem(
-    itemId,
-    "variants",
-    variants.map((variant) => {
-      if (variant.id !== variantId) return variant;
-
-      return {
-        ...variant,
-        options: (variant.options || []).filter(
-          (option) => option.id !== optionId
-        ),
-      };
-    })
-  );
-}
   function updateWorkingHours(field, value) {
     setField("working_hours", {
       ...workingHours,
@@ -2476,140 +3307,137 @@ function removeVariantOption(itemId, variantId, optionId) {
     setField("working_days", next);
   }
 
-  function addCategory() {
-    const newCategory = {
-      id: `category-${Date.now()}`,
-      name: "Nova categoria",
-      active: true,
-    };
+  function toggleItemStaff(itemId, staffId) {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
 
-    setField("store_categories", [...categories, newCategory]);
-  }
+    const current = getItemStaffIds(item);
+    const id = String(staffId);
 
-  function updateCategory(id, field, value) {
-    const next = categories.map((category) =>
-      category.id === id ? { ...category, [field]: value } : category
-    );
+    const nextStaffIds = current.includes(id)
+      ? current.filter((staff) => staff !== id)
+      : [...current, id];
 
-    setField("store_categories", next);
-  }
-
-  function removeCategory(id) {
-    const nextCategories = categories.filter((category) => category.id !== id);
-
-    const nextItems = items.map((item) =>
-      item.category_id === id ? { ...item, category_id: "" } : item
-    );
-
-    setField("store_categories", nextCategories);
-    setField("store_items", nextItems);
-  }
-
-  
-function toggleItemStaff(itemId, staffId) {
-  const item = items.find((i) => i.id === itemId);
-  if (!item) return;
-
-  const current = Array.isArray(item.allowed_staff_ids)
-    ? item.allowed_staff_ids.map(String)
-    : [];
-
-  const id = String(staffId);
-  const exists = current.includes(id);
-
-  const nextStaffIds = exists
-    ? current.filter((staffId) => staffId !== id)
-    : [...current, id];
-
-  const nextItems = items.map((currentItem) => {
-    if (currentItem.id !== itemId) return currentItem;
-
-    return {
-      ...currentItem,
-      allow_all_staff: false,
-      allowed_staff_ids: nextStaffIds,
-    };
-  });
-
-  setField("store_items", nextItems);
-}
-
-function itemCanUseAllStaff(item) {
-  return item.allow_all_staff === true;
-}
-
-function getItemStaffIds(item) {
-  return Array.isArray(item.allowed_staff_ids)
-    ? item.allowed_staff_ids.map(String)
-    : [];
-}
-
-  function addItem() {
-    const firstCategory = categories[0];
-
-    const newItem = {
-  id: `item-${Date.now()}`,
-  type: "service",
-  title: "Novo serviço",
-  description: "",
-  price: 0,
-  price_type: "fixed",
-  image_url: "",
-  category_id: firstCategory?.id || "",
-  active: true,
-  booking_enabled: false,
-  duration_minutes: 60,
-  variants_enabled: false,
-variants: [],
-
-allow_all_staff: true,
-allowed_staff_ids: [],
-};
-
-    setField("store_items", [...items, newItem]);
-  }
-
-  function updateItem(id, field, value) {
-    const next = items.map((item) => {
-      if (item.id !== id) return item;
-
-      const updated = {
-        ...item,
-        [field]: value,
-      };
-
-      if (field === "type" && value === "product") {
-  updated.booking_enabled = false;
-  updated.duration_minutes = null;
-  updated.variants_enabled = updated.variants_enabled || false;
-  updated.variants = Array.isArray(updated.variants) ? updated.variants : [];
-}
-
-      if (field === "type" && value === "service") {
-  updated.duration_minutes = updated.duration_minutes || 60;
-  updated.variants_enabled = false;
-  updated.variants = [];
-}
-
-      if (field === "price_type" && value === "quote") {
-        updated.price = 0;
-      }
-
-      return updated;
-    });
-
-    setField("store_items", next);
-  }
-
-  function removeItem(id) {
     setField(
       "store_items",
-      items.filter((item) => item.id !== id)
+      items.map((currentItem) =>
+        currentItem.id === itemId
+          ? {
+              ...currentItem,
+              allow_all_staff: false,
+              allowed_staff_ids: nextStaffIds,
+            }
+          : currentItem
+      )
+    );
+  }
+
+  function addVariant(itemId) {
+    const item = items.find((i) => i.id === itemId);
+    const variants = getItemVariants(item);
+
+    updateItem(itemId, "variants", [
+      ...variants,
+      {
+        id: `variant-${Date.now()}`,
+        name: "Nova variação",
+        required: true,
+        options: [],
+      },
+    ]);
+  }
+
+  function updateVariant(itemId, variantId, field, value) {
+    const item = items.find((i) => i.id === itemId);
+    const variants = getItemVariants(item);
+
+    updateItem(
+      itemId,
+      "variants",
+      variants.map((variant) =>
+        variant.id === variantId ? { ...variant, [field]: value } : variant
+      )
+    );
+  }
+
+  function removeVariant(itemId, variantId) {
+    const item = items.find((i) => i.id === itemId);
+    const variants = getItemVariants(item);
+
+    updateItem(
+      itemId,
+      "variants",
+      variants.filter((variant) => variant.id !== variantId)
+    );
+  }
+
+  function addVariantOption(itemId, variantId) {
+    const item = items.find((i) => i.id === itemId);
+    const variants = getItemVariants(item);
+
+    updateItem(
+      itemId,
+      "variants",
+      variants.map((variant) => {
+        if (variant.id !== variantId) return variant;
+
+        return {
+          ...variant,
+          options: [
+            ...(Array.isArray(variant.options) ? variant.options : []),
+            {
+              id: `option-${Date.now()}`,
+              label: "Nova opção",
+              image_url: "",
+            },
+          ],
+        };
+      })
+    );
+  }
+
+  function updateVariantOption(itemId, variantId, optionId, field, value) {
+    const item = items.find((i) => i.id === itemId);
+    const variants = getItemVariants(item);
+
+    updateItem(
+      itemId,
+      "variants",
+      variants.map((variant) => {
+        if (variant.id !== variantId) return variant;
+
+        return {
+          ...variant,
+          options: (variant.options || []).map((option) =>
+            option.id === optionId ? { ...option, [field]: value } : option
+          ),
+        };
+      })
+    );
+  }
+
+  function removeVariantOption(itemId, variantId, optionId) {
+    const item = items.find((i) => i.id === itemId);
+    const variants = getItemVariants(item);
+
+    updateItem(
+      itemId,
+      "variants",
+      variants.map((variant) => {
+        if (variant.id !== variantId) return variant;
+
+        return {
+          ...variant,
+          options: (variant.options || []).filter(
+            (option) => option.id !== optionId
+          ),
+        };
+      })
     );
   }
 
   return (
-    <div className="overview-stack">
+    <div className="overview-stack store-admin-modern">
       <ToggleField
         label="Ativar sistema de agendamento"
         value={profile.show_booking === true}
@@ -2621,8 +3449,8 @@ allowed_staff_ids: [],
           <span className="card-label">Agenda</span>
           <h3>Dias e horários de atendimento</h3>
           <p>
-            Esses horários serão usados apenas nos serviços que tiverem agendamento
-            ativado.
+            Esses horários serão usados apenas nos serviços que tiverem
+            agendamento ativado.
           </p>
 
           <div className="week-days-editor">
@@ -2656,8 +3484,7 @@ allowed_staff_ids: [],
                 onChange={(e) => updateWorkingHours("start", e.target.value)}
               />
             </Field>
-
-            <Field label="Fim do atendimento">
+                        <Field label="Fim do atendimento">
               <input
                 type="number"
                 min="1"
@@ -2670,7 +3497,9 @@ allowed_staff_ids: [],
             <Field label="Intervalo entre horários">
               <select
                 value={workingHours.interval}
-                onChange={(e) => updateWorkingHours("interval", e.target.value)}
+                onChange={(e) =>
+                  updateWorkingHours("interval", e.target.value)
+                }
               >
                 <option value={0.5}>30 minutos</option>
                 <option value={1}>1 hora</option>
@@ -2682,58 +3511,57 @@ allowed_staff_ids: [],
       )}
 
       <div className="dash-card">
-        <div className="store-editor-head">
+        <div className="store-editor-head modern">
           <div>
             <span className="card-label">Categorias</span>
-            <h3>Organize sua loja</h3>
+            <h3>Organização da loja</h3>
             <p>
-              Crie categorias como Cortes masculinos, Barba, Calças, Shorts,
-              Pacotes ou Orçamentos.
+              Categorias ajudam muito quando a empresa tiver dezenas ou centenas
+              de produtos.
             </p>
           </div>
 
-          <div>
-            <button type="button" onClick={addCategory}>
-              + Categoria
-            </button>
-          </div>
+          <button type="button" onClick={addCategory}>
+            + Categoria
+          </button>
         </div>
 
         {categories.length === 0 ? (
           <div className="store-empty">
             <strong>Nenhuma categoria criada</strong>
-            <p>
-              Você pode cadastrar itens sem categoria, mas categorias deixam a
-              página mais organizada.
-            </p>
+            <p>Você ainda pode cadastrar produtos sem categoria.</p>
           </div>
         ) : (
-          <div className="category-editor-list">
+          <div className="category-editor-grid">
             {categories.map((category) => (
-              <div key={category.id} className="category-editor-item">
+              <div key={category.id} className="category-editor-card">
                 <Field label="Nome da categoria">
                   <input
                     value={category.name || ""}
                     onChange={(e) =>
                       updateCategory(category.id, "name", e.target.value)
                     }
-                    placeholder="Ex: Cortes masculinos"
+                    placeholder="Ex: Bebidas"
                   />
                 </Field>
 
-                <ToggleField
-                  label="Categoria ativa"
-                  value={category.active !== false}
-                  onChange={(v) => updateCategory(category.id, "active", v)}
-                />
+                <div className="category-editor-actions">
+                  <ToggleField
+                    label="Ativa"
+                    value={category.active !== false}
+                    onChange={(v) =>
+                      updateCategory(category.id, "active", v)
+                    }
+                  />
 
-                <button
-                  type="button"
-                  className="danger-button"
-                  onClick={() => removeCategory(category.id)}
-                >
-                  Remover
-                </button>
+                  <button
+                    type="button"
+                    className="danger-button"
+                    onClick={() => removeCategory(category.id)}
+                  >
+                    Remover
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -2741,521 +3569,1184 @@ allowed_staff_ids: [],
       </div>
 
       <div className="dash-card">
-        <div className="store-editor-head">
+        <div className="store-editor-head modern">
           <div>
             <span className="card-label">Produtos e serviços</span>
-            <h3>Itens da sua página</h3>
+            <h3>Gerenciador inteligente</h3>
             <p>
-              Produto vai para carrinho. Serviço pode ser orçamento, solicitação
-              simples ou agendamento.
+              Cards compactos, busca rápida, estoque, referência e edição por
+              modal.
             </p>
           </div>
 
-          <div>
-            <button type="button" onClick={addItem}>
-              + Adicionar item
-            </button>
-          </div>
+          <button type="button" onClick={addItem}>
+            + Novo item
+          </button>
         </div>
-<div className="store-admin-filters">
-  <input
-    value={itemSearch}
-    onChange={(e) => setItemSearch(e.target.value)}
-    placeholder="Buscar produto ou serviço..."
-  />
 
-  <select
-    value={itemTypeFilter}
-    onChange={(e) => setItemTypeFilter(e.target.value)}
-  >
-    <option value="all">Todos os tipos</option>
-    <option value="service">Serviços</option>
-    <option value="product">Produtos</option>
-  </select>
+        <div className="store-admin-toolbar">
+          <div
+            className={`store-admin-search ${
+              searchFocused ? "focused" : ""
+            }`}
+          >
+            <span>🔎</span>
 
-  <select
-    value={categoryFilter}
-    onChange={(e) => setCategoryFilter(e.target.value)}
-  >
-    <option value="all">Todas as categorias</option>
-    <option value="none">Sem categoria</option>
-    {categories.map((category) => (
-      <option key={category.id} value={category.id}>
-        {category.name}
-      </option>
-    ))}
-  </select>
-</div>
-        {items.length === 0 ? (
+            <input
+              value={itemSearch}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => {
+                setTimeout(() => {
+                  setSearchFocused(false);
+                }, 120);
+              }}
+              onChange={(e) => setItemSearch(e.target.value)}
+              placeholder="Buscar produto por nome ou referência..."
+            />
+
+            {itemSearch && (
+              <button
+                type="button"
+                onClick={() => setItemSearch("")}
+              >
+                ×
+              </button>
+            )}
+
+            {searchFocused && searchResults.length > 0 && (
+              <div className="store-admin-search-results">
+                {searchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="store-search-item"
+                    onClick={() => {
+                      setEditingItemId(item.id);
+                      setSearchFocused(false);
+                    }}
+                  >
+                    <div className="store-search-thumb">
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.title}
+                        />
+                      ) : (
+                        <span>📦</span>
+                      )}
+                    </div>
+
+                    <div className="store-search-content">
+                      <strong>{item.title}</strong>
+
+                      <small>
+                        REF: {item.reference_code || "Sem referência"}
+                      </small>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <select
+            value={itemTypeFilter}
+            onChange={(e) => setItemTypeFilter(e.target.value)}
+          >
+            <option value="all">Todos</option>
+            <option value="product">Produtos</option>
+            <option value="service">Serviços</option>
+          </select>
+
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+          >
+            <option value="all">Categorias</option>
+            <option value="none">Sem categoria</option>
+
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {filteredItems.length === 0 ? (
           <div className="store-empty">
-            <strong>Nenhum produto ou serviço cadastrado</strong>
-            <p>Adicione um item para aparecer na página pública.</p>
+            <strong>Nenhum item encontrado</strong>
+            <p>
+              Cadastre produtos ou altere os filtros da busca.
+            </p>
           </div>
         ) : (
-          <div className="store-items-editor">
+          <div className="store-admin-products-grid">
             {filteredItems.map((item) => {
-              const isProduct = item.type === "product";
               const isService = item.type === "service";
               const isQuote = item.price_type === "quote";
 
               return (
-                <div key={item.id} className="store-item-editor">
+                <button
+                  key={item.id}
+                  type="button"
+                  className="store-admin-product-card"
+                  onClick={() => setEditingItemId(item.id)}
+                >
+                  <div className="store-admin-product-image">
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.title}
+                      />
+                    ) : (
+                      <div className="store-admin-product-placeholder">
+                        {isService ? "🛠️" : "📦"}
+                      </div>
+                    )}
 
-                 <div
-  className="store-item-editor-head"
-  onClick={() =>
-    setEditingItemId(editingItemId === item.id ? null : item.id)
-  }
-  style={{ cursor: "pointer" }}
->
-                    <div>
-                      <span>{isProduct ? "Produto" : "Serviço"}</span>
-                      <strong>{item.title || "Item sem nome"}</strong>
+                    <div
+                      className={`store-stock-badge ${getStockClass(item)}`}
+                    >
+                      {getStockLabel(item)}
+                    </div>
+                  </div>
+
+                  <div className="store-admin-product-content">
+                    <div className="store-admin-product-top">
+                      <span>
+                        {isService ? "Serviço" : "Produto"}
+                      </span>
+
+                      <strong>
+                        {item.title || "Sem nome"}
+                      </strong>
                     </div>
 
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={() => removeItem(item.id)}
-                    >
-                      Remover
-                    </button>
-                  </div>
+                    <small className="store-admin-product-category">
+                      {getCategoryName(item.category_id)}
+                    </small>
 
-                  <div className="form-grid">
-                    <Field label="Tipo">
-                      <select
-                        value={item.type || "service"}
-                        onChange={(e) =>
-                          updateItem(item.id, "type", e.target.value)
-                        }
-                      >
-                        <option value="service">Serviço</option>
-                        <option value="product">Produto</option>
-                      </select>
-                    </Field>
+                    <div className="store-admin-product-bottom">
+                      <div>
+                        <span>Referência</span>
 
-                    <Field label="Categoria">
-                      <select
-                        value={item.category_id || ""}
-                        onChange={(e) =>
-                          updateItem(item.id, "category_id", e.target.value)
-                        }
-                      >
-                        <option value="">Sem categoria</option>
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-
-                    <Field label="Nome">
-                      <input
-                        value={item.title || ""}
-                        onChange={(e) =>
-                          updateItem(item.id, "title", e.target.value)
-                        }
-                        placeholder="Ex: Corte masculino"
-                      />
-                    </Field>
-
-                    <Field label="Preço">
-                      <select
-                        value={item.price_type || "fixed"}
-                        onChange={(e) =>
-                          updateItem(item.id, "price_type", e.target.value)
-                        }
-                      >
-                        <option value="fixed">Preço fixo</option>
-                        <option value="quote">Sob orçamento / A combinar</option>
-                      </select>
-                    </Field>
-
-                    {!isQuote && (
-                      <Field label="Valor">
-                        <input
-                          type="number"
-                          value={item.price || 0}
-                          onChange={(e) =>
-                            updateItem(item.id, "price", Number(e.target.value))
-                          }
-                        />
-                      </Field>
-                    )}
-
-                    {isService && (
-                      <Field label="Duração em minutos">
-                        <input
-                          type="number"
-                          value={item.duration_minutes || 60}
-                          onChange={(e) =>
-                            updateItem(
-                              item.id,
-                              "duration_minutes",
-                              Number(e.target.value)
-                            )
-                          }
-                        />
-                      </Field>
-                    )}
-
-                    <Field label="Descrição" full>
-                      <textarea
-                        value={item.description || ""}
-                        onChange={(e) =>
-                          updateItem(item.id, "description", e.target.value)
-                        }
-                        placeholder="Descreva o produto ou serviço"
-                      />
-                    </Field>
-
-                    <Field label="Imagem do item" full>
-  <div className="upload-inline">
-    {item.image_url && (
-      <img
-        src={item.image_url}
-        alt={item.title}
-        style={{
-          width: 80,
-          height: 80,
-          objectFit: "cover",
-          borderRadius: 8,
-          marginBottom: 8,
-        }}
-      />
-    )}
-
-    <label className="upload-button">
-      Enviar imagem
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) =>
-          uploadImage(e, "store_items", (url) => {
-            updateItem(item.id, "image_url", url);
-          })
-        }
-      />
-    </label>
-
-    <small>ou cole uma URL abaixo</small>
-
-    <input
-      value={item.image_url || ""}
-      onChange={(e) =>
-        updateItem(item.id, "image_url", e.target.value)
-      }
-      placeholder="https://..."
-    />
-  </div>
-</Field>
-                  </div>
-
-                  <div className="store-item-actions">
-                    <ToggleField
-                      label="Item ativo"
-                      value={item.active !== false}
-                      onChange={(v) => updateItem(item.id, "active", v)}
-                    />
-
-                    {isService && profile.show_booking === true && (
-                      <ToggleField
-                        label="Permitir agendamento neste serviço"
-                        value={item.booking_enabled === true}
-                        onChange={(v) =>
-                          updateItem(item.id, "booking_enabled", v)
-                        }
-                      />
-                    )}
-
-                    {isService && profile.show_booking !== true && (
-                      <div className="dashboard-note">
-                        Para permitir agendamento neste serviço, ative o sistema
-                        de agendamento acima.
+                        <strong>
+                          {item.reference_code || "---"}
+                        </strong>
                       </div>
-                    )}
 
-                    {isProduct && (
-                      <div className="dashboard-note">
-                        Produto não usa agenda. Ele aparece no carrinho.
+                      <div className="price">
+                        {isQuote
+                          ? "Sob orçamento"
+                          : money(item.price || 0)}
                       </div>
-                    )}
-{isProduct && (
-  <div className="product-variants-editor">
-    <ToggleField
-      label="Este produto tem variações"
-      value={item.variants_enabled === true}
-      onChange={(v) => {
-        updateItem(item.id, "variants_enabled", v);
-
-        if (v && !Array.isArray(item.variants)) {
-          updateItem(item.id, "variants", []);
-        }
-      }}
-    />
-
-    {item.variants_enabled === true && (
-      <div className="dash-card product-variants-box">
-        <div className="store-editor-head">
-          <div>
-            <span className="card-label">Variações do produto</span>
-            <h3>Opções selecionáveis</h3>
-            <p>
-              Crie variações como Tamanho, Cor, Modelo, Sabor ou Voltagem.
-              Imagem por opção é opcional.
-            </p>
-          </div>
-
-          <button type="button" onClick={() => addVariant(item.id)}>
-            + Variação
-          </button>
-        </div>
-
-        {getItemVariants(item).length === 0 ? (
-          <div className="store-empty">
-            <strong>Nenhuma variação criada</strong>
-            <p>Adicione uma variação, exemplo: Tamanho ou Cor.</p>
-          </div>
-        ) : (
-          <div className="variants-list">
-  {getItemVariants(item).map((variant) => (
-    <div key={variant.id} className="variant-editor-card">
-      <div className="store-item-editor-head">
-        <div>
-          <span>Variação</span>
-          <strong>{variant.name || "Variação sem nome"}</strong>
-        </div>
-
-        <button
-          type="button"
-          className="danger-button"
-          onClick={() => removeVariant(item.id, variant.id)}
-        >
-          Remover
-        </button>
-      </div>
-
-      <div className="variant-card-scroll">
-        <div className="form-grid">
-          <Field label="Nome da variação">
-            <input
-              value={variant.name || ""}
-              onChange={(e) =>
-                updateVariant(item.id, variant.id, "name", e.target.value)
-              }
-              placeholder="Ex: Tamanho, Cor, Sabor"
-            />
-          </Field>
-
-          <ToggleField
-            label="Obrigatória"
-            value={variant.required !== false}
-            onChange={(v) =>
-              updateVariant(item.id, variant.id, "required", v)
-            }
-          />
-        </div>
-
-        <div className="variant-options-head">
-          <strong>Opções</strong>
-
-          <button
-            type="button"
-            onClick={() => addVariantOption(item.id, variant.id)}
-          >
-            + Opção
-          </button>
-        </div>
-
-        {(variant.options || []).length === 0 ? (
-          <div className="dashboard-note">
-            Nenhuma opção criada. Exemplo: P, M, G ou Preto, Branco.
-          </div>
-        ) : (
-          <div className="variant-options-list">
-            {(variant.options || []).map((option) => (
-              <div key={option.id} className="variant-option-row">
-                <Field label="Nome da opção">
-                  <input
-                    value={option.label || ""}
-                    onChange={(e) =>
-                      updateVariantOption(
-                        item.id,
-                        variant.id,
-                        option.id,
-                        "label",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Ex: P, M, Preto, Azul"
-                  />
-                </Field>
-
-                <Field label="Imagem opcional da opção">
-                  <div className="upload-inline">
-                    {option.image_url && (
-                      <img
-                        src={option.image_url}
-                        alt={option.label || "Opção"}
-                        style={{
-                          width: 70,
-                          height: 70,
-                          objectFit: "cover",
-                          borderRadius: 10,
-                          marginBottom: 8,
-                        }}
-                      />
-                    )}
-
-                    <label className="upload-button">
-                      Enviar imagem
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) =>
-                          uploadImage(e, "store_items", (url) => {
-                            updateVariantOption(
-                              item.id,
-                              variant.id,
-                              option.id,
-                              "image_url",
-                              url
-                            );
-                          })
-                        }
-                      />
-                    </label>
-
-                    <input
-                      value={option.image_url || ""}
-                      onChange={(e) =>
-                        updateVariantOption(
-                          item.id,
-                          variant.id,
-                          option.id,
-                          "image_url",
-                          e.target.value
-                        )
-                      }
-                      placeholder="https://..."
-                    />
+                    </div>
                   </div>
-                </Field>
-
-                <button
-                  type="button"
-                  className="danger-button"
-                  onClick={() =>
-                    removeVariantOption(item.id, variant.id, option.id)
-                  }
-                >
-                  Remover opção
                 </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  ))}
-</div>
-        )}
-      </div>
-    )}
-  </div>
-)}
-
-{(isService || isProduct) && (
-  <div className="dash-card staff-assignment-box">
-    <div className="store-editor-head">
-      <div>
-        <span className="card-label">
-          {isService ? "Profissionais do serviço" : "Vendedores do produto"}
-        </span>
-
-        <h3>
-          {isService
-            ? "Quem pode atender este serviço?"
-            : "Quem pode vender este produto?"}
-        </h3>
-
-        <p>
-          Escolha profissionais específicos ou permita todos.
-        </p>
-      </div>
-    </div>
-{!loadingStaff && staffMembers.length === 0 && (
-  <div className="dashboard-note">
-    Nenhum funcionário cadastrado ainda. Vá na aba Equipe e cadastre pelo menos
-    um profissional para poder vincular este item.
-  </div>
-)}
-    <ToggleField
-      label={
-        isService
-          ? "Todos os profissionais podem atender"
-          : "Todos os vendedores podem receber pedidos"
-      }
-      value={itemCanUseAllStaff(item)}
-      onChange={(v) => updateItem(item.id, "allow_all_staff", v)}
-    />
-
-    {!itemCanUseAllStaff(item) && (
-      <div className="staff-selector-grid">
-        {staffMembers.map((staff) => {
-          const selected = getItemStaffIds(item).includes(String(staff.id));
-
-          return (
-            <button
-              key={staff.id}
-              type="button"
-              className={`staff-selector-card ${
-                selected ? "active" : ""
-              }`}
-              onClick={() => toggleItemStaff(item.id, staff.id)}
-            >
-              <strong>{staff.nome}</strong>
-
-              <span>
-                {staff.role === "admin"
-                  ? "Administrador"
-                  : staff.role === "cashier"
-                  ? "Caixa"
-                  : staff.role === "manager"
-                  ? "Gerente"
-                  : "Profissional"}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    )}
-
-    {loadingStaff && (
-      <div className="dashboard-note">
-        Carregando profissionais...
-      </div>
-    )}
-  </div>
-)}
-                    {isQuote && (
-                      <div className="dashboard-note">
-                        Este item será exibido como “Sob orçamento”.
-                      </div>
-                    )}
-                  </div>
-                </div>
               );
             })}
           </div>
         )}
       </div>
-    </div>
-  );
-}
 
+      {editingItem && (
+        <div
+          className="store-product-modal-backdrop"
+          onClick={() => setEditingItemId(null)}
+        >
+          <div
+            className="store-product-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="store-product-modal-head">
+              <div>
+                <span className="card-label">
+                  {editingItem.type === "service"
+                    ? "Serviço"
+                    : "Produto"}
+                </span>
+
+                <h3>
+                  {editingItem.title || "Editar item"}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                className="modal-close-button"
+                onClick={() => setEditingItemId(null)}
+              >
+                ×
+              </button>
+            </div>
+                        <div className="store-product-modal-body">
+
+              <div className="store-product-modal-preview">
+
+                <div className="store-product-modal-image">
+
+                  {editingItem.image_url ? (
+
+                    <img src={editingItem.image_url} alt={editingItem.title} />
+
+                  ) : (
+
+                    <span>{editingItem.type === "service" ? "🛠️" : "📦"}</span>
+
+                  )}
+
+                </div>
+
+                <div className={`store-stock-badge ${getStockClass(editingItem)}`}>
+
+                  {getStockLabel(editingItem)}
+
+                </div>
+
+                <button
+
+                  type="button"
+
+                  className="danger-button"
+
+                  onClick={() => removeItem(editingItem.id)}
+
+                >
+
+                  Excluir item
+
+                </button>
+
+              </div>
+
+              <div className="store-product-modal-content">
+
+                <div className="form-grid">
+
+                  <Field label="Tipo">
+
+                    <select
+
+                      value={editingItem.type || "product"}
+
+                      onChange={(e) =>
+
+                        updateItem(editingItem.id, "type", e.target.value)
+
+                      }
+
+                    >
+
+                      <option value="product">Produto</option>
+
+                      <option value="service">Serviço</option>
+
+                    </select>
+
+                  </Field>
+
+                  <Field label="Categoria">
+
+                    <select
+
+                      value={editingItem.category_id || ""}
+
+                      onChange={(e) =>
+
+                        updateItem(editingItem.id, "category_id", e.target.value)
+
+                      }
+
+                    >
+
+                      <option value="">Sem categoria</option>
+
+                      {categories.map((category) => (
+
+                        <option key={category.id} value={category.id}>
+
+                          {category.name}
+
+                        </option>
+
+                      ))}
+
+                    </select>
+
+                  </Field>
+
+                  <Field label="Nome do item">
+
+                    <input
+
+                      value={editingItem.title || ""}
+
+                      onChange={(e) =>
+
+                        updateItem(editingItem.id, "title", e.target.value)
+
+                      }
+
+                      placeholder="Ex: Camiseta, corte, pacote..."
+
+                    />
+
+                  </Field>
+
+                  <Field label="Referência / código">
+
+                    <input
+
+                      value={editingItem.reference_code || ""}
+
+                      onChange={(e) =>
+
+                        updateItem(editingItem.id, "reference_code", e.target.value)
+
+                      }
+
+                      placeholder="Ex: REF-001, SKU, código interno..."
+
+                    />
+
+                  </Field>
+
+                  <Field label="Preço">
+
+                    <select
+
+                      value={editingItem.price_type || "fixed"}
+
+                      onChange={(e) =>
+
+                        updateItem(editingItem.id, "price_type", e.target.value)
+
+                      }
+
+                    >
+
+                      <option value="fixed">Preço fixo</option>
+
+                      <option value="quote">Sob orçamento / A combinar</option>
+
+                    </select>
+
+                  </Field>
+
+                  {editingItem.price_type !== "quote" && (
+
+                    <Field label="Valor">
+
+                      <input
+
+                        type="number"
+
+                        min="0"
+
+                        step="0.01"
+
+                        value={editingItem.price || ""}
+
+                        onChange={(e) =>
+
+                          updateItem(
+
+                            editingItem.id,
+
+                            "price",
+
+                            Number(e.target.value)
+
+                          )
+
+                        }
+
+                        placeholder="Ex: 99.90"
+
+                      />
+
+                    </Field>
+
+                  )}
+
+                  {editingItem.type === "service" && (
+
+                    <Field label="Duração em minutos">
+
+                      <input
+
+                        type="number"
+
+                        min="5"
+
+                        value={editingItem.duration_minutes || 60}
+
+                        onChange={(e) =>
+
+                          updateItem(
+
+                            editingItem.id,
+
+                            "duration_minutes",
+
+                            Number(e.target.value)
+
+                          )
+
+                        }
+
+                      />
+
+                    </Field>
+
+                  )}
+
+                  <Field label="Descrição" full>
+
+                    <textarea
+
+                      value={editingItem.description || ""}
+
+                      onChange={(e) =>
+
+                        updateItem(editingItem.id, "description", e.target.value)
+
+                      }
+
+                      placeholder="Descreva o produto ou serviço"
+
+                    />
+
+                  </Field>
+
+                  <Field label="Imagem do item" full>
+
+                    <div className="upload-inline">
+
+                      <label className="upload-button">
+
+                        Enviar imagem
+
+                        <input
+
+                          type="file"
+
+                          accept="image/*"
+
+                          onChange={(e) =>
+
+                            uploadImage(e, "store_items", (url) => {
+
+                              updateItem(editingItem.id, "image_url", url);
+
+                            })
+
+                          }
+
+                        />
+
+                      </label>
+
+                      <input
+
+                        value={editingItem.image_url || ""}
+
+                        onChange={(e) =>
+
+                          updateItem(editingItem.id, "image_url", e.target.value)
+
+                        }
+
+                        placeholder="Ou cole a URL da imagem..."
+
+                      />
+
+                    </div>
+
+                  </Field>
+
+                </div>
+
+                <div className="store-modal-section">
+
+                  <span className="card-label">Visibilidade e estoque</span>
+
+                  <div className="toggle-grid clean">
+
+                    <ToggleField
+
+                      label="Item ativo na página"
+
+                      value={editingItem.active !== false}
+
+                      onChange={(v) => updateItem(editingItem.id, "active", v)}
+
+                    />
+
+                    <ToggleField
+
+                      label="Disponível para venda"
+
+                      value={editingItem.in_stock !== false}
+
+                      onChange={(v) => updateItem(editingItem.id, "in_stock", v)}
+
+                    />
+
+                    {editingItem.type === "product" && (
+  <ToggleField
+    label="Ativar controle de estoque"
+    value={editingItem.stock_enabled === true}
+    onChange={(v) => {
+      updateItem(editingItem.id, "stock_enabled", v);
+
+      if (!v) {
+        updateItem(editingItem.id, "stock_mode", "single");
+        updateItem(editingItem.id, "in_stock", true);
+      }
+    }}
+  />
+)}
+
+{editingItem.type === "product" && editingItem.stock_enabled === true && (
+  <Field label="Tipo de estoque">
+    <select
+      value={editingItem.stock_mode || "quantity"}
+      onChange={(e) =>
+        updateItem(editingItem.id, "stock_mode", e.target.value)
+      }
+    >
+      <option value="single">Produto único</option>
+      <option value="quantity">Tenho várias peças</option>
+    </select>
+  </Field>
+)}
+                    {editingItem.type === "service" &&
+
+                      profile.show_booking === true && (
+
+                        <ToggleField
+
+                          label="Permitir agendamento"
+
+                          value={editingItem.booking_enabled === true}
+
+                          onChange={(v) =>
+
+                            updateItem(editingItem.id, "booking_enabled", v)
+
+                          }
+
+                        />
+
+                      )}
+
+                  </div>
+
+                  {editingItem.type === "product" &&
+  editingItem.stock_enabled === true &&
+  editingItem.stock_mode === "quantity" && (
+
+                    <div className="form-grid">
+
+                      <Field label="Quantidade em estoque">
+
+                        <input
+
+                          type="number"
+
+                          min="0"
+
+                          value={editingItem.stock_qty || ""}
+
+                          onChange={(e) =>
+
+                            updateItem(
+
+                              editingItem.id,
+
+                              "stock_qty",
+
+                              Number(e.target.value)
+
+                            )
+
+                          }
+
+                          placeholder="Ex: 20"
+
+                        />
+
+                      </Field>
+
+                    </div>
+
+                  )}
+
+                </div>
+
+                {editingItem.type === "product" && (
+
+                  <div className="store-modal-section">
+
+                    <div className="store-editor-head modern">
+
+                      <div>
+
+                        <span className="card-label">Variações</span>
+
+                        <h3>Opções do produto</h3>
+
+                        <p>Use para tamanho, cor, modelo, voltagem ou sabor.</p>
+
+                      </div>
+
+                    </div>
+
+                    <ToggleField
+
+                      label="Este produto tem variações"
+
+                      value={editingItem.variants_enabled === true}
+
+                      onChange={(v) => {
+
+                        updateItem(editingItem.id, "variants_enabled", v);
+
+                        if (v && !Array.isArray(editingItem.variants)) {
+
+                          updateItem(editingItem.id, "variants", []);
+
+                        }
+
+                      }}
+
+                    />
+
+                    {editingItem.variants_enabled === true && (
+
+                      <div className="product-variants-box clean">
+
+                        <button
+
+                          type="button"
+
+                          className="finance-secondary-button"
+
+                          onClick={() => addVariant(editingItem.id)}
+
+                        >
+
+                          + Adicionar variação
+
+                        </button>
+
+                        {getItemVariants(editingItem).length === 0 ? (
+
+                          <div className="store-empty">
+
+                            <strong>Nenhuma variação criada</strong>
+
+                            <p>Exemplo: Tamanho, Cor, Sabor ou Modelo.</p>
+
+                          </div>
+
+                        ) : (
+
+                          <div className="variants-list">
+
+                            {getItemVariants(editingItem).map((variant) => (
+
+                              <div
+
+                                key={variant.id}
+
+                                className="variant-editor-card"
+
+                              >
+
+                                <div className="store-item-editor-head">
+
+                                  <div>
+
+                                    <span>Variação</span>
+
+                                    <strong>
+
+                                      {variant.name || "Variação sem nome"}
+
+                                    </strong>
+
+                                  </div>
+
+                                  <button
+
+                                    type="button"
+
+                                    className="danger-button"
+
+                                    onClick={() =>
+
+                                      removeVariant(editingItem.id, variant.id)
+
+                                    }
+
+                                  >
+
+                                    Remover
+
+                                  </button>
+
+                                </div>
+
+                                <div className="form-grid">
+
+                                  <Field label="Nome da variação">
+
+                                    <input
+
+                                      value={variant.name || ""}
+
+                                      onChange={(e) =>
+
+                                        updateVariant(
+
+                                          editingItem.id,
+
+                                          variant.id,
+
+                                          "name",
+
+                                          e.target.value
+
+                                        )
+
+                                      }
+
+                                      placeholder="Ex: Tamanho"
+
+                                    />
+
+                                  </Field>
+
+                                  <ToggleField
+
+                                    label="Obrigatória"
+
+                                    value={variant.required !== false}
+
+                                    onChange={(v) =>
+
+                                      updateVariant(
+
+                                        editingItem.id,
+
+                                        variant.id,
+
+                                        "required",
+
+                                        v
+
+                                      )
+
+                                    }
+
+                                  />
+
+                                </div>
+
+                                <div className="variant-options-head">
+
+                                  <strong>Opções</strong>
+
+                                  <button
+
+                                    type="button"
+
+                                    onClick={() =>
+
+                                      addVariantOption(editingItem.id, variant.id)
+
+                                    }
+
+                                  >
+
+                                    + Opção
+
+                                  </button>
+
+                                </div>
+
+                                <div className="variant-options-list">
+
+                                  {(variant.options || []).map((option) => (
+
+                                    <div
+
+                                      key={option.id}
+
+                                      className="variant-option-row"
+
+                                    >
+
+                                      <Field label="Nome da opção">
+
+                                        <input
+
+                                          value={option.label || ""}
+
+                                          onChange={(e) =>
+
+                                            updateVariantOption(
+
+                                              editingItem.id,
+
+                                              variant.id,
+
+                                              option.id,
+
+                                              "label",
+
+                                              e.target.value
+
+                                            )
+
+                                          }
+
+                                          placeholder="Ex: P, M, Vermelho..."
+
+                                        />
+
+                                      </Field>
+
+                                      <Field label="Imagem opcional">
+
+                                        <div className="upload-inline">
+
+                                          {option.image_url && (
+
+                                            <img
+
+                                              src={option.image_url}
+
+                                              alt={option.label || "Opção"}
+
+                                              style={{
+
+                                                width: 58,
+
+                                                height: 58,
+
+                                                objectFit: "cover",
+
+                                                borderRadius: 14,
+
+                                              }}
+
+                                            />
+
+                                          )}
+
+                                          <label className="upload-button">
+
+                                            Enviar
+
+                                            <input
+
+                                              type="file"
+
+                                              accept="image/*"
+
+                                              onChange={(e) =>
+
+                                                uploadImage(
+
+                                                  e,
+
+                                                  "store_items",
+
+                                                  (url) => {
+
+                                                    updateVariantOption(
+
+                                                      editingItem.id,
+
+                                                      variant.id,
+
+                                                      option.id,
+
+                                                      "image_url",
+
+                                                      url
+
+                                                    );
+
+                                                  }
+
+                                                )
+
+                                              }
+
+                                            />
+
+                                          </label>
+
+                                          <input
+
+                                            value={option.image_url || ""}
+
+                                            onChange={(e) =>
+
+                                              updateVariantOption(
+
+                                                editingItem.id,
+
+                                                variant.id,
+
+                                                option.id,
+
+                                                "image_url",
+
+                                                e.target.value
+
+                                              )
+
+                                            }
+
+                                            placeholder="URL da imagem"
+
+                                          />
+
+                                        </div>
+
+                                      </Field>
+
+                                      <button
+
+                                        type="button"
+
+                                        className="danger-button"
+
+                                        onClick={() =>
+
+                                          removeVariantOption(
+
+                                            editingItem.id,
+
+                                            variant.id,
+
+                                            option.id
+
+                                          )
+
+                                        }
+
+                                      >
+
+                                        Remover opção
+
+                                      </button>
+
+                                    </div>
+
+                                  ))}
+
+                                </div>
+
+                              </div>
+
+                            ))}
+
+                          </div>
+
+                        )}
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                )}
+
+                <div className="store-modal-section">
+
+                  <span className="card-label">
+
+                    {editingItem.type === "service"
+
+                      ? "Profissionais do serviço"
+
+                      : "Vendedores do produto"}
+
+                  </span>
+
+                  <h3>
+
+                    {editingItem.type === "service"
+
+                      ? "Quem pode atender?"
+
+                      : "Quem pode vender?"}
+
+                  </h3>
+
+                  <ToggleField
+
+                    label={
+
+                      editingItem.type === "service"
+
+                        ? "Todos os profissionais podem atender"
+
+                        : "Todos os vendedores podem receber pedidos"
+
+                    }
+
+                    value={itemCanUseAllStaff(editingItem)}
+
+                    onChange={(v) =>
+
+                      updateItem(editingItem.id, "allow_all_staff", v)
+
+                    }
+
+                  />
+
+                  {!itemCanUseAllStaff(editingItem) && (
+
+                    <div className="staff-selector-grid">
+
+                      {staffMembers.map((staff) => {
+
+                        const selected = getItemStaffIds(editingItem).includes(
+
+                          String(staff.id)
+
+                        );
+
+                        return (
+
+                          <button
+
+                            key={staff.id}
+
+                            type="button"
+
+                            className={`staff-selector-card ${
+
+                              selected ? "active" : ""
+
+                            }`}
+
+                            onClick={() =>
+
+                              toggleItemStaff(editingItem.id, staff.id)
+
+                            }
+
+                          >
+
+                            <strong>{staff.nome}</strong>
+
+                            <span>
+
+                              {staff.role === "admin"
+
+                                ? "Administrador"
+
+                                : staff.role === "cashier"
+
+                                ? "Caixa"
+
+                                : staff.role === "manager"
+
+                                ? "Gerente"
+
+                                : "Profissional"}
+
+                            </span>
+
+                          </button>
+
+                        );
+
+                      })}
+
+                    </div>
+
+                  )}
+
+                  {loadingStaff && (
+
+                    <div className="dashboard-note">
+
+                      Carregando profissionais...
+
+                    </div>
+
+                  )}
+
+                  {!loadingStaff && staffMembers.length === 0 && (
+
+                    <div className="dashboard-note">
+
+                      Nenhum funcionário cadastrado ainda.
+
+                    </div>
+
+                  )}
+
+                </div>
+
+                <div className="store-product-modal-actions">
+
+                  <button
+
+                    type="button"
+
+                    className="finance-primary-button"
+
+                    onClick={() => setEditingItemId(null)}
+
+                  >
+
+                    Concluir edição
+
+                  </button>
+
+                  <button
+
+                    type="button"
+
+                    className="danger-button"
+
+                    onClick={() => removeItem(editingItem.id)}
+
+                  >
+
+                    Excluir item
+
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+    </div>
+
+  );
+
+}
 function ReviewsPanel({ profile, setField, reviews, loading, reload }) {
   async function updateReviewStatus(id, nextStatus) {
   const res = await fetch(`/api/reviews/admin/${id}`, {

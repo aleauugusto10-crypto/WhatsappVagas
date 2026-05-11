@@ -1,0 +1,907 @@
+.printshop-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.printshop-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 28px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 153, 0, 0.18), transparent 35%),
+    #111111;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: white;
+}
+
+.printshop-kicker {
+  display: inline-flex;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.printshop-hero h2 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.printshop-hero p {
+  margin-top: 12px;
+  max-width: 700px;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.6;
+}
+
+.printshop-hero-badge {
+  min-width: 220px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.printshop-hero-badge strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.printshop-hero-badge span {
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+}
+
+.printshop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.print-product-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 22px;
+  background: white;
+  border: 1px solid #ececec;
+  transition: 0.2s ease;
+}
+
+.print-product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.06);
+}
+
+.print-product-top {
+  display: flex;
+  gap: 14px;
+}
+
+.print-product-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: #fff3e0;
+  font-size: 24px;
+}
+
+.print-product-top h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.print-product-top p {
+  margin-top: 6px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.print-product-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.print-product-specs span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f4f4f4;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.print-product-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.print-product-footer strong {
+  font-size: 16px;
+}
+
+.print-product-footer button {
+  border: none;
+  cursor: pointer;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #ff8a00;
+  color: white;
+  font-weight: 700;
+}
+
+/* MODAL */
+
+.print-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.print-modal {
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+  border-radius: 28px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.print-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 24px;
+  border-bottom: 1px solid #efefef;
+}
+
+.print-modal-header h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.print-modal-header p {
+  margin-top: 8px;
+  color: #666;
+}
+
+.print-modal-close {
+  border: none;
+  background: #f4f4f4;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 24px;
+}
+
+.print-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  padding: 24px;
+}
+
+.print-modal-form {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.print-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.print-field label,
+.print-field > span {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.print-field select,
+.print-field textarea,
+.print-field input {
+  width: 100%;
+  border: 1px solid #dedede;
+  border-radius: 16px;
+  padding: 14px;
+  font-size: 15px;
+  outline: none;
+  background: #fff;
+}
+
+.print-field textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.print-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.print-mode-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  border: 1px solid #dedede;
+  background: white;
+  border-radius: 18px;
+  padding: 18px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.print-mode-grid button.active {
+  border-color: #ff8a00;
+  background: #fff6eb;
+}
+
+.print-mode-grid button span {
+  color: #666;
+  font-size: 13px;
+}
+
+.print-upload-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 20px;
+  border: 2px dashed #dedede;
+  background: #fafafa;
+}
+
+.print-upload-box p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.print-upload-label {
+  display: inline-flex;
+  width: fit-content;
+}
+
+.print-upload-label input {
+  display: none;
+}
+
+.print-upload-label span {
+  cursor: pointer;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #111111;
+  color: white;
+  font-weight: 700;
+}
+
+.print-upload-file {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 14px;
+  background: white;
+  border: 1px solid #ececec;
+}
+
+/* PREVIEW */
+
+.print-preview-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.print-preview-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.print-preview-title span {
+  color: #666;
+}
+
+.print-preview-canvas {
+  position: relative;
+  width: 100%;
+  border-radius: 24px;
+  background: #f3f3f3;
+  overflow: hidden;
+}
+
+.print-preview-uploaded-image {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 18px;
+  background: #f3f3f3;
+}
+
+.print-preview-bleed,
+.print-preview-cut,
+.print-preview-safe {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.print-preview-bleed {
+  inset: 0;
+  border: 2px dashed rgba(255, 0, 0, 0.45);
+}
+
+.print-preview-cut {
+  inset: 18px;
+  border: 2px solid rgba(255,255,255,0.95);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+}
+
+.print-preview-safe {
+  inset: 38px;
+  border: 2px dashed rgba(255,138,0,0.95);
+}
+
+.print-preview-content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: white;
+  background: linear-gradient(135deg, #111111, #1d1d1d);
+}
+
+.print-preview-logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.print-preview-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.print-preview-logo span {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.print-preview-content strong {
+  font-size: 26px;
+}
+
+.print-preview-content p {
+  margin-top: 10px;
+  color: rgba(255,255,255,0.74);
+}
+
+.print-technical-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.print-technical-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8f8f8;
+}
+
+.print-preview-note {
+  color: #666;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+/* FOOTER */
+
+.print-modal-footer {
+  flex-shrink: 0;
+  background: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 24px;
+  border-top: 1px solid #efefef;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.print-modal-footer span {
+  display: block;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.print-modal-footer strong {
+  font-size: 24px;
+}
+
+.print-modal-footer button {
+  border: none;
+  cursor: pointer;
+  min-width: 190px;
+  white-space: nowrap;
+  padding: 16px 24px;
+  border-radius: 16px;
+  background: #ff8a00;
+  color: white;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+/* RESPONSIVO */
+
+@media (max-width: 980px) {
+  .print-modal-body {
+    grid-template-columns: 1fr;
+  }
+
+  .print-preview-panel {
+    max-width: 520px;
+  }
+
+  .print-modal {
+    max-height: calc(100vh - 16px);
+  }
+}
+
+@media (max-width: 768px) {
+  .printshop-hero {
+    flex-direction: column;
+  }
+
+  .printshop-hero h2 {
+    font-size: 26px;
+  }
+
+  .print-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .print-modal-backdrop {
+    padding: 8px;
+    align-items: flex-start;
+  }
+
+  .print-modal {
+    width: 100%;
+    border-radius: 18px;
+  }
+
+  .print-modal-header,
+  .print-modal-body,
+  .print-modal-footer {
+    padding: 16px;
+  }
+
+  .print-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .print-modal-footer button {
+    width: 100%;
+  }
+
+  .print-preview-content {
+    padding: 36px;
+  }
+}
+
+
+.print-logo-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.print-logo-mode-grid button {
+  border: 1px solid #dedede;
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.print-logo-mode-grid button.active {
+  border-color: #ff8a00;
+  background: #fff6eb;
+}
+
+.print-logo-mode-grid strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.print-logo-mode-grid span {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .print-logo-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.recreated-logo-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #111;
+  color: #fff;
+}
+
+.recreated-logo-box p {
+  margin: 6px 0 0;
+  color: rgba(255,255,255,0.68);
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.recreated-logo-box button {
+  width: fit-content;
+  border: none;
+  cursor: pointer;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #ff8a00;
+  color: #fff;
+  font-weight: 800;
+}
+
+.recreated-logo-box button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.recreated-logo-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  padding: 22px;
+  border-radius: 18px;
+  background:
+    linear-gradient(45deg, #eee 25%, transparent 25%),
+    linear-gradient(-45deg, #eee 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eee 75%),
+    linear-gradient(-45deg, transparent 75%, #eee 75%);
+  background-color: #fff;
+  background-size: 22px 22px;
+  background-position: 0 0, 0 11px, 11px -11px, -11px 0px;
+}
+
+.recreated-logo-preview img {
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+}
+
+.print-logo-mode-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.print-logo-mode-grid button {
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #dedede;
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.print-logo-mode-grid button.active {
+  border-color: #ff8a00;
+  background: #fff6eb;
+}
+
+.print-logo-mode-grid strong {
+  display: block;
+  font-size: 14px;
+  color: #111;
+}
+
+.print-logo-mode-grid span {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.recreated-logo-box {
+  display: flex !important;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #111;
+  color: #fff;
+}
+
+.recreated-logo-box p {
+  margin: 6px 0 0;
+  color: rgba(255,255,255,0.68);
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.recreated-logo-box button {
+  display: inline-flex !important;
+  width: fit-content;
+  border: none;
+  cursor: pointer;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #ff8a00;
+  color: #fff;
+  font-weight: 800;
+}
+
+.recreated-logo-box button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.recreated-logo-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  padding: 22px;
+  border-radius: 18px;
+  background-color: #fff;
+}
+
+.recreated-logo-preview img {
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .print-logo-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+.printshop-store-layout {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  gap: 22px;
+  align-items: flex-start;
+}
+
+.printshop-category-sidebar {
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid #ececec;
+}
+
+.printshop-sidebar-label {
+  margin-bottom: 6px;
+  padding: 0 4px;
+  color: #777;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.printshop-category-button {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 14px;
+  border-radius: 18px;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.printshop-category-button:hover {
+  background: #f8f8f8;
+}
+
+.printshop-category-button.active {
+  background: #fff6eb;
+  border-color: #ff8a00;
+}
+
+.printshop-category-button > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #f4f4f4;
+  font-size: 20px;
+}
+
+.printshop-category-button.active > span {
+  background: #ff8a00;
+}
+
+.printshop-category-button strong {
+  display: block;
+  color: #111;
+  font-size: 14px;
+}
+
+.printshop-category-button small {
+  display: block;
+  margin-top: 4px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.printshop-products-area {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.printshop-category-head {
+  padding: 22px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid #ececec;
+}
+
+.printshop-category-head h3 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.printshop-category-head p {
+  margin: 8px 0 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+@media (max-width: 980px) {
+  .printshop-store-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .printshop-category-sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .printshop-sidebar-label {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .printshop-category-sidebar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.printshop-ai-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid #ececec;
+}
+
+.printshop-ai-status div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.printshop-ai-status span {
+  color: #666;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.printshop-ai-status strong {
+  color: #111;
+  font-size: 26px;
+}
+
+.printshop-ai-status button {
+  border: none;
+  cursor: pointer;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: #ff8a00;
+  color: white;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .printshop-ai-status {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -102,9 +102,9 @@ export default function ShoppingTopbar({ location, onLocationChange }) {
           </div>
         </button>
 
-        <a href="/shopping" className="shoppingTopbarBrand">
-          <img src="/shop-rendaja-logo.png" alt="Shop RendaJá" />
-        </a>
+       <a href="/p/compretudo-shop-itabaiana-se" className="shoppingTopbarBrand">
+  <img src="/compretudo.shop-logo.png" alt="CompreTudo.shop" />
+</a>
 
         <a
           href="https://wa.me/5579998192216?text=Oi%20%20Vi%20as%20vitrines%20do%20RendaJá%20e%20quero%20colocar%20meu%20negócio%20aqui%20também."

@@ -429,6 +429,97 @@ taxa_plataforma: md.taxa_plataforma || 0,
  * No modelo atual da empresa, a publicação normal acontece por crédito.
  * Mantemos essa função por compatibilidade caso ainda exista algum fluxo legado.
  */
+export async function activateProfilePlanFromPayment(payment) {
+  if (
+    payment.referencia_tipo !== "profile_plan_setup" &&
+    payment.referencia_tipo !== "profile_page_subscription"
+  ) {
+    return null;
+  }
+
+  if (payment.status !== "pago") return null;
+
+  const md = payment.metadata || {};
+
+  const profilePageId = md.profile_page_id;
+
+  const planCode =
+    md.plan_code ||
+    payment.plano_codigo ||
+    "store_start";
+
+  const finalPlanCode =
+    planCode === "profile_page_mensal" ? "store_start" : planCode;
+
+  if (!profilePageId || !finalPlanCode) {
+    console.error("❌ dados ausentes para ativar plano:", {
+      payment_id: payment.id,
+      referencia_tipo: payment.referencia_tipo,
+      plano_codigo: payment.plano_codigo,
+      metadata: md,
+    });
+    return null;
+  }
+
+  const planCredits = {
+    store_start: 30,
+    finance_pro: 100,
+    complete_pro: 250,
+  };
+
+  const credits = planCredits[finalPlanCode] || 0;
+
+  const now = new Date();
+  const nextPayment = new Date(now);
+  nextPayment.setDate(nextPayment.getDate() + 30);
+
+  console.log("🚀 ATIVANDO PLANO DA VITRINE:", {
+    payment_id: payment.id,
+    profilePageId,
+    finalPlanCode,
+    credits,
+  });
+
+  const { data, error } = await supabase
+    .from("profiles_pages")
+    .update({
+      plan_code: finalPlanCode,
+      plan_status: "active",
+
+      is_active: true,
+      is_preview: false,
+      preview_expires_at: null,
+
+      monthly_credits: credits,
+      monthly_credits_balance: credits,
+      monthly_credits_used: 0,
+      monthly_credits_reset_at: nextPayment.toISOString(),
+
+      plan_started_at: now.toISOString(),
+      plan_next_billing_at: nextPayment.toISOString(),
+
+      subscription_started_at: now.toISOString(),
+      activated_at: now.toISOString(),
+
+      last_payment_id: payment.id,
+      last_payment_at: now.toISOString(),
+      next_payment_at: nextPayment.toISOString(),
+
+      updated_at: now.toISOString(),
+    })
+    .eq("id", profilePageId)
+    .select("id, plan_code, plan_status, monthly_credits_balance, last_payment_id")
+    .single();
+
+  if (error) {
+    console.error("❌ ERRO REAL AO ATIVAR PLANO:", error);
+    return null;
+  }
+
+  console.log("✅ PLANO ATIVADO COM SUCESSO:", data);
+
+  return data;
+}
 export async function publishJobFromPayment(payment) {
   if (payment.referencia_tipo !== "empresa_publicar_vaga") return null;
 
@@ -709,7 +800,7 @@ export async function activateProfilePageFromPayment(payment) {
       is_active: true,
       is_preview: false,
       preview_expires_at: null,
-      subscription_status: "active",
+      plan_status: "active",
       subscription_started_at: now.toISOString(),
       subscription_expires_at: expiresAt.toISOString(),
       activated_at: now.toISOString(),
@@ -730,7 +821,7 @@ export async function activateProfilePageFromPayment(payment) {
     user_id: data.user_id,
     is_active: data.is_active,
     is_preview: data.is_preview,
-    subscription_status: data.subscription_status,
+    plan_status: data.plan_status,
   });
 
   return data;
@@ -854,6 +945,8 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   console.log("🔁 pagamento já marcado como pago, garantindo efeitos...");
 
   await activateProfilePageFromPayment(internalPayment);
+  await activateProfilePlanFromPayment(internalPayment);
+
 await activateSubscriptionFromPayment(internalPayment);
 await activateAlertPlanFromPayment(internalPayment);
 await activateCompanyJobCreditsFromPayment(internalPayment);
@@ -877,8 +970,10 @@ await activateCompanyJobCreditsFromPayment(internalPayment);
 
   await activateSubscriptionFromPayment(paid);
 await activateAlertPlanFromPayment(paid);
-
+await activateProfilePlanFromPayment(paid);
 await activateCompanyJobCreditsFromPayment(paid);
+
+
   if (paid.referencia_tipo === "usuario_vagas_avulso_24h") {
   const unlockAte = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
@@ -909,6 +1004,7 @@ console.log("💰 valor bloqueado para missão:", valorBloqueado);
 await publishProfessionalServiceFromPayment(paid);
 await applyProfessionalHighlightFromPayment(paid);
 await activateProfilePageFromPayment(paid);
+await activateProfilePlanFromPayment(paid);
 
 return paid;
 }

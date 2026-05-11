@@ -28,9 +28,7 @@ async function sendText(phone, text) {
   );
 
   const data = await res.json().catch(() => null);
-
   if (!res.ok) console.error("❌ Erro WhatsApp:", data);
-
   return data;
 }
 
@@ -70,7 +68,6 @@ function buildItemLines(items = []) {
   return items
     .map((item) => {
       const qty = Number(item.qty || 1);
-
       const price =
         item.price_type === "quote"
           ? "Sob orçamento"
@@ -91,7 +88,6 @@ function buildItemLines(items = []) {
 
 async function findAffiliateStaff(profilePageId, affiliateRef = "") {
   const ref = String(affiliateRef || "").trim();
-
   if (!profilePageId || !ref) return null;
 
   const { data, error } = await supabase
@@ -110,6 +106,98 @@ async function findAffiliateStaff(profilePageId, affiliateRef = "") {
   return data || null;
 }
 
+function reserveStockOnProfile(profile, orderItems = []) {
+  const storeItems = Array.isArray(profile?.store_items)
+    ? profile.store_items
+    : [];
+
+  const cartItems = Array.isArray(orderItems) ? orderItems : [];
+
+  console.log("🧪 PROFILE STORE ITEMS:", JSON.stringify(storeItems, null, 2));
+  console.log("🧪 ORDER ITEMS RECEBIDOS:", JSON.stringify(cartItems, null, 2));
+
+  const reservedItems = [];
+
+  const updatedStoreItems = storeItems.map((storeItem) => {
+    const orderItem = cartItems.find(
+      (item) => String(item.id) === String(storeItem.id)
+    );
+
+    if (!orderItem) return storeItem;
+
+    const isControlledProduct =
+      storeItem.type === "product" &&
+      storeItem.stock_enabled === true &&
+      storeItem.stock_mode === "quantity";
+
+    if (!isControlledProduct) return storeItem;
+
+    const qtyRequested = Number(orderItem.qty || 0);
+    if (qtyRequested <= 0) return storeItem;
+
+    const stockQty = Number(storeItem.stock_qty || 0);
+    const reservedQty = Number(storeItem.reserved_qty || 0);
+    const soldQty = Number(storeItem.sold_qty || 0);
+
+    const availableQty = Math.max(0, stockQty - reservedQty - soldQty);
+
+    console.log("🧪 CHECANDO ESTOQUE:", {
+      id: storeItem.id,
+      title: storeItem.title,
+      stockQty,
+      reservedQty,
+      soldQty,
+      availableQty,
+      qtyRequested,
+    });
+
+    if (availableQty < qtyRequested) {
+      throw new Error(
+        `Estoque insuficiente para "${storeItem.title || "Produto"}". Disponível: ${availableQty}.`
+      );
+    }
+
+    const nextReservedQty = reservedQty + qtyRequested;
+    const nextAvailableQty = Math.max(0, stockQty - nextReservedQty - soldQty);
+
+    reservedItems.push({
+      id: storeItem.id,
+      title: storeItem.title || orderItem.title || "Produto",
+      qty: qtyRequested,
+    });
+
+    return {
+      ...storeItem,
+      reserved_qty: nextReservedQty,
+      sold_qty: soldQty,
+      in_stock: nextAvailableQty > 0,
+    };
+  });
+
+  console.log("🧪 ITENS RESERVADOS:", JSON.stringify(reservedItems, null, 2));
+  console.log("🧪 ESTOQUE DEPOIS:", JSON.stringify(updatedStoreItems, null, 2));
+
+  return {
+    ok: true,
+    updatedStoreItems,
+    reservedItems,
+  };
+}
+
+async function saveStoreItems(profilePageId, storeItems) {
+  const { error } = await supabase
+    .from("profiles_pages")
+    .update({
+      store_items: storeItems,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", profilePageId);
+
+  if (error) {
+    throw new Error(error.message || "Erro ao atualizar estoque.");
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Método não permitido." });
@@ -124,10 +212,8 @@ export default async function handler(req, res) {
       items,
       total,
       has_quote,
-
       affiliate_ref = "",
       source_ref = "",
-
       source_channel = "whatsapp_automation",
       automation_status = "waiting_owner_confirmation",
       profile_owner_name = "",
@@ -144,7 +230,7 @@ export default async function handler(req, res) {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles_pages")
-      .select("id, nome, whatsapp, user_id")
+      .select("id, nome, whatsapp, user_id, store_items")
       .eq("id", profile_page_id)
       .maybeSingle();
 
@@ -153,14 +239,37 @@ export default async function handler(req, res) {
     }
 
     const cleanCustomerPhone = normalizeBRPhone(customer_phone);
-    const cleanOwnerPhone = normalizeBRPhone(profile_owner_phone || profile.whatsapp);
+    const cleanOwnerPhone = normalizeBRPhone(
+      profile_owner_phone || profile.whatsapp
+    );
 
     const finalAffiliateRef = String(affiliate_ref || source_ref || "").trim();
-    const affiliateStaff = await findAffiliateStaff(profile_page_id, finalAffiliateRef);
+    const affiliateStaff = await findAffiliateStaff(
+      profile_page_id,
+      finalAffiliateRef
+    );
 
     const finalSourceChannel = affiliateStaff
       ? "affiliate_link"
       : source_channel || "whatsapp_automation";
+
+    let stockReservation = {
+      updatedStoreItems: profile.store_items || [],
+      reservedItems: [],
+    };
+
+    try {
+      stockReservation = reserveStockOnProfile(profile, items);
+      await saveStoreItems(profile_page_id, stockReservation.updatedStoreItems);
+    } catch (stockError) {
+      console.error("❌ ERRO AO RESERVAR ESTOQUE:", stockError);
+      return res.status(400).json({
+        error: stockError.message || "Não foi possível reservar o estoque.",
+      });
+    }
+
+    const reservedItems = stockReservation?.reservedItems || [];
+    const hasReservedStock = reservedItems.length > 0;
 
     const { data: order, error } = await supabase
       .from("profile_orders")
@@ -173,6 +282,10 @@ export default async function handler(req, res) {
         total: Number(total || 0),
         has_quote: !!has_quote,
         status: "pending",
+
+        stock_reserved: hasReservedStock,
+        reserved_items: reservedItems,
+        stock_status: hasReservedStock ? "reserved" : "none",
 
         source_channel: finalSourceChannel,
         source_ref: finalAffiliateRef || null,
@@ -237,15 +350,18 @@ export default async function handler(req, res) {
       );
     }
 
-    return res.status(200).json({
-      ok: true,
-      order,
-    });
+   return res.status(200).json({
+  ok: true,
+  order,
+  updated_store_items: stockReservation.updatedStoreItems,
+  debug_stock: {
+    stock_reserved: hasReservedStock,
+    reserved_items: reservedItems,
+  },
+});
   } catch (err) {
     console.error("❌ Erro geral profile-orders:", err);
 
-    return res.status(500).json({
-      error: err.message || "Erro interno ao criar pedido.",
-    });
+ 
   }
 }

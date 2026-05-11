@@ -1317,9 +1317,8 @@ if (staff?.id) {
   const q = String(value || "").trim().toLowerCase();
 
   setIncomeProductSearch(value);
-
-  if (!q) {
-    setIncomeProductResults([]);
+if (q.length < 2) {
+  setIncomeProductResults([]);
     setIncomeForm((prev) => ({
       ...prev,
       product_id: null,
@@ -1354,8 +1353,8 @@ function searchStaffForIncome(value) {
 
   setStaffSearch(value);
 
-  if (!q) {
-    setStaffResults([]);
+ if (q.length < 2) {
+  setStaffResults([]);
     setIncomeForm((prev) => ({
       ...prev,
       staff_id: "",
@@ -2394,81 +2393,78 @@ commissionToStaffName: incomeForm.staff_name || "",
           </select>
         </label>
 
-        <label className="full">
+        <label className="full income-search-field">
   <span>Vincular produto existente</span>
 
-<input
+ <input
   value={incomeProductSearch}
-  onFocus={() => {
-    if (!incomeProductSearch) {
-      setIncomeProductResults(saleItemOptions.slice(0, 8));
-    }
-  }}
   onChange={(e) => searchIncomeProducts(e.target.value)}
+  onBlur={() => {
+    setTimeout(() => setIncomeProductResults([]), 120);
+  }}
   placeholder="Busque pelo nome ou referência do produto..."
 />
-  {searchingIncomeProduct && (
-    <small>Buscando produtos...</small>
+
+  {incomeProductResults.length > 0 && (
+    <div className="income-search-results">
+      {incomeProductResults.map((product) => (
+        <button
+          key={product.id}
+          type="button"
+          onClick={() => {
+            setIncomeForm((prev) => ({
+              ...prev,
+              product_id: product.id,
+              product_title: product.title || "Produto",
+              product_reference: product.reference_code || "",
+              product_price: product.price || "",
+              amount: product.price || prev.amount,
+              description:
+                prev.description ||
+                `Venda presencial - ${product.title || "Produto"}`,
+            }));
+
+            setIncomeProductSearch(product.title || "Produto");
+            setIncomeProductResults([]);
+          }}
+        >
+          <span className="income-result-thumb">
+            {product.image_url ? (
+              <img src={product.image_url} alt={product.title || "Produto"} />
+            ) : (
+              "📦"
+            )}
+          </span>
+
+          <span className="income-result-info">
+            <strong>{product.title || "Produto"}</strong>
+            <small>
+              {product.reference_code
+                ? `Ref: ${product.reference_code}`
+                : "Sem referência"}
+            </small>
+          </span>
+
+          <span className="income-result-price">{money(product.price)}</span>
+        </button>
+      ))}
+    </div>
   )}
-{incomeProductResults.length > 0 && (
-  <div className="income-product-results">
-    {incomeProductResults.map((product) => (
-      <button
-        key={product.id}
-        type="button"
-        onClick={() => {
-          setIncomeForm((prev) => ({
-            ...prev,
-            product_id: product.id,
-            product_title: product.title || "Produto",
-            product_reference: product.reference_code || "",
-            product_price: product.price || "",
-            amount: product.price || prev.amount,
-            description:
-              prev.description ||
-              `Venda presencial - ${product.title || "Produto"}`,
-          }));
+</label>
 
-          setIncomeProductSearch(product.title || "Produto");
-          setIncomeProductResults([]);
-        }}
-      >
-        <span className="income-product-thumb">
-          {product.image_url ? (
-            <img src={product.image_url} alt={product.title || "Produto"} />
-          ) : (
-            "📦"
-          )}
-        </span>
-
-        <span className="income-product-info">
-          <strong>{product.title || "Produto"}</strong>
-
-          <small>
-            {product.reference_code
-              ? `Ref: ${product.reference_code}`
-              : "Sem referência"}
-          </small>
-        </span>
-
-        <span className="income-product-price">
-          {money(product.price)}
-        </span>
-      </button>
-    ))}
-  </div>
-)}
-<label className="full">
+<label className="full income-search-field">
   <span>Funcionário responsável / comissão</span>
-
-  <input
-    value={staffSearch}
-    onChange={(e) => searchStaffForIncome(e.target.value)}
-    placeholder="Busque o funcionário que receberá comissão..."
-  />
+<input
+  value={staffSearch}
+  onChange={(e) => searchStaffForIncome(e.target.value)}
+  onBlur={() => {
+    setTimeout(() => setStaffResults([]), 120);
+  }}
+  placeholder="Busque o funcionário que receberá comissão..."
+/>
 
   {staffResults.length > 0 && (
-    <div className="income-product-results">
+    <div className="income-search-results">
       {staffResults.map((staff) => {
         const commissionAmount = calcStaffCommission(staff, incomeForm.amount);
 
@@ -2490,11 +2486,10 @@ commissionToStaffName: incomeForm.staff_name || "",
               setStaffResults([]);
             }}
           >
-            <span className="income-product-thumb">👤</span>
+            <span className="income-result-thumb">👤</span>
 
-            <span className="income-product-info">
+            <span className="income-result-info">
               <strong>{staff.nome}</strong>
-
               <small>
                 {staff.commission_type === "percent"
                   ? `${Number(staff.commission_value || 0)}% de comissão`
@@ -2504,7 +2499,7 @@ commissionToStaffName: incomeForm.staff_name || "",
               </small>
             </span>
 
-            <span className="income-product-price">
+            <span className="income-result-price">
               {commissionAmount > 0 ? money(commissionAmount) : "—"}
             </span>
           </button>
@@ -2514,18 +2509,19 @@ commissionToStaffName: incomeForm.staff_name || "",
   )}
 
   {incomeForm.staff_id && (
-    <small>
+    <small className="income-selected-commission">
       Comissão para {incomeForm.staff_name}:{" "}
-      {money(calcStaffCommission(
-        {
-          commission_type: incomeForm.commission_type,
-          commission_value: incomeForm.commission_value,
-        },
-        incomeForm.amount
-      ))}
+      {money(
+        calcStaffCommission(
+          {
+            commission_type: incomeForm.commission_type,
+            commission_value: incomeForm.commission_value,
+          },
+          incomeForm.amount
+        )
+      )}
     </small>
   )}
-</label>
 </label>
 
         <label className="full">

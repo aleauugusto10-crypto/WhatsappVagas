@@ -54,15 +54,224 @@ function getItemPriceLabel(item) {
   if (isQuote(item)) return "Sob orçamento";
   return money(item?.price || 0);
 }
+function itemControlsStock(item) {
+  return isProduct(item) && item?.stock_mode === "quantity";
+}
 
+function getStockQty(item) {
+  const total = Number(item?.stock_qty || 0);
+  const reserved = Number(item?.reserved_qty || 0);
+  const sold = Number(item?.sold_qty || 0);
+
+  return Math.max(0, total - reserved - sold);
+}
+
+function itemIsUnavailable(item) {
+  if (!isProduct(item)) return false;
+
+  if (item?.in_stock === false) return true;
+
+  if (itemControlsStock(item)) {
+    return getStockQty(item) <= 0;
+  }
+
+  return false;
+}
+
+function getPublicStockLabel(item) {
+  if (!isProduct(item)) return "";
+
+  if (itemIsUnavailable(item)) return "Indisponível";
+
+  if (itemControlsStock(item)) {
+    const qty = getStockQty(item);
+
+    if (qty <= 3) return `Últimas ${qty} peça(s)`;
+    return `${qty} peça(s) restantes`;
+  }
+
+  return "Disponível";
+}
+
+function getCartQty(cart, itemId) {
+  return cart
+    .filter((item) => item.id === itemId)
+    .reduce((acc, item) => acc + Number(item.qty || 0), 0);
+}
+
+function StoreDetailsModal({
+  item,
+  onClose,
+  onAdd,
+  isUnavailable,
+  stockLabel,
+  priceLabel,
+}) {
+  const [qty, setQty] = useState(1);
+  const [activeSlide, setActiveSlide] = useState(0);
+const sliderRef = useRef(null);
+
+function goToSlide(index) {
+  setActiveSlide(index);
+
+  const slider = sliderRef.current;
+  if (!slider) return;
+
+  slider.scrollTo({
+    left: slider.clientWidth * index,
+    behavior: "smooth",
+  });
+}
+
+function handleSliderScroll() {
+  const slider = sliderRef.current;
+  if (!slider) return;
+
+  const index = Math.round(slider.scrollLeft / slider.clientWidth);
+  setActiveSlide(index);
+}
+
+  if (!item) return null;
+
+  const images = [];
+
+  if (item.image_url) {
+    images.push({
+      url: item.image_url,
+      label: item.title || "Imagem principal",
+    });
+  }
+
+  if (Array.isArray(item.variants)) {
+    item.variants.forEach((variant) => {
+      (variant.options || []).forEach((option) => {
+        if (option.image_url) {
+          images.push({
+            url: option.image_url,
+            label: `${variant.name}: ${option.label}`,
+          });
+        }
+      });
+    });
+  }
+
+  const uniqueImages = images.filter(
+    (img, index, arr) =>
+      img.url && arr.findIndex((i) => i.url === img.url) === index
+  );
+
+  return (
+    <div className="store-details-backdrop" onClick={onClose}>
+      <div className="product-modal-card" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="product-modal-close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="product-modal-media">
+          {uniqueImages.length > 0 ? (
+            <div
+  ref={sliderRef}
+  className="product-modal-slider"
+  onScroll={handleSliderScroll}
+>
+  {uniqueImages.map((img, index) => (
+                <div key={`${img.url}-${index}`} className="product-modal-slide">
+                  <img src={img.url} alt={img.label} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="product-modal-empty-image">
+              {isProduct(item) ? "🛍️" : "✨"}
+            </div>
+          )}
+
+          {uniqueImages.length > 1 && (
+            <div className="product-modal-dots">
+              {uniqueImages.map((_, index) => (
+  <button
+    key={index}
+    type="button"
+    className={index === activeSlide ? "active" : ""}
+    onClick={() => goToSlide(index)}
+  />
+))}
+            </div>
+          )}
+        </div>
+
+        <div className="product-modal-body">
+          <div className="product-modal-topline">
+            <span>{isProduct(item) ? "Produto" : "Serviço"}</span>
+
+            <button
+              type="button"
+              className="product-modal-mini-add"
+              disabled={isUnavailable}
+              onClick={() => onAdd(item, qty)}
+            >
+              + Sacola
+            </button>
+          </div>
+
+          <h3>{item.title || item.name || "Item sem nome"}</h3>
+
+          {stockLabel && (
+            <small
+              className={`product-modal-stock ${
+                isUnavailable ? "danger" : ""
+              }`}
+            >
+              {stockLabel}
+            </small>
+          )}
+
+          <p>
+            {item.description ||
+              "Confira os detalhes deste item e escolha a quantidade antes de adicionar à sacola."}
+          </p>
+
+          <div className="product-modal-buy-row">
+            <strong>{priceLabel}</strong>
+
+            <div className="product-modal-qty">
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+              >
+                −
+              </button>
+
+              <span>{qty}</span>
+
+              <button type="button" onClick={() => setQty((q) => q + 1)}>
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function StoreSection({ profile }) {
   if (profile?.show_store === false) return null;
+const [liveStoreItems, setLiveStoreItems] = useState(
+  Array.isArray(profile?.store_items) ? profile.store_items : []
+);
 
+useEffect(() => {
+  setLiveStoreItems(
+    Array.isArray(profile?.store_items) ? profile.store_items : []
+  );
+}, [profile?.store_items]);
   const whatsapp = onlyDigits(profile?.whatsapp || profile?.phone || "");
 
 const automationWhatsapp = onlyDigits(
   process.env.NEXT_PUBLIC_AUTOMATION_WHATSAPP ||
   profile?.automation_whatsapp ||
+  profile?.whatsapp ||
+  profile?.phone ||
   ""
 );
 const affiliateRef = getAffiliateRef();
@@ -73,10 +282,10 @@ const affiliateRef = getAffiliateRef();
   }, [profile]);
 
   const items = useMemo(() => {
-    return Array.isArray(profile?.store_items)
-      ? profile.store_items.filter((item) => item?.active !== false)
-      : [];
-  }, [profile]);
+  return Array.isArray(liveStoreItems)
+    ? liveStoreItems.filter((item) => item?.active !== false)
+    : [];
+}, [liveStoreItems]);
 
   const hasServices = items.some(isService);
   const hasProducts = items.some(isProduct);
@@ -118,13 +327,16 @@ const affiliateRef = getAffiliateRef();
 
   const [cart, setCart] = useState([]);
   const [variantModalOpen, setVariantModalOpen] = useState(false);
+  
 const [variantProduct, setVariantProduct] = useState(null);
+const [pendingVariantQty, setPendingVariantQty] = useState(1);
 const [selectedVariants, setSelectedVariants] = useState({});
 const [filter, setFilter] = useState("all");
 const [searchOpen, setSearchOpen] = useState(false);
 const [searchTerm, setSearchTerm] = useState("");
 const searchRef = useRef(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [detailsItem, setDetailsItem] = useState(null);
   const [customer, setCustomer] = useState({
     firstName: "",
     lastName: "",
@@ -214,15 +426,31 @@ const visibleItems = useMemo(() => {
     Array.isArray(item?.variants) &&
     item.variants.length > 0;
 }
-function handleAddItem(item) {
-  if (productHasVariants(item)) {
-    setVariantProduct(item);
-    setSelectedVariants({});
-    setVariantModalOpen(true);
+function handleAddItem(item, qty = 1) {
+  if (itemIsUnavailable(item)) {
+    alert("Este produto está indisponível no momento.");
     return;
   }
 
-  addToCart(item);
+  if (itemControlsStock(item)) {
+    const alreadyInCart = getCartQty(cart, item.id);
+    const available = getStockQty(item);
+
+    if (alreadyInCart >= available) {
+      alert(`Só existem ${available} peça(s) disponíveis deste produto.`);
+      return;
+    }
+  }
+
+  if (productHasVariants(item)) {
+  setPendingVariantQty(qty);
+  setVariantProduct(item);
+  setSelectedVariants({});
+  setVariantModalOpen(true);
+  return;
+}
+
+  addToCart(item, qty);
 }
 function selectVariant(variantId, option) {
   setSelectedVariants((prev) => ({
@@ -251,14 +479,18 @@ function confirmVariantSelection() {
   image_url: opt.image_url || "",
 }));
 
-  addToCart({
+  addToCart(
+  {
     ...variantProduct,
     selected_variants: variantSummary,
-  });
+  },
+  pendingVariantQty
+);
 
   setVariantModalOpen(false);
   setVariantProduct(null);
   setSelectedVariants({});
+  setPendingVariantQty(1);
 }
 function getVariantImage() {
   const options = Object.values(selectedVariants);
@@ -269,33 +501,93 @@ function getVariantImage() {
 
   return withImage.at(-1) || variantProduct?.image_url;
 }
-  function addToCart(item) {
-    setCart((prev) => {
-      const exists = prev.find((cartItem) => cartItem.id === item.id);
+function getItemGalleryImages(item) {
+  const images = [];
 
-      if (exists) {
-        return prev.map((cartItem) =>
-          cartItem.id === item.id
-            ? { ...cartItem, qty: cartItem.qty + 1 }
-            : cartItem
-        );
-      }
-
-      return [...prev, { ...item, qty: 1 }];
+  if (item?.image_url) {
+    images.push({
+      id: "main",
+      url: item.image_url,
+      label: "Foto principal",
     });
   }
+
+  const variants = Array.isArray(item?.variants) ? item.variants : [];
+
+  variants.forEach((variant) => {
+    const options = Array.isArray(variant.options) ? variant.options : [];
+
+    options.forEach((option) => {
+      if (option.image_url) {
+        images.push({
+          id: `${variant.id}-${option.id}`,
+          url: option.image_url,
+          label: `${variant.name}: ${option.label}`,
+        });
+      }
+    });
+  });
+
+  return images.filter(
+    (image, index, arr) =>
+      image.url &&
+      arr.findIndex((current) => current.url === image.url) === index
+  );
+}
+  function addToCart(item, qtyToAdd = 1) {
+  if (itemIsUnavailable(item)) return;
+
+  const qty = Math.max(1, Number(qtyToAdd || 1));
+
+  setCart((prev) => {
+    const exists = prev.find((cartItem) => cartItem.id === item.id);
+
+    if (itemControlsStock(item)) {
+      const currentQty = exists ? Number(exists.qty || 0) : 0;
+      const available = getStockQty(item);
+
+      if (currentQty + qty > available) {
+        alert(`Só existem ${available} peça(s) disponíveis deste produto.`);
+        return prev;
+      }
+    }
+
+    if (exists) {
+      return prev.map((cartItem) =>
+        cartItem.id === item.id
+          ? { ...cartItem, qty: Number(cartItem.qty || 0) + qty }
+          : cartItem
+      );
+    }
+
+    return [...prev, { ...item, qty }];
+  });
+}
 
   function removeFromCart(id) {
     setCart((prev) => prev.filter((item) => item.id !== id));
   }
 
   function changeQty(id, delta) {
-    setCart((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item
-      )
-    );
-  }
+  setCart((prev) =>
+    prev.map((item) => {
+      if (item.id !== id) return item;
+
+      const nextQty = Math.max(1, Number(item.qty || 1) + delta);
+
+      if (delta > 0 && itemControlsStock(item)) {
+        const available = getStockQty(item);
+
+        if (nextQty > available) {
+          alert(`Só existem ${available} peça(s) disponíveis deste produto.`);
+          return item;
+        }
+      }
+
+      return { ...item, qty: nextQty };
+    })
+  );
+}
 
   function openBookingFromCart() {
     const bookableServices = cart
@@ -420,9 +712,18 @@ const orderItems = cart.map((item) => ({
 
     false,
 
-  selected_variants: Array.isArray(item.selected_variants)
-    ? item.selected_variants
-    : [],
+  stock_mode: item.stock_mode || "single",
+stock_enabled:
+  item.stock_enabled === true ||
+  item.stock_mode === "quantity",
+stock_qty: Number(item.stock_qty || 0),
+reserved_qty: Number(item.reserved_qty || 0),
+sold_qty: Number(item.sold_qty || 0),
+available_qty: getStockQty(item),
+in_stock: item.in_stock !== false,
+selected_variants: Array.isArray(item.selected_variants)
+  ? item.selected_variants
+  : [],
 }));
 const res = await fetch("/api/profile-orders", {
   method: "POST",
@@ -471,7 +772,44 @@ if (!res.ok) {
   alert(data?.error || "Não foi possível salvar o pedido.");
   return;
 }
+const orderedItems = cart;
 
+if (Array.isArray(data.updated_store_items)) {
+  setLiveStoreItems(data.updated_store_items);
+} else {
+  setLiveStoreItems((prev) =>
+    prev.map((storeItem) => {
+      const orderedItem = orderedItems.find(
+        (item) => String(item.id) === String(storeItem.id)
+      );
+
+      if (
+        !orderedItem ||
+        storeItem.type !== "product" ||
+        storeItem.stock_enabled !== true ||
+        storeItem.stock_mode !== "quantity"
+      ) {
+        return storeItem;
+      }
+
+      const qty = Number(orderedItem.qty || 0);
+      const reservedQty = Number(storeItem.reserved_qty || 0);
+      const soldQty = Number(storeItem.sold_qty || 0);
+      const stockQty = Number(storeItem.stock_qty || 0);
+
+      const nextReservedQty = reservedQty + qty;
+      const availableQty = Math.max(0, stockQty - nextReservedQty - soldQty);
+
+      return {
+        ...storeItem,
+        reserved_qty: nextReservedQty,
+        in_stock: availableQty > 0,
+      };
+    })
+  );
+}
+setShowCheckoutModal(false);
+setCart([]);
 const orderId = data?.id || data?.order?.id || "";
 
 window.open(buildWhatsAppLink(orderId), "_blank", "noopener,noreferrer");
@@ -492,9 +830,14 @@ alert("Pedido enviado com sucesso!");
     const product = isProduct(item);
     const quote = isQuote(item);
     const canBook = serviceUsesBooking(item, profile);
-
+const unavailable = itemIsUnavailable(item);
+const stockLabel = getPublicStockLabel(item);
     return (
-      <article key={item.id} className="store-card">
+  <article
+    key={item.id}
+    className="store-card"
+    onClick={() => setDetailsItem(item)}
+  >
         {item.image_url ? (
           <div className="store-card-image">
             <img src={item.image_url} alt={item.title || "Item"} />
@@ -518,12 +861,24 @@ alert("Pedido enviado com sucesso!");
           <h3>{item.title || "Item sem nome"}</h3>
 
           {item.description && <p>{item.description}</p>}
-
+{stockLabel && (
+  <div className={`store-public-stock ${unavailable ? "danger" : ""}`}>
+    {stockLabel}
+  </div>
+)}
           <div className="store-card-bottom">
             <strong>{getItemPriceLabel(item)}</strong>
 
-            <button type="button" onClick={() => handleAddItem(item)}>
-  Adicionar
+         <button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    handleAddItem(item);
+  }}
+  disabled={unavailable}
+  className={unavailable ? "disabled" : ""}
+>
+  {unavailable ? "Indisponível" : "Adicionar"}
 </button>
           </div>
         </div>
@@ -793,7 +1148,19 @@ disabled={cart.length === 0 || !automationWhatsapp}
           </div>
         </div>
       </section>
-
+{detailsItem && (
+  <StoreDetailsModal
+    item={detailsItem}
+    onClose={() => setDetailsItem(null)}
+    isUnavailable={itemIsUnavailable(detailsItem)}
+    stockLabel={getPublicStockLabel(detailsItem)}
+    priceLabel={getItemPriceLabel(detailsItem)}
+    onAdd={(item, qty) => {
+  handleAddItem(item, qty);
+  setDetailsItem(null);
+}}
+  />
+)}
 {variantModalOpen && variantProduct && (
   <div className="booking-modal-backdrop">
     <div className="booking-modal variant-modal-clean">
@@ -844,14 +1211,23 @@ disabled={cart.length === 0 || !automationWhatsapp}
             </div>
           </div>
         ))}
-
-        <button
-          type="button"
-          className="variant-modal-add"
-          onClick={confirmVariantSelection}
-        >
-          Adicionar à sacola
-        </button>
+{getPublicStockLabel(variantProduct) && (
+  <div className={`store-public-stock ${
+    itemIsUnavailable(variantProduct) ? "danger" : ""
+  }`}>
+    {getPublicStockLabel(variantProduct)}
+  </div>
+)}
+<button
+  type="button"
+  className="variant-modal-add"
+  onClick={confirmVariantSelection}
+  disabled={itemIsUnavailable(variantProduct)}
+>
+  {itemIsUnavailable(variantProduct)
+    ? "Produto indisponível"
+    : "Adicionar à sacola"}
+</button>
       </div>
     </div>
   </div>

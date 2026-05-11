@@ -34,5 +34,9 @@
     "files": [
       "static/chunks/node_modules_html2canvas_dist_html2canvas_js.js"
     ]
+  },
+  "pages/dashboard/index.js -> @mercadopago/sdk-react": {
+    "id": "pages/dashboard/index.js -> @mercadopago/sdk-react",
+    "files": []
   }
 }
