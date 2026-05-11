@@ -472,7 +472,8 @@ export async function activateProfilePlanFromPayment(payment) {
   const now = new Date();
   const nextPayment = new Date(now);
   nextPayment.setDate(nextPayment.getDate() + 30);
-
+const graceUntil = new Date(nextPayment);
+graceUntil.setDate(graceUntil.getDate() + 15);
   console.log("🚀 ATIVANDO PLANO DA VITRINE:", {
     payment_id: payment.id,
     profilePageId,
@@ -498,12 +499,17 @@ export async function activateProfilePlanFromPayment(payment) {
       plan_started_at: now.toISOString(),
       plan_next_billing_at: nextPayment.toISOString(),
 
-      subscription_started_at: now.toISOString(),
-      activated_at: now.toISOString(),
+plan_expires_at: nextPayment.toISOString(),
+payment_grace_until: graceUntil.toISOString(),
+billing_notice_count: 0,
+last_billing_notice_at: null,
 
-      last_payment_id: payment.id,
-      last_payment_at: now.toISOString(),
-      next_payment_at: nextPayment.toISOString(),
+subscription_started_at: now.toISOString(),
+activated_at: now.toISOString(),
+
+last_payment_id: payment.id,
+last_payment_at: now.toISOString(),
+next_payment_at: nextPayment.toISOString(),
 
       updated_at: now.toISOString(),
     })

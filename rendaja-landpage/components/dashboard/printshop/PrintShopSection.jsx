@@ -4,12 +4,14 @@ import PrintProductModal from "./PrintProductModal";
 import LogoCreationModal from "./LogoCreationModal";
 import { PRINT_CATEGORIES, PRINT_PRODUCTS } from "./printProducts";
 import { useEffect } from "react";
-import { getAiCreditWallet, getAiGeneratedAssets } from "../../../src/lib/aiCredits";
+import { getAiGeneratedAssets } from "../../../src/lib/aiCredits";
 export default function PrintShopSection({ profile }) {
   const [selectedCategory, setSelectedCategory] = useState("logo");
   const [selectedProduct, setSelectedProduct] = useState(null);
-const [wallet, setWallet] = useState({ credits: 0 });
-const [assets, setAssets] = useState([]);
+  const [assets, setAssets] = useState([]);
+
+  const creditsBalance = Number(profile?.monthly_credits_balance || 0);
+
   const activeCategory = PRINT_CATEGORIES.find(
     (category) => category.id === selectedCategory
   );
@@ -19,22 +21,20 @@ const [assets, setAssets] = useState([]);
       (product) => product.categoryId === selectedCategory
     );
   }, [selectedCategory]);
-useEffect(() => {
-  async function loadAiData() {
-    const savedUser = localStorage.getItem("rendaja_user");
-    const user = savedUser ? JSON.parse(savedUser) : null;
 
-    if (!user?.id) return;
+  useEffect(() => {
+    async function loadAiData() {
+      const savedUser = localStorage.getItem("rendaja_user");
+      const user = savedUser ? JSON.parse(savedUser) : null;
 
-    const walletData = await getAiCreditWallet(user.id);
-    const assetsData = await getAiGeneratedAssets(user.id);
+      if (!user?.id) return;
 
-    setWallet(walletData);
-    setAssets(assetsData);
-  }
+      const assetsData = await getAiGeneratedAssets(user.id);
+      setAssets(assetsData);
+    }
 
-  loadAiData();
-}, []);
+    loadAiData();
+  }, []);
   return (
     <section className="printshop-section">
       <div className="printshop-hero">
@@ -49,7 +49,7 @@ useEffect(() => {
 <div className="printshop-ai-status">
   <div>
     <span>Créditos disponíveis</span>
-    <strong>{wallet?.credits || 0}</strong>
+    <strong>{creditsBalance}</strong>
   </div>
 
   <div>

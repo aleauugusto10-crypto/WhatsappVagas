@@ -147,7 +147,9 @@ const MENU = [
   { id: "bookings", label: "Agendamentos", icon: "📅" },
   { id: "staff", label: "Equipe", icon: "👥" },
 { id: "finance", label: "Financeiro", icon: "💰" },
+
 { id: "printshop", label: "Gráfica", icon: "🖨️" },
+{ id: "subscription", label: "Assinatura", icon: "💳" },
   { id: "reviews", label: "Avaliações", icon: "⭐" },
   { id: "jobs", label: "Vagas", icon: "💼" },
   { id: "missions", label: "Missões", icon: "🎯" },
@@ -220,14 +222,15 @@ function canAccessMenu(profile, menuId) {
     profile?.subscription_status === "trial";
 
   if (
-    menuId === "overview" ||
-    menuId === "reviews" ||
-    menuId === "jobs" ||
-    menuId === "missions" ||
-    menuId === "printshop"
-  ) {
-    return true;
-  }
+  menuId === "overview" ||
+  menuId === "reviews" ||
+  menuId === "jobs" ||
+  menuId === "missions" ||
+  menuId === "printshop" ||
+  menuId === "subscription"
+) {
+  return true;
+}
 
   if (!active) return false;
 
@@ -759,6 +762,7 @@ return (
   )}
 </div>
         </header>
+        
 {active === "upgrade" && (
   <UpgradePanel profile={profile} />
 )}
@@ -811,6 +815,9 @@ return (
 {active === "printshop" && (
   <PrintShopSection profile={profile} />
 )}
+{active === "subscription" && (
+  <SubscriptionPanel profile={profile} />
+)}
 {active === "schedule" && <SchedulePanel />}
 {active === "reviews" && (
   <ReviewsPanel
@@ -846,6 +853,7 @@ function UpgradePanel({ profile }) {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 const [cardResult, setCardResult] = useState(null);
 const [cardError, setCardError] = useState("");
+const [brickReady, setBrickReady] = useState(false);
   const plans = {
     store_start: {
       code: "store_start",
@@ -900,11 +908,19 @@ const currentPlanActive =
   profile?.plan_status === "active" ||
   profile?.subscription_status === "active";
   function openPlan(planCode) {
-    setSelectedPlan(plans[planCode]);
-    setPayment(null);
-    setPaymentMethod("checkout");
-    setCopied(false);
-  }
+  setSelectedPlan(plans[planCode]);
+  setPayment(null);
+  setPaymentMethod("checkout");
+  setCopied(false);
+  setCardResult(null);
+  setCardError("");
+  setPaymentConfirmed(false);
+  setBrickReady(false);
+
+  setTimeout(() => {
+    setBrickReady(true);
+  }, 250);
+}
 
   function closePlanModal() {
     setSelectedPlan(null);
@@ -1119,27 +1135,39 @@ async function processCardPayment({ formData }) {
           </div>
 
           <div className="payment-method-box">
-            <button
-              type="button"
-              className={paymentMethod === "checkout" ? "active" : ""}
-              onClick={() => setPaymentMethod("checkout")}
-            >
-              Cartão
-            </button>
+          <button
+  type="button"
+  className={paymentMethod === "checkout" ? "active" : ""}
+  onClick={() => {
+    setPaymentMethod("checkout");
+    setCardResult(null);
+    setCardError("");
+    setBrickReady(false);
 
-            <button
-              type="button"
-              className={paymentMethod === "pix" ? "active" : ""}
-              onClick={() => setPaymentMethod("pix")}
-            >
-              Pix
-            </button>
+    setTimeout(() => {
+      setBrickReady(true);
+    }, 250);
+  }}
+>
+  Cartão
+</button>
+
+         <button
+  type="button"
+  className={paymentMethod === "pix" ? "active" : ""}
+  onClick={() => {
+    setPaymentMethod("pix");
+    setBrickReady(false);
+  }}
+>
+  Pix
+</button>
           </div>
 
-          {paymentMethod === "checkout" && selectedPlan && (
-  <div className="card-brick-box">
+          {paymentMethod === "checkout" && selectedPlan && brickReady && (
+  <div className="card-brick-box" key={`box-${selectedPlan.code}-${paymentMethod}`}>
     <MercadoPayment
-      key={`${selectedPlan.code}-${selectedPlan.setup}`}
+      key={`payment-${selectedPlan.code}-${selectedPlan.setup}`}
       initialization={{
         amount: Number(selectedPlan.setup || 0),
       }}
@@ -3032,7 +3060,167 @@ function AvailabilityPanel({ profile, setField }) {
     </div>
   );
 }
+function SubscriptionPanel({ profile }) {
+  const planLabels = {
+    free: "Plano Gratuito",
+    store_start: "Loja Start",
+    equipe_pro: "Equipe Pro",
+    complete_pro: "Finance Premium",
+  };
 
+  const planPrices = {
+    free: 0,
+    store_start: 19.9,
+    equipe_pro: 49.9,
+    complete_pro: 59.9,
+  };
+
+  const planCode = profile?.plan_code || "free";
+  const planName = planLabels[planCode] || planCode;
+  const monthlyPrice = planPrices[planCode] || 0;
+
+  const nextPayment = profile?.next_payment_at
+    ? new Date(profile.next_payment_at)
+    : null;
+
+  const graceUntil = profile?.payment_grace_until
+    ? new Date(profile.payment_grace_until)
+    : null;
+
+  const today = new Date();
+
+  const isFree = planCode === "free";
+  const isExpired = nextPayment && nextPayment < today;
+  const inGrace = isExpired && graceUntil && graceUntil > today;
+  const graceEnded = isExpired && graceUntil && graceUntil <= today;
+
+  function formatDate(date) {
+    if (!date) return "Não definido";
+
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+
+  function getStatusText() {
+    if (isFree) return "Plano gratuito ativo";
+    if (graceEnded) return "Prazo de tolerância encerrado";
+    if (inGrace) return "Pagamento em atraso";
+    if (isExpired) return "Pagamento vencido";
+    return "Assinatura ativa";
+  }
+
+  function getStatusClass() {
+    if (isFree) return "free";
+    if (graceEnded) return "danger";
+    if (inGrace || isExpired) return "warning";
+    return "active";
+  }
+
+  return (
+    <div className="dash-panel">
+      <PanelTitle
+        title="Assinatura"
+        text="Acompanhe seu plano atual, próxima renovação e status da sua vitrine."
+      />
+
+      <div className="subscription-grid">
+        <div className="subscription-card main">
+          <span className={`subscription-status ${getStatusClass()}`}>
+            {getStatusText()}
+          </span>
+
+          <h3>{planName}</h3>
+
+          <p>
+            {isFree
+              ? "Você está usando o plano gratuito da plataforma."
+              : `Mensalidade de ${money(monthlyPrice)}.`}
+          </p>
+
+          {!isFree && (
+            <div className="subscription-dates">
+              <div>
+                <span>Próximo pagamento</span>
+                <strong>{formatDate(nextPayment)}</strong>
+              </div>
+
+              <div>
+                <span>Prazo de tolerância</span>
+                <strong>{formatDate(graceUntil)}</strong>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="subscription-card">
+          <span className="card-label">Créditos mensais</span>
+
+          <h3>{profile?.monthly_credits_balance || 0}</h3>
+
+          <p>
+            De {profile?.monthly_credits || 0} créditos disponíveis no ciclo atual.
+          </p>
+        </div>
+
+        <div className="subscription-card">
+          <span className="card-label">Avisos enviados</span>
+
+          <h3>{profile?.billing_notice_count || 0}</h3>
+
+          <p>
+            Último aviso:{" "}
+            {profile?.last_billing_notice_at
+              ? formatDate(new Date(profile.last_billing_notice_at))
+              : "Nenhum aviso enviado"}
+          </p>
+        </div>
+      </div>
+
+      {!isFree && (
+        <div className="subscription-renew-box">
+          <div>
+            <h3>Renovar assinatura</h3>
+            <p>
+              Quando chegar perto do vencimento, você poderá renovar seu plano
+              para manter os recursos liberados.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="finance-primary-button"
+            onClick={() => alert("No próximo passo vamos ligar esse botão ao Pix de renovação.")}
+          >
+            Renovar plano
+          </button>
+        </div>
+      )}
+
+      {isFree && (
+        <div className="subscription-renew-box">
+          <div>
+            <h3>Você está no plano gratuito</h3>
+            <p>
+              Para liberar loja, pedidos, agendamentos, equipe ou financeiro,
+              escolha um plano pago.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="finance-primary-button"
+            onClick={() => alert("Depois vamos mandar esse botão para tela de upgrade.")}
+          >
+            Ver planos
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 function StoreItemsEditor({ profile, setField, uploadImage }) {
   const items = Array.isArray(profile.store_items) ? profile.store_items : [];
   const categories = Array.isArray(profile.store_categories)

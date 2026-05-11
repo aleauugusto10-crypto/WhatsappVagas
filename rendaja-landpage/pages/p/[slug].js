@@ -7,7 +7,7 @@ import Reviews from "../../components/Reviews";
 import StoreSection from "../../components/StoreSection";
 import BookingSection from "../../components/BookingSection";
 import ServicesSection from "../../components/ServicesSection";
-
+import ProfilePlansSection from "../../components/ProfilePlansSection";
 /* =========================
    HELPERS
 ========================= */
@@ -591,8 +591,15 @@ export default function Page({ profile, isPreview }) {
   <Hero profile={safeProfile} />
 
         {normalizedProfile.show_services && (
-          <ServicesSection profile={safeProfile} />
-        )}
+  <ServicesSection profile={safeProfile} />
+)}
+
+{normalizedProfile.show_public_plans === true && (
+  <ProfilePlansSection
+    city={normalizedProfile.cidade}
+    state={normalizedProfile.estado}
+  />
+)}
 {normalizedProfile.show_store && (
   <StoreSection profile={safeProfile} />
 )}

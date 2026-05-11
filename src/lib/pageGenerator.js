@@ -5,6 +5,27 @@ const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const OPENAI_VISION_MODEL = process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini";
+const ALLOWED_SERVICE_EMOJIS = [
+  ...new Set([
+    "⭐","✅","🔥","💼","🛠️","📦","🏠","🚗","📱","💰",
+    "🔧","🔨","🪛","🪚","🧰","⚙️","🔩","🧱","🚧","⚡","💡","🔌","🚿","🚰","🧯","🪠","🧹","🧼","🧽","🪣","🧺","🧴","🧻","🪒","✂️","💈","💅","💄","👗","👔","👞","🧵","🪡","🧶","🧷","🧑‍🍳","🍽️","🥘","🍳","📸","🎥","🎬","🎤","🎧","🎨","🖌️","🖼️","🖥️","💻","🖨️","⌨️","🖱️","📡","📚","🧾","📄","📑","📝",
+    "👷","👷‍♂️","👷‍♀️","🧑‍🔧","👨‍🔧","👩‍🔧","🧑‍🏭","👨‍🏭","👩‍🏭","🧑‍💼","👨‍💼","👩‍💼","🧑‍💻","👨‍💻","👩‍💻","👨‍🍳","👩‍🍳","🧑‍⚕️","👨‍⚕️","👩‍⚕️","🧑‍🏫","👨‍🏫","👩‍🏫","🧑‍⚖️","👨‍⚖️","👩‍⚖️","🧑‍🌾","👨‍🌾","👩‍🌾","🧑‍🎨","👨‍🎨","👩‍🎨","🧑‍✈️","👨‍✈️","👩‍✈️","🧑‍🚒","👨‍🚒","👩‍🚒","🧑‍🔬","👨‍🔬","👩‍🔬","🧑‍🚀","👨‍🚀","👩‍🚀","👮","👮‍♂️","👮‍♀️","🕵️","🕵️‍♂️","🕵️‍♀️","💂","💂‍♂️","💂‍♀️",
+    "🛒","🛍️","🏷️","💳","💵","📫","📬","🚚","🚛","🚐","🏪","🏬","🏢","🏭","🏦","💎","👑","🎁","🎀","🪑","🛋️","🛏️","🪞","🚪","🪟","🧸","👕","👖","👚","🧥","🥼","🦺","👟","👠","👜","🎒","🧢","⌚","💍","🪥",
+    "🏡","🏘️","🏚️","🏗️","🚽","🛁","🪴","🌿","🌱","🌳","🌵","🌷","🌹","🌻","🌼","🍃","💧","🔒","🔑","🗝️","🪜",
+    "🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🛻","🚜","🏍️","🛵","🚲","🛴","🛺","🚂","🚆","🚇","🚊","✈️","🛫","🛬","🚁","🚤","⛵","🛥️","🚢","⚓","⛽","🛞","🚦","🚥","🛣️","🗺️","📍","📌",
+    "🏥","⚕️","🩺","💊","💉","🩹","🩼","🦷","🦴","👁️","👂","🧠","🫀","🫁","🧬","🦠","🧪","🌡️","🧫","😷","🤒","🤕","🤧","🛌","🧘",
+    "🍴","🥄","🔪","🍲","🍛","🍜","🍝","🍕","🍔","🍟","🌭","🥪","🌮","🌯","🥗","🍱","🍣","🍤","🍙","🍚","🍘","🥟","🥠","🥡","🍞","🥐","🥖","🥨","🧀","🥚","🥓","🥩","🍗","🍖","🌽","🥕","🍅","🍎","🍌","🍓","🍇","🍉","🍰","🎂","🧁","☕","🥤",
+    "🤝","👍","👏","🙌","🙏","💪","👋","👌","✌️","🤙","🙂","😄","😁","😊","😍","🤩","😎","🥳","😇","😉","👨","👩","🧑","👴","👵","👦","👧","👶","🧔","👱","👥","🫂","💬","📞","📲","📢","📣","💌","❤️","💙",
+    "☑️","✔️","❌","❎","⚠️","🚨","🔔","🌟","✨","💥","💫","🎯","🏆","🥇","🔎","🔓","🛡️","⚖️","♻️","🔁","🔄","⬆️","⬇️","➡️","⬅️","🔝","🆕","🆗","🆒","🆓","💯",
+    "🌴","🍀","🌾","🌺","🌸","🌞","🌝","🌛","🌈","☁️","⛅","🌧️","⛈️","🌊","❄️","☃️","🌪️","🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐷","🐮","🐔","🐦","🐴","🐝","🦋","🐞","🐟","🐠","🐢","🦜"
+  ])
+];
+
+function safeServiceEmoji(value, fallback = "⭐") {
+  const emoji = String(value || "").trim();
+  return ALLOWED_SERVICE_EMOJIS.includes(emoji) ? emoji : fallback;
+}
 
 function normalizeSlug(value = "") {
   return String(value || "")
@@ -30,7 +51,16 @@ function safeJsonParse(text) {
     }
   }
 }
+function buildReferenceImageContent(referenceImageUrl) {
+  if (!referenceImageUrl) return null;
 
+  return {
+    type: "image_url",
+    image_url: {
+      url: referenceImageUrl,
+    },
+  };
+}
 function cleanText(value = "", fallback = "") {
   const text = String(value || "").trim();
   return text || fallback;
@@ -411,40 +441,61 @@ async function generateAIProfile(user = {}, images = {}) {
     return fallbackProfile(user, images);
   }
 
-  const prompt = `
-Você é uma IA silenciosa do sistema RendaJá Pages.
+  const referenceImageUrl =
+    user.reference_image_url ||
+    user.referenceImageUrl ||
+    images.reference_image_url ||
+    "";
 
-Sua função é criar uma página profissional completa usando poucos dados do usuário.
+  const prompt = `
+Você é uma IA especialista em criação de páginas profissionais, identidade visual, copywriting, SEO local e vitrine comercial.
+
+Sua missão é gerar uma página profissional completa para o CompreTudo.shop Pages.
+
+IMPORTANTE:
+${referenceImageUrl ? `
+- O usuário enviou uma imagem de referência.
+- Analise a imagem para entender cores, estilo, segmento, estética, sensação da marca e identidade visual.
+- Use a imagem como base para criar uma página coerente visualmente.
+- Não descreva a imagem. Apenas use ela como referência.
+` : `
+- O usuário não enviou imagem. Crie uma identidade visual coerente com o ramo informado.
+`}
 
 Dados do usuário:
 ${JSON.stringify(
   {
     nome: user.nome,
     nome_empresa: user.nome_empresa,
-    telefone: user.telefone,
-    tipo: user.tipo,
+    businessName: user.businessName,
+    telefone: user.telefone || user.phone,
     cidade: user.cidade,
     estado: user.estado,
+    ramo_empresa: user.ramo_empresa,
+    workArea: user.workArea,
+    servico_principal: user.servico_principal,
     area_principal: user.area_principal,
     categoria_principal: user.categoria_principal,
-    subcategorias_temp: user.subcategorias_temp,
+    plano: user.plan_code || user.planCode || "free",
   },
   null,
   2
 )}
 
-Crie um JSON puro, sem markdown, com estes campos:
+Retorne SOMENTE JSON válido com estes campos:
 
 {
   "nome": "",
   "slug": "",
   "servico": "",
   "descricao": "",
+
   "primary_color": "",
   "secondary_color": "",
   "accent_color": "",
   "background_color": "",
   "text_color": "",
+
   "hero_bg_color": "",
   "topbar_bg_color": "",
   "hero_overlay_color": "",
@@ -452,23 +503,35 @@ Crie um JSON puro, sem markdown, com estes campos:
   "portfolio_bg_color": "",
   "reviews_bg_color": "",
   "store_bg_color": "",
+  "store_card_bg_color": "",
   "store_text_color": "",
   "services_bg_color": "",
   "services_text_color": "",
   "cta_bg_color": "",
+
+  "font_heading": "",
+  "font_body": "",
+
   "hero_kicker": "",
+  "hero_title": "",
+  "hero_subtitle": "",
+
   "about_title": "",
   "about_text": "",
+
   "services_title": "",
   "services_text": "",
   "services_items": [],
+
   "store_title": "",
   "store_text": "",
   "store_categories": [],
   "store_items": [],
+
   "cta_title": "",
   "cta_text": "",
   "cta_button_text": "",
+
   "seo_title": "",
   "seo_description": "",
   "seo_content": "",
@@ -476,32 +539,55 @@ Crie um JSON puro, sem markdown, com estes campos:
   "seo_tags": []
 }
 
-Regras:
-- Responda somente JSON válido.
+Regras obrigatórias:
+- Responda apenas JSON puro.
 - Use português do Brasil.
-- Pense nas cores como um designer. Não use sempre as mesmas cores para a mesma área.
-- As cores precisam ter contraste bom.
-- Crie 3 serviços em services_items.
-- Crie 1 categoria em store_categories.
-- Crie 2 itens em store_items.
+- O nome deve ser o nome comercial quando existir.
+- O slug deve ser curto, amigável e sem acentos.
+- O serviço não deve conter cidade ou estado.
+- A descrição deve parecer profissional e humana.
+- As cores devem combinar entre si e ter contraste.
+- Se houver imagem, extraia dela uma paleta coerente.
+- Não use sempre verde.
+- Crie uma aparência elegante, moderna e comercial.
+- Crie 3 a 5 serviços em services_items.
+- Cada serviço precisa ter: id, icon, title, description, active.
+- Em services_items.icon, use SOMENTE emoji real.
+- Escolha emojis coerentes com o serviço.
+- Nunca use texto como ícone.
+- Nunca use "cloud", "database", "support", "web", "mobile" ou nomes de ícones.
+- Nunca use SVG, HTML, classes CSS ou nomes de biblioteca de ícones.
 
-- Use emojis nos serviços.
-- Não invente dados sensíveis.
-- Crie seo_title com foco em serviço + cidade + estado + nome + RendaJá.
-- Crie seo_description com até 160 caracteres, natural e vendável.
-- Crie seo_content com 2 parágrafos curtos, naturais, usando serviço, cidade, estado, nome e RendaJá.
-- Crie seo_keywords com 10 a 18 variações úteis de busca local.
-- Crie seo_tags com 6 a 10 tags curtas.
-- Não faça keyword stuffing. As palavras-chave devem parecer naturais.
-- Inclua variações como: serviço em cidade, contratar serviço, profissional em cidade, atendimento em cidade, empresa em cidade, página profissional no RendaJá.
-- Não use imagens no JSON.
-- O slug deve ser curto e amigável.
-- store_items deve ter id, type, title, description, price, price_type, category_id, active, booking_enabled, duration_minutes.
+- Crie 1 a 3 categorias em store_categories.
+- Cada categoria precisa ter: id, name, active.
+- Crie 2 a 4 itens em store_items.
+- Cada item precisa ter:
+  id, type, title, description, price, price_type, category_id, active, booking_enabled, duration_minutes.
 - price_type pode ser "fixed" ou "quote".
-
+- Para planos pagos, pode criar itens mais comerciais.
+- Para plano grátis, mantenha simples e profissional.
+- seo_title deve focar em serviço + cidade + estado + nome.
+- seo_description deve ter até 160 caracteres.
+- seo_content deve ter 2 parágrafos curtos.
+- seo_keywords deve ter 10 a 18 buscas locais naturais.
+- seo_tags deve ter 6 a 10 tags curtas.
+- Não invente endereço, CNPJ, certificados ou promessas falsas.
 `;
 
   try {
+    const userContent = [
+      {
+        type: "text",
+        text: prompt,
+      },
+    ];
+
+    const imageContent = buildReferenceImageContent(referenceImageUrl);
+
+    if (imageContent) {
+      userContent.push(imageContent);
+    }
+
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -509,17 +595,18 @@ Regras:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
-        temperature: 0.9,
+        model: imageContent ? OPENAI_VISION_MODEL : OPENAI_MODEL,
+        temperature: 0.75,
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
             content:
-              "Você gera páginas profissionais completas para pequenos negócios brasileiros. Responda apenas JSON válido.",
+              "Você cria páginas profissionais completas para pequenos negócios brasileiros. Responda somente JSON válido.",
           },
           {
             role: "user",
-            content: prompt,
+            content: userContent,
           },
         ],
       }),
@@ -546,15 +633,25 @@ Regras:
     return fallbackProfile(user, images);
   }
 }
-
 function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
-  const nome = cleanText(ai.nome, user.nome_empresa || user.nome || "Profissional RendaJá");
+  const nome = cleanText(
+  ai.nome,
+  user.nome_empresa ||
+    user.businessName ||
+    user.nome ||
+    "Profissional CompreTudo"
+);
   const slug = normalizeSlug(ai.slug || nome);
   const cidade = cleanText(user.cidade, "");
   const estado = cleanText(user.estado, "");
 const servicoBase = cleanText(
   ai.servico,
-  user.categoria_principal || user.area_principal || "Serviços profissionais"
+  user.workArea ||
+    user.ramo_empresa ||
+    user.servico_principal ||
+    user.categoria_principal ||
+    user.area_principal ||
+    "Serviços profissionais"
 );
 
 const servicoLimpo = removeCidadeDoServico(servicoBase, cidade, estado);
@@ -562,7 +659,10 @@ const safePalette = getSafeHeroPalette(user, ai);
   const servicesItems = Array.isArray(ai.services_items)
     ? ai.services_items.slice(0, 6).map((item, index) => ({
         id: item.id || `service-${index + 1}`,
-        icon: item.icon || "⭐",
+        icon: safeServiceEmoji(
+  item.icon,
+  ALLOWED_SERVICE_EMOJIS[index % ALLOWED_SERVICE_EMOJIS.length]
+),
         title: cleanText(item.title, `Serviço ${index + 1}`),
         description: cleanText(item.description, "Serviço profissional disponível."),
         active: item.active !== false,
@@ -647,11 +747,11 @@ return {
           "Atendimento local",
           "Contato pelo WhatsApp",
         ].filter(Boolean),
-    whatsapp: user.telefone || user.phone || "",
+    whatsapp: user.telefone || user.phone || user.whatsapp || "",
 
-    logo_url: images.logo_url || "",
-    hero_image_url: images.hero_image_url || "",
-    about_image_url: images.about_image_url || "",
+    logo_url: images.logo_url || user.reference_image_url || "",
+hero_image_url: images.hero_image_url || user.reference_image_url || "",
+about_image_url: images.about_image_url || user.reference_image_url || "",
 
     primary_color: safePalette.primary_color,
 secondary_color: safePalette.secondary_color,
@@ -711,7 +811,23 @@ created_by_ai: true,
 }
 
 export async function generateProfilePagePayload(user = {}) {
-  const images = await findImagesForProfile(user);
+  const images = user.reference_image_url
+    ? {
+        logo_url: user.reference_image_url,
+        hero_image_url: user.reference_image_url,
+        about_image_url: user.reference_image_url,
+        reference_image_url: user.reference_image_url,
+        gallery: [
+          {
+            id: "gallery-reference",
+            url: user.reference_image_url,
+            title: "Referência visual da marca",
+            active: true,
+          },
+        ],
+      }
+    : await findImagesForProfile(user);
+
   const aiProfile = await generateAIProfile(user, images);
 
   return normalizeGeneratedProfile(aiProfile, user, images);

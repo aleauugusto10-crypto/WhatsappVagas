@@ -2,14 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/plans/create-payment": "pages/api/plans/create-payment.js",
-  "/api/reviews/admin": "pages/api/reviews/admin.js",
-  "/api/plans/check-payment": "pages/api/plans/check-payment.js",
-  "/api/profiles/search": "pages/api/profiles/search.js",
-  "/dashboard-preview": "pages/dashboard-preview.js",
-  "/api/finance/summary": "pages/api/finance/summary.js",
-  "/api/finance/movements": "pages/api/finance/movements.js",
-  "/api/staff": "pages/api/staff.js",
-  "/api/finance/recurring-expenses": "pages/api/finance/recurring-expenses.js",
-  "/dashboard": "pages/dashboard.js"
+  "/p/[slug]": "pages/p/[slug].js",
+  "/dashboard": "pages/dashboard.js",
+  "/dashboard-preview": "pages/dashboard-preview.js"
 }

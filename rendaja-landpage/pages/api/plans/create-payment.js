@@ -12,8 +12,8 @@ const PUBLIC_BASE_URL =
 
 const PLAN_LABELS = {
   store_start: "Loja Start",
-  equipe_pro: "Financeiro Pro",
-  complete_pro: "Completo Pro",
+  equipe_pro: "Equipe Pro",
+  complete_pro: "Finance Premium",
 };
 
 function getBaseUrl(req) {
@@ -164,8 +164,8 @@ export default async function handler(req, res) {
 
     const TEST_PLAN_VALUES = {
   store_start: 1,
-  equipe_pro: 2,
-  complete_pro: 3,
+  equipe_pro: 2.5,
+  complete_pro: 1.5,
 };
 
 const valor = Number(TEST_PLAN_VALUES[planCode] || plan.setup_price || 0);
