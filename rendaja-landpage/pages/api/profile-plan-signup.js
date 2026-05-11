@@ -169,7 +169,7 @@ affiliate_ref: affiliateRef || null,
   affiliate_code:
     affiliateCode || null,
 
-  commission_percent: 10,
+
 
   source:
     "public_profile_plans_section",

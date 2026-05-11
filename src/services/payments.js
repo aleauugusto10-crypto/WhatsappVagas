@@ -1129,28 +1129,54 @@ export async function createProfileFromPendingSignupPayment(payment) {
 
   return profile;
 }
-
 async function createAffiliateCommissionFromPayment(payment, profile = null) {
   if (!payment?.id) return null;
 
   const md = payment.metadata || {};
   const affiliateCode = String(
-  md.affiliate_ref ||
-  md.affiliate_code ||
-  ""
-).trim();
+    md.affiliate_code || md.affiliate_ref || ""
+  ).trim();
 
-  if (!affiliateCode) {
+  if (!affiliateCode) return null;
+
+  const { data: staffMember, error: staffError } = await supabase
+    .from("profile_staff")
+    .select("*")
+    .eq("affiliate_code", affiliateCode)
+    .maybeSingle();
+
+  if (staffError || !staffMember) {
+    console.error("❌ funcionário afiliado não encontrado:", {
+      affiliateCode,
+      staffError,
+    });
     return null;
   }
 
   const saleAmount = Number(payment.valor || 0);
-  const commissionPercent = Number(md.commission_percent || 10);
-  const commissionAmount = Number(
-    ((saleAmount * commissionPercent) / 100).toFixed(2)
-  );
+  const commissionType = staffMember.commission_type || "none";
+  const commissionValue = Number(staffMember.commission_value || 0);
 
-  if (!saleAmount || saleAmount <= 0 || !commissionAmount) {
+  let commissionAmount = 0;
+
+  if (commissionType === "percent") {
+    commissionAmount = (saleAmount * commissionValue) / 100;
+  }
+
+  if (commissionType === "fixed") {
+    commissionAmount = commissionValue;
+  }
+
+  commissionAmount = Number(commissionAmount.toFixed(2));
+
+  if (!saleAmount || saleAmount <= 0 || commissionAmount <= 0) {
+    console.log("ℹ️ comissão ignorada:", {
+      affiliateCode,
+      saleAmount,
+      commissionType,
+      commissionValue,
+      commissionAmount,
+    });
     return null;
   }
 
@@ -1162,34 +1188,25 @@ async function createAffiliateCommissionFromPayment(payment, profile = null) {
         affiliate_user_id: null,
 
         payment_id: payment.id,
-        profile_page_id:
-          profile?.id ||
-          md.profile_page_id ||
-          null,
+        profile_page_id: profile?.id || md.profile_page_id || null,
 
-        buyer_user_id:
-          payment.usuario_id ||
-          md.usuario_id ||
-          null,
+        buyer_user_id: payment.usuario_id || md.usuario_id || null,
 
-        plan_code:
-          md.plan_code ||
-          payment.plano_codigo ||
-          "store_start",
+        plan_code: md.plan_code || payment.plano_codigo || "store_start",
 
         sale_amount: saleAmount,
-        commission_percent: commissionPercent,
+        commission_percent:
+          commissionType === "percent" ? commissionValue : 0,
         commission_amount: commissionAmount,
 
         status: "pending",
 
         metadata: {
           source: "profile_plan_sale",
-          payment_reference: payment.referencia_tipo,
-          profile_slug:
-            profile?.slug ||
-            md.profile_slug ||
-            null,
+          staff_id: staffMember.id,
+          commission_type: commissionType,
+          commission_value: commissionValue,
+          profile_slug: profile?.slug || md.profile_slug || null,
         },
       },
       {
@@ -1204,32 +1221,32 @@ async function createAffiliateCommissionFromPayment(payment, profile = null) {
     return null;
   }
 
-  console.log("✅ comissão de afiliado criada:", {
-    affiliateCode,
-    payment_id: payment.id,
-    commissionAmount,
-  });
-const { data: staff } = await supabase
-  .from("profile_staff")
-  .select("*")
-  .eq("affiliate_code", affiliateCode)
-  .maybeSingle();
+  const novoValor =
+    Number(staffMember.pending_commission_amount || 0) + commissionAmount;
 
-if (staff) {
-  const current = Number(
-    staff.pending_commission_amount || 0
-  );
-
-  await supabase
+  const { error: updateStaffError } = await supabase
     .from("profile_staff")
     .update({
-      pending_commission_amount:
-        current + commissionAmount,
+      pending_commission_amount: Number(novoValor.toFixed(2)),
+      updated_at: new Date().toISOString(),
     })
-    .eq("id", staff.id);
+    .eq("id", staffMember.id);
 
-  console.log("💰 comissão somada no funcionário");
-}
+  if (updateStaffError) {
+    console.error("❌ comissão criada, mas não somou no funcionário:", updateStaffError);
+    return data;
+  }
+
+  console.log("💰 comissão somada no funcionário:", {
+    affiliateCode,
+    staffId: staffMember.id,
+    saleAmount,
+    commissionType,
+    commissionValue,
+    commissionAmount,
+    novoValor,
+  });
+
   return data;
 }
 export async function processApprovedMercadoPagoPayment(mpPaymentId) {
