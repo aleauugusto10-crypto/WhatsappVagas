@@ -12,7 +12,7 @@ const PUBLIC_BASE_URL =
 
 const PLAN_LABELS = {
   store_start: "Loja Start",
-  finance_pro: "Financeiro Pro",
+  equipe_pro: "Financeiro Pro",
   complete_pro: "Completo Pro",
 };
 
@@ -164,7 +164,7 @@ export default async function handler(req, res) {
 
     const TEST_PLAN_VALUES = {
   store_start: 1,
-  finance_pro: 2,
+  equipe_pro: 2,
   complete_pro: 3,
 };
 

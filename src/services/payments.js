@@ -462,11 +462,11 @@ export async function activateProfilePlanFromPayment(payment) {
   }
 
   const planCredits = {
-    store_start: 30,
-    finance_pro: 100,
-    complete_pro: 250,
-  };
-
+  store_start: 30,
+ 
+  equipe_pro: 100,
+  complete_pro: 250,
+};
   const credits = planCredits[finalPlanCode] || 0;
 
   const now = new Date();

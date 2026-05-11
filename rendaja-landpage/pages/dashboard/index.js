@@ -13,12 +13,14 @@ import FinancePanel from "../../components/dashboard/FinancePanel";
 import { getProfileStaff } from "../../src/modules/staff/staffService";
 import PrintShopSection from "../../components/dashboard/printshop/PrintShopSection";
 
+
+import { QRCodeCanvas } from "qrcode.react";
 import dynamic from "next/dynamic";
+
 const MercadoPayment = dynamic(
   () => import("@mercadopago/sdk-react").then((mod) => mod.Payment),
   { ssr: false }
 );
-import { QRCodeCanvas } from "qrcode.react";
 function money(value = 0) {
 
   return Number(value || 0).toLocaleString("pt-BR", {
@@ -184,13 +186,13 @@ function getProfileFeatures(profile) {
       bookings: true,
     },
 
-    finance_pro: {
-      ...DEFAULT_PLAN_FEATURES,
-      store: true,
-      orders: true,
-      bookings: true,
-      finance: true,
-    },
+equipe_pro: {
+  ...DEFAULT_PLAN_FEATURES,
+  store: true,
+  orders: true,
+  bookings: true,
+  staff: true,
+},
 
     complete_pro: {
       ...DEFAULT_PLAN_FEATURES,
@@ -210,7 +212,12 @@ function getProfileFeatures(profile) {
 
 function canAccessMenu(profile, menuId) {
   const planCode = profile?.plan_code || "free";
-  const status = profile?.subscription_status || profile?.plan_status || "free";
+
+  const active =
+    profile?.plan_status === "active" ||
+    profile?.plan_status === "trial" ||
+    profile?.subscription_status === "active" ||
+    profile?.subscription_status === "trial";
 
   if (
     menuId === "overview" ||
@@ -222,16 +229,14 @@ function canAccessMenu(profile, menuId) {
     return true;
   }
 
-  const active = status === "active" || status === "trial";
-
   if (!active) return false;
 
   if (planCode === "store_start") {
     return ["store", "orders", "bookings"].includes(menuId);
   }
 
-  if (planCode === "finance_pro") {
-    return ["store", "orders", "bookings", "finance"].includes(menuId);
+  if (planCode === "equipe_pro" || planCode === "equipe_pro") {
+    return ["store", "orders", "bookings", "staff"].includes(menuId);
   }
 
   if (planCode === "complete_pro") {
@@ -383,19 +388,25 @@ async function loadProfile() {
       planData = plan;
     }
   }
+const mergedProfile = {
+  ...DEFAULT_PROFILE,
+  ...data,
+};
 
-  const profileWithPlan = {
-    ...DEFAULT_PROFILE,
-    ...data,
-    plan_name: planData?.name || "Plano Gratuito",
-    plan_features:
-  typeof planData?.features === "string"
-    ? JSON.parse(planData.features)
-    : planData?.features || DEFAULT_PLAN_FEATURES,
-    plan_setup_price: planData?.setup_price || 0,
-    plan_monthly_price: planData?.monthly_price || 0,
-    plan_monthly_credits: planData?.monthly_credits || 0,
-  };
+const fallbackFeatures = getProfileFeatures(mergedProfile);
+
+const profileWithPlan = {
+  ...mergedProfile,
+  plan_name: planData?.name || mergedProfile.plan_code || "Plano Gratuito",
+  plan_features:
+    typeof planData?.features === "string"
+      ? JSON.parse(planData.features)
+      : planData?.features || fallbackFeatures,
+  plan_setup_price: planData?.setup_price || 0,
+  plan_monthly_price: planData?.monthly_price || 0,
+  plan_monthly_credits:
+    planData?.monthly_credits || mergedProfile.monthly_credits || 0,
+};
 console.log("🧠 PLAN DATA:", planData);
 console.log("🧠 FEATURES:", planData?.features);
   setProfile(profileWithPlan);
@@ -884,7 +895,10 @@ const [cardError, setCardError] = useState("");
 ],
     },
   };
-
+const currentPlanCode = profile?.plan_code || "free";
+const currentPlanActive =
+  profile?.plan_status === "active" ||
+  profile?.subscription_status === "active";
   function openPlan(planCode) {
     setSelectedPlan(plans[planCode]);
     setPayment(null);
@@ -1003,6 +1017,14 @@ async function processCardPayment({ formData }) {
     }
 
     setCardResult(data);
+
+    if (data.approved) {
+      setPaymentConfirmed(true);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1800);
+    }
   } catch (err) {
     console.error("Erro no cartão:", err);
     setCardError("Erro ao processar cartão.");
@@ -1029,14 +1051,23 @@ async function processCardPayment({ formData }) {
                 <li key={item}>✅ {item}</li>
               ))}
             </ul>
-
-            <button
-              type="button"
-              className="finance-primary-button"
-              onClick={() => openPlan(plan.code)}
-            >
-              Ver plano
-            </button>
+{currentPlanActive && currentPlanCode === plan.code ? (
+  <button
+    type="button"
+    className="finance-primary-button active-plan"
+    disabled
+  >
+    Plano atual ✅
+  </button>
+) : (
+  <button
+    type="button"
+    className="finance-primary-button"
+    onClick={() => openPlan(plan.code)}
+  >
+    Ver plano
+  </button>
+)}
           </div>
         ))}
       </div>
@@ -1106,61 +1137,60 @@ async function processCardPayment({ formData }) {
           </div>
 
           {paymentMethod === "checkout" && selectedPlan && (
-            <div className="card-brick-box">
-              <MercadoPayment
-  key={selectedPlan.code}
-  initialization={{
-    amount: Number(selectedPlan.setup || 0),
-  }}
-  customization={{
-  paymentMethods: {
-    creditCard: "all",
-    debitCard: "all",
-  },
-}}
-  onSubmit={async ({ formData }) => {
-    await processCardPayment({ formData });
-  }}
-  onReady={() => {
-    console.log("✅ Payment Brick pronto");
-  }}
-  onError={(error) => {
-    console.error("❌ Payment Brick erro completo:", error);
-    setCardError(
-      error?.message ||
-        error?.cause?.[0]?.description ||
-        "Erro ao carregar pagamento com cartão."
-    );
-  }}
-/>
+  <div className="card-brick-box">
+    <MercadoPayment
+      key={`${selectedPlan.code}-${selectedPlan.setup}`}
+      initialization={{
+        amount: Number(selectedPlan.setup || 0),
+      }}
+      customization={{
+        paymentMethods: {
+          creditCard: "all",
+          debitCard: "all",
+        },
+      }}
+      onSubmit={async ({ formData }) => {
+        await processCardPayment({ formData });
+      }}
+      onReady={() => {
+        console.log("✅ Payment Brick pronto");
+      }}
+      onError={(error) => {
+        console.error("❌ Payment Brick erro completo:", error);
+        setCardError(
+          error?.message ||
+            error?.cause?.[0]?.description ||
+            "Erro ao carregar pagamento com cartão."
+        );
+      }}
+    />
 
-              {loadingPayment && (
-                <p className="dashboard-note">Processando pagamento...</p>
-              )}
+    {loadingPayment && (
+      <p className="dashboard-note">Processando pagamento...</p>
+    )}
 
-              {cardError && (
-                <div className="card-payment-error">{cardError}</div>
-              )}
+    {cardError && (
+      <div className="card-payment-error">{cardError}</div>
+    )}
 
-              {cardResult?.approved && (
-                <div className="card-payment-success">
-                  <strong>Pagamento aprovado ✅</strong>
-                  <p>Seu plano foi ativado com sucesso.</p>
-                </div>
-              )}
+    {cardResult?.approved && (
+      <div className="card-payment-success">
+        <strong>Pagamento aprovado ✅</strong>
+        <p>Seu plano foi ativado com sucesso.</p>
+      </div>
+    )}
 
-              {cardResult && !cardResult.approved && (
-                <div className="card-payment-error">
-                  <strong>Pagamento não aprovado</strong>
-                  <p>
-                    {cardResult.message ||
-                      "O Mercado Pago não aprovou esse pagamento."}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
+    {cardResult && !cardResult.approved && (
+      <div className="card-payment-error">
+        <strong>Pagamento não aprovado</strong>
+        <p>
+          {cardResult.message ||
+            "O Mercado Pago não aprovou esse pagamento."}
+        </p>
+      </div>
+    )}
+  </div>
+)}
           {paymentMethod === "pix" && (
             <>
               <div className="pix-owner-notice">
@@ -2506,13 +2536,15 @@ function SectionsEditor({ profile, setField, uploadImage }) {
   ]);
 }
 const planCode = profile?.plan_code || "free";
-const status = profile?.subscription_status || profile?.plan_status || "free";
-
-const planIsActive = status === "active" || status === "trial";
+const planIsActive =
+  profile?.plan_status === "active" ||
+  profile?.plan_status === "trial" ||
+  profile?.subscription_status === "active" ||
+  profile?.subscription_status === "trial";
 
 const storeLocked =
   !planIsActive ||
-  !["store_start", "finance_pro", "complete_pro"].includes(planCode);
+  !["store_start", "equipe_pro", "complete_pro"].includes(planCode);
   return (
     <div className="overview-stack">
       <SectionTitle

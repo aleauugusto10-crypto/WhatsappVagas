@@ -3,5 +3,8 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/dashboard": "pages/dashboard.js",
+  "/api/plans/create-payment": "pages/api/plans/create-payment.js",
+  "/api/plans/check-payment": "pages/api/plans/check-payment.js",
+  "/api/reviews/admin": "pages/api/reviews/admin.js",
   "/dashboard-preview": "pages/dashboard-preview.js"
 }

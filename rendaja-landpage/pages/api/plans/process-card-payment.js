@@ -5,13 +5,13 @@ const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
 const PLAN_LABELS = {
   store_start: "Loja Start",
-  finance_pro: "Financeiro Pro",
+  equipe_pro: "Financeiro Pro",
   complete_pro: "Completo Pro",
 };
 
 const PLAN_CREDITS = {
   store_start: 30,
-  finance_pro: 100,
+  equipe_pro: 100,
   complete_pro: 250,
 };
 
