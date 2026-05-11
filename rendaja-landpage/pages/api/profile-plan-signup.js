@@ -19,9 +19,18 @@ function normalizeSlug(value = "") {
     .slice(0, 55);
 }
 
-function uniqueSlug(base = "") {
+async function uniqueSlug(base = "") {
   const clean = normalizeSlug(base || "minha-vitrine");
-  return `${clean}-${Date.now().toString().slice(-5)}`;
+
+  const { data: existing } = await supabase
+    .from("profiles_pages")
+    .select("id")
+    .eq("slug", clean)
+    .maybeSingle();
+
+  if (!existing) return clean;
+
+  return `${clean}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
 const PLAN_PRICES = {
@@ -130,9 +139,9 @@ export default async function handler(req, res) {
       planCode,
     });
 
-    const finalSlug = uniqueSlug(
-      aiPayload.slug || `${businessName}-${city || ""}-${state || ""}`
-    );
+    const finalSlug = await uniqueSlug(
+  `${businessName}-${finalBusinessType}-${city || ""}-${state || ""}`
+);
 
     const profilePayload = {
       ...aiPayload,

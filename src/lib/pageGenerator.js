@@ -560,14 +560,17 @@ Regras obrigatórias:
 - As cores de texto das seções devem ser sempre escuras/preta.
 - Use text_color, store_text_color e services_text_color como "#07111f".
 - Nunca use texto claro em fundo claro.
-- Crie 1 a 3 categorias em store_categories.
-- Cada categoria precisa ter: id, name, active.
-- Crie 2 a 4 itens em store_items.
-- Cada item precisa ter:
-  id, type, title, description, price, price_type, category_id, active, booking_enabled, duration_minutes.
-- price_type pode ser "fixed" ou "quote".
-- Para planos pagos, pode criar itens mais comerciais.
-- Para plano grátis, mantenha simples e profissional.
+- text_color, store_text_color e services_text_color devem ser sempre "#07111f".
+- portfolio_bg_color, reviews_bg_color, services_bg_color, about_bg_color e store_bg_color devem ser fundos claros, preferencialmente "#ffffff" ou "#f7f3ed".
+- Nunca use texto branco em seção clara.
+- Nunca use galeria com fundo branco e texto branco.
+- NÃO crie produtos, serviços de loja, ofertas, pacotes ou exemplos comerciais em store_items.
+- store_categories deve ser sempre [].
+- store_items deve ser sempre [].
+- A loja será preenchida manualmente depois pelo usuário no Dashboard.
+- Não invente nenhum produto, serviço vendável, preço, pacote ou oferta para a loja.
+- Para plano grátis, mantenha a página simples, profissional e institucional.
+- Para planos pagos, também não crie itens de loja automaticamente.
 - seo_title deve focar em serviço + cidade + estado + nome.
 - seo_description deve ter até 160 caracteres.
 - seo_content deve ter 2 parágrafos curtos.
@@ -635,144 +638,155 @@ Regras obrigatórias:
     return fallbackProfile(user, images);
   }
 }
+
+
 function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
   const nome = cleanText(
-  ai.nome,
-  user.nome_empresa ||
-    user.businessName ||
-    user.nome ||
-    "Profissional CompreTudo"
-);
+    ai.nome,
+    user.nome_empresa ||
+      user.businessName ||
+      user.nome ||
+      "Profissional CompreTudo"
+  );
+
   const slug = normalizeSlug(ai.slug || nome);
   const cidade = cleanText(user.cidade, "");
   const estado = cleanText(user.estado, "");
-const servicoBase = cleanText(
-  ai.servico,
-  user.workArea ||
-    user.ramo_empresa ||
-    user.servico_principal ||
-    user.categoria_principal ||
-    user.area_principal ||
-    "Serviços profissionais"
-);
 
-const servicoLimpo = removeCidadeDoServico(servicoBase, cidade, estado);
-const safePalette = getSafeHeroPalette(user, ai);
+  const servicoBase = cleanText(
+    ai.servico,
+    user.workArea ||
+      user.ramo_empresa ||
+      user.servico_principal ||
+      user.categoria_principal ||
+      user.area_principal ||
+      "Serviços profissionais"
+  );
+
+  const servicoLimpo = removeCidadeDoServico(servicoBase, cidade, estado);
+  const safePalette = getSafeHeroPalette(user, ai);
+  const fallback = fallbackProfile(user, images);
+
   const servicesItems = Array.isArray(ai.services_items)
     ? ai.services_items.slice(0, 6).map((item, index) => ({
         id: item.id || `service-${index + 1}`,
         icon: safeServiceEmoji(
-  item.icon,
-  ALLOWED_SERVICE_EMOJIS[index % ALLOWED_SERVICE_EMOJIS.length]
-),
+          item.icon,
+          ALLOWED_SERVICE_EMOJIS[index % ALLOWED_SERVICE_EMOJIS.length]
+        ),
         title: cleanText(item.title, `Serviço ${index + 1}`),
-        description: cleanText(item.description, "Serviço profissional disponível."),
+        description: cleanText(
+          item.description,
+          "Serviço profissional disponível."
+        ),
         active: item.active !== false,
       }))
-    : fallbackProfile(user, images).services_items;
+    : fallback.services_items;
 
-  const storeCategories = Array.isArray(ai.store_categories) && ai.store_categories.length
-    ? ai.store_categories.map((cat, index) => ({
-        id: cat.id || `category-${index + 1}`,
-        name: cleanText(cat.name, "Serviços"),
-        active: cat.active !== false,
-      }))
-    : [{ id: "category-1", name: "Serviços", active: true }];
-
-  const firstCategoryId = storeCategories[0]?.id || "category-1";
-
-  const storeItems = Array.isArray(ai.store_items)
-    ? ai.store_items.slice(0, 6).map((item, index) => ({
-        id: item.id || `item-${index + 1}`,
-        type: item.type === "product" ? "product" : "service",
-        title: cleanText(item.title, `Item ${index + 1}`),
-        description: cleanText(item.description, "Solicite mais informações pelo WhatsApp."),
-        price: Number(item.price || 0),
-        price_type: item.price_type === "fixed" ? "fixed" : "quote",
-        category_id: item.category_id || firstCategoryId,
-        active: item.active !== false,
-        booking_enabled: item.booking_enabled === true,
-        duration_minutes: Number(item.duration_minutes || 60),
-        image_url: "",
-      }))
-    : fallbackProfile(user, images).store_items;
+  const storeCategories = [];
+  const storeItems = [];
 
   const previewExpiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-return {
-  user_id: user.id,
+  return {
+    user_id: user.id,
 
-  is_active: false,
-  is_preview: true,
-  preview_expires_at: previewExpiresAt,
-  activated_at: null,
+    is_active: false,
+    is_preview: true,
+    preview_expires_at: previewExpiresAt,
+    activated_at: null,
 
     slug,
     nome,
     servico: servicoLimpo,
     cidade,
     estado,
-    descricao: cleanText(ai.descricao, fallbackProfile(user, images).descricao),
-        seo_title: cleanText(
+
+    descricao: cleanText(ai.descricao, fallback.descricao),
+
+    seo_title: cleanText(
       ai.seo_title,
-      `${cleanText(ai.servico, user.categoria_principal || user.area_principal || "Profissional")} em ${cidade}${estado ? `-${estado}` : ""} | ${nome} | RendaJá`
+      `${servicoLimpo} em ${cidade}${estado ? `-${estado}` : ""} | ${nome} | CompreTudo`
     ),
 
     seo_description: cleanText(
       ai.seo_description,
-      `${nome} atende como ${cleanText(ai.servico, user.categoria_principal || user.area_principal || "profissional")} em ${cidade}${estado ? `-${estado}` : ""}. Veja serviços e fale pelo WhatsApp.`
+      `${nome} atende como ${servicoLimpo} em ${cidade}${estado ? `-${estado}` : ""}. Veja serviços e fale pelo WhatsApp.`
     ),
 
     seo_content: cleanText(
       ai.seo_content,
-      `${nome} está disponível no RendaJá como ${cleanText(ai.servico, user.categoria_principal || user.area_principal || "profissional")} em ${cidade}${estado ? `-${estado}` : ""}. Nesta página você encontra informações sobre atendimento, serviços, fotos, avaliações e contato direto pelo WhatsApp.`
+      `${nome} está disponível no CompreTudo como ${servicoLimpo} em ${cidade}${estado ? `-${estado}` : ""}. Nesta página você encontra informações sobre atendimento, serviços, fotos, avaliações e contato direto pelo WhatsApp.`
     ),
 
     seo_keywords: Array.isArray(ai.seo_keywords)
-      ? ai.seo_keywords.slice(0, 20).map((item) => cleanText(item)).filter(Boolean)
+      ? ai.seo_keywords
+          .slice(0, 20)
+          .map((item) => cleanText(item))
+          .filter(Boolean)
       : [
-          `${cleanText(ai.servico, user.categoria_principal || user.area_principal || "profissional")} em ${cidade}${estado ? `-${estado}` : ""}`,
-          `${cleanText(ai.servico, user.categoria_principal || user.area_principal || "profissional")} ${cidade}`,
+          `${servicoLimpo} em ${cidade}${estado ? `-${estado}` : ""}`,
+          `${servicoLimpo} ${cidade}`,
           `profissional em ${cidade}`,
           `serviços em ${cidade}`,
           `${nome} em ${cidade}`,
-          `perfil profissional no RendaJá`,
+          `perfil profissional no CompreTudo`,
         ],
 
     seo_tags: Array.isArray(ai.seo_tags)
-      ? ai.seo_tags.slice(0, 12).map((item) => cleanText(item)).filter(Boolean)
+      ? ai.seo_tags
+          .slice(0, 12)
+          .map((item) => cleanText(item))
+          .filter(Boolean)
       : [
-          cleanText(ai.servico, user.categoria_principal || user.area_principal || "Profissional"),
+          servicoLimpo,
           cidade,
           estado,
           "Perfil profissional",
           "Atendimento local",
           "Contato pelo WhatsApp",
         ].filter(Boolean),
+
     whatsapp: user.telefone || user.phone || user.whatsapp || "",
 
     logo_url: images.logo_url || user.reference_image_url || "",
-hero_image_url: images.hero_image_url || user.reference_image_url || "",
-about_image_url: images.about_image_url || user.reference_image_url || "",
+    hero_image_url: images.hero_image_url || user.reference_image_url || "",
+    about_image_url: images.about_image_url || user.reference_image_url || "",
 
     primary_color: safePalette.primary_color,
-secondary_color: safePalette.secondary_color,
-accent_color: safePalette.accent_color,
-    background_color: cleanText(ai.background_color, "#f7f3ed"),
+    secondary_color: safePalette.secondary_color,
+    accent_color: safePalette.accent_color,
+
+    background_color: "#ffffff",
     text_color: "#07111f",
 
-    
-    hero_bg_color: cleanText(ai.hero_bg_color, ai.secondary_color || "#06111d"),
-topbar_bg_color: cleanText(ai.topbar_bg_color, ai.secondary_color || "#06111d"),
-hero_overlay_color: cleanText(ai.hero_overlay_color, ai.hero_bg_color || "#06111d"),
-    about_bg_color: cleanText(ai.about_bg_color, ai.background_color || "#f7f3ed"),
-    portfolio_bg_color: cleanText(ai.portfolio_bg_color, ai.secondary_color || "#06111d"),
-    reviews_bg_color: cleanText(ai.reviews_bg_color, ai.background_color || "#f7f3ed"),
-    store_bg_color: cleanText(ai.store_bg_color, "#ffffff"),
+    hero_bg_color: cleanText(
+      ai.hero_bg_color,
+      safePalette.hero_bg_color || "#06111d"
+    ),
+    topbar_bg_color: cleanText(
+      ai.topbar_bg_color,
+      safePalette.topbar_bg_color || "#06111d"
+    ),
+    hero_overlay_color: cleanText(
+      ai.hero_overlay_color,
+      safePalette.hero_overlay_color || "rgba(6, 17, 29, 0.74)"
+    ),
+
+    about_bg_color: "#ffffff",
+    portfolio_bg_color: "#ffffff",
+    reviews_bg_color: "#ffffff",
+    store_bg_color: "#ffffff",
+    store_card_bg_color: "#ffffff",
+
     store_text_color: "#07111f",
-services_text_color: "#07111f",
-    services_text_color: cleanText(ai.services_text_color, ai.text_color || "#07111f"),
-    cta_bg_color: cleanText(ai.cta_bg_color, ai.primary_color || "#d9a84e"),
+    services_bg_color: "#ffffff",
+    services_text_color: "#07111f",
+
+    cta_bg_color: cleanText(
+      ai.cta_bg_color,
+      safePalette.primary_color || "#d9a84e"
+    ),
 
     show_about: true,
     show_services: true,
@@ -782,33 +796,47 @@ services_text_color: "#07111f",
     show_booking: false,
     show_final_cta: true,
 
-    font_heading: "Georgia",
-    font_body: "Inter",
+    font_heading: cleanText(ai.font_heading, "Georgia"),
+    font_body: cleanText(ai.font_body, "Inter"),
 
-    hero_kicker: cleanText(ai.hero_kicker, "Atendimento profissional com confiança"),
+    hero_kicker: cleanText(
+      ai.hero_kicker,
+      "Atendimento profissional com confiança"
+    ),
+    hero_title: cleanText(ai.hero_title, nome),
+    hero_subtitle: cleanText(ai.hero_subtitle, fallback.descricao),
 
     about_title: cleanText(ai.about_title, "Sobre meu trabalho"),
-    about_text: cleanText(ai.about_text, fallbackProfile(user, images).about_text),
+    about_text: cleanText(ai.about_text, fallback.about_text),
 
     services_title: cleanText(ai.services_title, "Serviços"),
-    services_text: cleanText(ai.services_text, "Conheça as principais soluções disponíveis."),
+    services_text: cleanText(
+      ai.services_text,
+      "Conheça as principais soluções disponíveis."
+    ),
     services_items: servicesItems,
 
     gallery: Array.isArray(images.gallery) ? images.gallery : [],
 
-    store_title: cleanText(ai.store_title, "Escolha o que você precisa"),
-    store_text: cleanText(ai.store_text, "Veja as opções disponíveis e solicite direto pelo WhatsApp."),
+    store_title: cleanText(ai.store_title, "Loja"),
+    store_text: cleanText(
+      ai.store_text,
+      "Os produtos e ofertas serão cadastrados pelo proprietário no painel."
+    ),
     store_categories: storeCategories,
     store_items: storeItems,
 
     cta_title: cleanText(ai.cta_title, "Pronto para contratar com confiança?"),
-    cta_text: cleanText(ai.cta_text, "Fale comigo agora pelo WhatsApp e solicite seu orçamento."),
+    cta_text: cleanText(
+      ai.cta_text,
+      "Fale comigo agora pelo WhatsApp e solicite seu orçamento."
+    ),
     cta_button_text: cleanText(ai.cta_button_text, "Falar agora"),
     cta_action_type: "whatsapp",
     cta_custom_link: "",
 
     updated_at: new Date().toISOString(),
-created_by_ai: true,
+    created_by_ai: true,
   };
 }
 
@@ -819,13 +847,7 @@ export async function generateProfilePagePayload(user = {}) {
 
 const images =
   isFreePlan
-    ? {
-        logo_url: "",
-        hero_image_url: "",
-        about_image_url: "",
-        reference_image_url: "",
-        gallery: [],
-      }
+    ? await findImagesForProfile(user)
     : user.reference_image_url
     ? {
         logo_url: user.reference_image_url,
