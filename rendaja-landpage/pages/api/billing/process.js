@@ -1,4 +1,4 @@
-import { processBillingCycle } from "../../../src/services/billing.js";
+import { processBillingCycle } from "../../../../src/services/billing";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

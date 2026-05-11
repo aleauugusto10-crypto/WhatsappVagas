@@ -6,6 +6,18 @@ import { PRINT_CATEGORIES, PRINT_PRODUCTS } from "./printProducts";
 import { useEffect } from "react";
 import { getAiGeneratedAssets } from "../../../src/lib/aiCredits";
 export default function PrintShopSection({ profile }) {
+    return (
+    <section className="printshop-section">
+      <div className="coming-box">
+        <strong>🚧 Gráfica CompreTudo em breve</strong>
+        <p>
+          Estamos preparando a área de gráfica, criação de artes, logomarcas,
+          cartões, banners e materiais profissionais.
+        </p>
+        <small>Essa funcionalidade será liberada em uma próxima atualização.</small>
+      </div>
+    </section>
+  );
   const [selectedCategory, setSelectedCategory] = useState("logo");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [assets, setAssets] = useState([]);
