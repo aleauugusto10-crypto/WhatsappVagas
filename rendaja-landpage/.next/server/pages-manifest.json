@@ -3,10 +3,8 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/p/[slug]": "pages/p/[slug].js",
-  "/api/plans/check-payment": "pages/api/plans/check-payment.js",
+  "/api/staff": "pages/api/staff.js",
   "/api/reviews/admin": "pages/api/reviews/admin.js",
   "/dashboard-preview": "pages/dashboard-preview.js",
-  "/api/staff": "pages/api/staff.js",
-  "/api/reviews/[profileId]": "pages/api/reviews/[profileId].js",
   "/dashboard": "pages/dashboard.js"
 }

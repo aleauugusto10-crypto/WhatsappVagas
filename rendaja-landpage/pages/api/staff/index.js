@@ -126,29 +126,44 @@ export default async function handler(req, res) {
       if (commissionError) throw commissionError;
 
       const enrichedStaff = staffList.map((staff) => {
-        const lastPaidAt = staff.last_commission_payment_at
-          ? new Date(staff.last_commission_payment_at)
-          : null;
+  const lastPaidAt = staff.last_commission_payment_at
+    ? new Date(staff.last_commission_payment_at)
+    : null;
 
-        const pendingCommission = (commissions || [])
-          .filter((movement) => {
-            if (String(movement.commission_to_staff_id) !== String(staff.id)) {
-              return false;
-            }
+  // Comissão antiga/da loja registrada no financeiro
+  const financePendingCommission = (commissions || [])
+    .filter((movement) => {
+      if (String(movement.commission_to_staff_id) !== String(staff.id)) {
+        return false;
+      }
 
-            if (lastPaidAt && new Date(movement.created_at) <= lastPaidAt) {
-              return false;
-            }
+      if (lastPaidAt && new Date(movement.created_at) <= lastPaidAt) {
+        return false;
+      }
 
-            return true;
-          })
-          .reduce((acc, movement) => acc + Number(movement.commission_amount || 0), 0);
+      return true;
+    })
+    .reduce(
+      (acc, movement) => acc + Number(movement.commission_amount || 0),
+      0
+    );
 
-        return {
-          ...staff,
-          pending_commission_amount: pendingCommission,
-        };
-      });
+  // Comissão nova dos planos/vitrine salva direto no funcionário
+  const directPendingCommission = Number(
+    staff.pending_commission_amount || 0
+  );
+
+  return {
+    ...staff,
+
+    // Mostra as duas somadas sem quebrar a lógica antiga da loja
+    pending_commission_amount:
+      directPendingCommission + financePendingCommission,
+
+    pending_commission_from_plans: directPendingCommission,
+    pending_commission_from_store: financePendingCommission,
+  };
+});
 
       return res.status(200).json(enrichedStaff);
     }

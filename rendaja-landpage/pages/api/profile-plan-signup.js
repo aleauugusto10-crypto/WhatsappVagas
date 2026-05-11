@@ -20,9 +20,9 @@ function cleanPhone(phone = "") {
 
 const PLAN_PRICES = {
   free: 0,
-  store_start: 1,
-  equipe_pro: 2,
-  complete_pro: 3,
+  store_start: 50,
+  equipe_pro: 150,
+  complete_pro: 350,
 };
 
 const PLAN_LABELS = {
