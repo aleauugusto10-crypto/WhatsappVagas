@@ -1,5 +1,5 @@
-import { supabase } from "../supabase.js";
-import { sendText } from "../services/whatsapp.js";
+import { supabase } from "../../../src/supabase.js";
+import { sendText } from "../../../src/services/whatsapp.js";
 
 const PLAN_MONTHLY_PRICE = {
   store_start: 19.9,

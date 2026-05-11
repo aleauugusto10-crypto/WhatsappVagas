@@ -107,7 +107,7 @@ export default function ShoppingTopbar({ location, onLocationChange }) {
 </a>
 
         <a
-          href="https://wa.me/5579998192216?text=Oi%20%20Vi%20as%20vitrines%20do%20RendaJá%20e%20quero%20colocar%20meu%20negócio%20aqui%20também."
+          href="https://compretudo.shop/p/compretudo-shop-itabaiana-se"
           target="_blank"
           rel="noreferrer"
           className="shoppingTopbarCta"

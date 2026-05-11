@@ -3301,3 +3301,64 @@
 .shoppingOutdoorText strong {
   color: #fed7aa !important;
 }
+
+/* FIX CLIQUE TOPBAR MOBILE — LOGO GRANDE POR TRÁS DOS BOTÕES */
+
+.shoppingTopbar {
+  position: sticky !important;
+  isolation: isolate !important;
+}
+
+.shoppingTopbarBrand {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.shoppingTopbarBrand img {
+  pointer-events: none !important;
+}
+
+.shoppingTopbarLocation,
+.shoppingTopbarCta {
+  position: relative !important;
+  z-index: 50 !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 768px) {
+  .shoppingTopbar {
+    --shop-logo-height: 120px !important;
+    --shop-logo-scale: 2.2 !important;
+
+    grid-template-columns: 1fr !important;
+    overflow: visible !important;
+  }
+
+  .shoppingTopbarBrand {
+    order: 1 !important;
+    height: 105px !important;
+    overflow: visible !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+  }
+
+  .shoppingTopbarBrand img {
+    height: var(--shop-logo-height) !important;
+    transform: scale(var(--shop-logo-scale)) !important;
+    top: 8px !important;
+    position: relative !important;
+    pointer-events: none !important;
+  }
+
+  .shoppingTopbarLocation {
+    order: 2 !important;
+    width: 100% !important;
+    z-index: 80 !important;
+  }
+
+  .shoppingTopbarCta {
+    order: 3 !important;
+    width: 100% !important;
+    z-index: 80 !important;
+  }
+}
