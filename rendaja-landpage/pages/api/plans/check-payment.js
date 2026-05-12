@@ -1,45 +1,33 @@
-import { supabase } from "../../../src/supabase";
+import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
+import { createOrUpdateProfilePage } from "../../../src/services/pageGenerator.js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
-    return res.status(405).json({
-      error: "Método não permitido.",
-    });
+    return res.status(405).json({ error: "Método não permitido." });
   }
 
   try {
     const { paymentId, pendingSignupId } = req.query;
 
     if (!paymentId) {
-      return res.status(400).json({
-        error: "paymentId obrigatório.",
-      });
+      return res.status(400).json({ error: "paymentId obrigatório." });
     }
 
-    /*
-    =========================================
-    PAGAMENTO
-    =========================================
-    */
-
-    const { data: payment, error: paymentError } =
-      await supabase
-        .from("pagamentos_plataforma")
-        .select("*")
-        .eq("id", paymentId)
-        .maybeSingle();
+    const { data: payment, error: paymentError } = await supabase
+      .from("pagamentos_plataforma")
+      .select("*")
+      .eq("id", paymentId)
+      .maybeSingle();
 
     if (paymentError || !payment) {
-      return res.status(404).json({
-        error: "Pagamento não encontrado.",
-      });
+      return res.status(404).json({ error: "Pagamento não encontrado." });
     }
-
-    /*
-    =========================================
-    NÃO PAGO AINDA
-    =========================================
-    */
 
     if (payment.status !== "pago") {
       return res.status(200).json({
@@ -49,114 +37,149 @@ export default async function handler(req, res) {
       });
     }
 
-    /*
-    =========================================
-    JÁ PAGO
-    =========================================
-    */
+    const pendingId =
+      pendingSignupId ||
+      payment.metadata?.pending_signup_id ||
+      null;
 
-    let profile = null;
+    if (!pendingId) {
+      return res.status(400).json({
+        error: "Cadastro pendente não encontrado para criar a vitrine.",
+      });
+    }
 
-    /*
-    =========================================
-    PROFILE VIA METADATA
-    =========================================
-    */
+    const { data: pending, error: pendingError } = await supabase
+      .from("profile_pending_signups")
+      .select("*")
+      .eq("id", pendingId)
+      .maybeSingle();
 
-    const profileId =
-      payment.metadata?.profile_page_id;
+    if (pendingError || !pending) {
+      return res.status(404).json({
+        error: "Cadastro pendente não encontrado.",
+      });
+    }
 
-    if (profileId) {
-      const { data: existingProfile } =
-        await supabase
-          .from("profiles_pages")
-          .select("*")
-          .eq("id", profileId)
-          .maybeSingle();
+    if (pending.created_profile_id) {
+      const { data: existingProfile } = await supabase
+        .from("profiles_pages")
+        .select("*")
+        .eq("id", pending.created_profile_id)
+        .maybeSingle();
 
       if (existingProfile) {
-        profile = existingProfile;
+        return res.status(200).json({
+          ok: true,
+          paid: true,
+          status: "pago",
+          creatingProfile: false,
+          profile: {
+            ...existingProfile,
+            publicUrl: `/p/${existingProfile.slug}`,
+          },
+        });
       }
     }
 
-    /*
-    =========================================
-    PROFILE VIA PENDING SIGNUP
-    =========================================
-    */
+    const planCode = pending.plan_code || payment.plano_codigo || "store_start";
 
-    if (!profile && pendingSignupId) {
-      const { data: pending } =
-        await supabase
-          .from("profile_pending_signups")
-          .select("*")
-          .eq("id", pendingSignupId)
-          .maybeSingle();
+    const profile = await createOrUpdateProfilePage({
+      supabase,
+      user: {
+        id: pending.user_id || crypto.randomUUID(),
 
-      if (pending?.created_profile_id) {
-        const { data: pendingProfile } =
-          await supabase
-            .from("profiles_pages")
-            .select("*")
-            .eq("id", pending.created_profile_id)
-            .maybeSingle();
+        nome: pending.name,
+        nome_empresa: pending.business_name,
+        businessName: pending.business_name,
 
-        if (pendingProfile) {
-          profile = pendingProfile;
-        }
-      }
+        telefone: pending.phone,
+        phone: pending.phone,
+        whatsapp: pending.phone,
+
+        cidade: pending.city || "",
+        estado: pending.state || "",
+
+        ramo_empresa: pending.work_area,
+        workArea: pending.work_area,
+        categoria_principal: pending.work_area,
+        area_principal: pending.work_area,
+        servico_principal: pending.work_area,
+
+        reference_image_url: pending.reference_image_url || "",
+
+        plan_code: planCode,
+        planCode,
+      },
+    });
+
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: activeProfile, error: activeError } = await supabase
+      .from("profiles_pages")
+      .update({
+        is_active: true,
+        is_preview: false,
+        preview_expires_at: null,
+
+        plan_code: planCode,
+        plan_status: "active",
+        plan_started_at: new Date().toISOString(),
+        plan_expires_at: expiresAt,
+        plan_next_billing_at: expiresAt,
+
+        subscription_started_at: new Date().toISOString(),
+        subscription_expires_at: expiresAt,
+
+        show_store: ["store_start", "equipe_pro", "complete_pro"].includes(planCode),
+        show_booking: ["store_start", "equipe_pro", "complete_pro"].includes(planCode),
+
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", profile.id)
+      .select("*")
+      .single();
+
+    if (activeError) {
+      throw activeError;
     }
 
-    /*
-    =========================================
-    PROFILE VIA USER
-    =========================================
-    */
+    await supabase
+      .from("profile_pending_signups")
+      .update({
+        status: "completed",
+        created_profile_id: activeProfile.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", pending.id);
 
-    if (!profile && payment.usuario_id) {
-      const { data: latestProfile } =
-        await supabase
-          .from("profiles_pages")
-          .select("*")
-          .eq("user_id", payment.usuario_id)
-          .order("created_at", {
-            ascending: false,
-          })
-          .limit(1)
-          .maybeSingle();
-
-      if (latestProfile) {
-        profile = latestProfile;
-      }
-    }
-
-    /*
-    =========================================
-    RETORNO FINAL
-    =========================================
-    */
+    await supabase
+      .from("pagamentos_plataforma")
+      .update({
+        referencia_id: activeProfile.id,
+        metadata: {
+          ...(payment.metadata || {}),
+          profile_page_id: activeProfile.id,
+          pending_signup_id: pending.id,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payment.id);
 
     return res.status(200).json({
       ok: true,
-
       paid: true,
-
-      status: payment.status,
-
-      creatingProfile: !profile,
-
-      profile: profile || null,
+      status: "pago",
+      creatingProfile: false,
+      profile: {
+        ...activeProfile,
+        publicUrl: `/p/${activeProfile.slug}`,
+      },
     });
   } catch (err) {
-    console.error(
-      "❌ erro check-payment:",
-      err
-    );
+    console.error("❌ erro check-payment:", err);
 
     return res.status(500).json({
-      error:
-        err?.message ||
-        "Erro ao verificar pagamento.",
+      error: err?.message || "Erro ao verificar pagamento.",
     });
   }
 }
