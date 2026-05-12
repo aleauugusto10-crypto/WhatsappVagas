@@ -93,10 +93,10 @@ const COMPRETUDO_MARKETPLACE_URL =
   process.env.COMPRETUDO_MARKETPLACE_URL || "https://compretudo.shop";
 
 const COMPRETUDO_SELL_URL =
-  process.env.COMPRETUDO_SELL_URL || "https://compretudo.shop/vender";
+  process.env.COMPRETUDO_SELL_URL || "https://compretudo.shop/p/compretudo-shop-itabaiana-se";
 
 const COMPRETUDO_JOBS_URL =
-  process.env.COMPRETUDO_JOBS_URL || "https://compretudo.shop/vagas";
+  process.env.COMPRETUDO_JOBS_URL || "https://compretudo.shop/shopping/vagas";
 
 const DASHBOARD_URL =
   process.env.DASHBOARD_URL || "https://compretudo.shop/dashboard";
