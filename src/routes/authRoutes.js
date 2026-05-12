@@ -134,7 +134,7 @@ if (!paginaAtiva) {
 
     await sendText(
       telefone,
-      `🔐 *Código de acesso RendaJá*\n\nSeu código é: *${codigo}*\n\nEle expira em 5 minutos.`
+      `🔐 *Código de acesso CompreTudo.shop*\n\nSeu código é: *${codigo}*\n\nEle expira em 5 minutos.`
     );
 
     return res.json({ success: true });
