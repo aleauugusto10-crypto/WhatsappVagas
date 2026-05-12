@@ -52,11 +52,6 @@ function buildOwnerStaff(ownerProfile, phone) {
   };
 }
 
-async function getCategorias(contexto) {
-  const { data, error } = await supabase
-    .from("categorias")
-    .select("*")
-  
 
 function normalizeBRPhone(phone = "") {
   let digits = String(phone || "").replace(/\D/g, "");
@@ -1948,4 +1943,3 @@ return sendCompreTudoWelcome(phone);
   }
 }
 
-}
