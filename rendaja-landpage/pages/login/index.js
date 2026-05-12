@@ -15,7 +15,18 @@ function normalizePhone(value = "") {
 
   return `55${digits}`;
 }
+const WHATSAPP_LOGIN_NUMBER =
+  process.env.NEXT_PUBLIC_WHATSAPP_LOGIN_NUMBER || "5579999033717";
 
+function buildWhatsAppLoginUrl(phone) {
+  const message =
+    `Olá! Vim buscar meu código de login do CompreTudo.shop. ` +
+    `Meu número é ${phone}.`;
+
+  return `https://wa.me/${WHATSAPP_LOGIN_NUMBER}?text=${encodeURIComponent(
+    message
+  )}`;
+}
 function maskPhoneBR(value = "") {
   const digits = String(value).replace(/\D/g, "").slice(0, 11);
 
@@ -59,8 +70,12 @@ export default function Login() {
         return;
       }
 
-      setTelefoneNormalizado(normalizePhone(telefoneLimpo));
-      setStep("code");
+      const phone = normalizePhone(telefoneLimpo);
+
+setTelefoneNormalizado(phone);
+setStep("code");
+
+window.location.href = buildWhatsAppLoginUrl(phone);
     } catch (err) {
       console.error(err);
       alert("Erro de conexão.");

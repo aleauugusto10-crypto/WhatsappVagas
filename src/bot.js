@@ -1,26 +1,8 @@
 import { supabase } from "./supabase.js";
 import { sendText, sendList } from "./services/whatsapp.js";
 import { handleSupport } from "./flows/support.js";
-import {
-  sendEntradaInicial,
-  sendRootMenu,
-  sendMenuUsuario,
-  sendMenuContratante,
-  sendMenuEmpresa,
-  sendActionButtons,
-} from "./flows/menus.js";
-import { handleOnboarding } from "./flows/onboarding.js";
-import { handleJobsMenu, handleUserFallback } from "./flows/jobs.js";
+import { sendActionButtons } from "./flows/menus.js";
 import { handleAdminMenu } from "./flows/admin.js";
-import {
-  handleServicesMenu,
-  handleContratanteFallback,
-} from "./flows/services.js";
-import { handleMissions } from "./flows/missions.js";
-import {
-  handleCompanyMenu,
-  handleCompanyFallback,
-} from "./flows/company.js";
 import {
   getPendingPaymentById,
   getMercadoPagoPayment,
@@ -74,42 +56,8 @@ async function getCategorias(contexto) {
   const { data, error } = await supabase
     .from("categorias")
     .select("*")
-    .eq("contexto", contexto)
-    .eq("ativo", true)
-    .order("nome");
+  
 
-  if (error) {
-    console.error("❌ erro getCategorias:", error);
-    return [];
-  }
-
-  return data || [];
-}
-
-async function getCategoriasPorGrupos(contexto, grupos = []) {
-  if (!grupos.length) return [];
-
-  const { data, error } = await supabase
-    .from("categorias")
-    .select("*")
-    .eq("contexto", contexto)
-    .in("grupo", grupos)
-    .eq("ativo", true)
-    .order("nome");
-
-  if (error) {
-    console.error("❌ erro getCategoriasPorGrupos:", error);
-    return [];
-  }
-
-  return data || [];
-}
-
-function getMenuByTipo(tipo, phone) {
-  if (tipo === "empresa") return sendMenuEmpresa(phone);
-  if (tipo === "contratante") return sendMenuContratante(phone);
-  return sendMenuUsuario(phone);
-}
 function normalizeBRPhone(phone = "") {
   let digits = String(phone || "").replace(/\D/g, "");
 
@@ -143,7 +91,94 @@ function getBRPhoneCandidates(phone = "") {
 
   return [...candidates].filter(Boolean);
 }
+const COMPRETUDO_SITE_URL =
+  process.env.COMPRETUDO_SITE_URL || "https://compretudo.shop";
 
+const COMPRETUDO_MARKETPLACE_URL =
+  process.env.COMPRETUDO_MARKETPLACE_URL || "https://compretudo.shop";
+
+const COMPRETUDO_SELL_URL =
+  process.env.COMPRETUDO_SELL_URL || "https://compretudo.shop/vender";
+
+const COMPRETUDO_JOBS_URL =
+  process.env.COMPRETUDO_JOBS_URL || "https://compretudo.shop/vagas";
+
+const DASHBOARD_URL =
+  process.env.DASHBOARD_URL || "https://compretudo.shop/dashboard";
+
+function isGreeting(text = "") {
+  return ["oi", "olá", "ola", "menu", "inicio", "início", "começar", "comecar"].includes(
+    String(text || "").toLowerCase().trim()
+  );
+}
+
+function isLoginRequest(text = "") {
+  const t = String(text || "").toLowerCase();
+
+  return (
+    t.includes("código de login") ||
+    t.includes("codigo de login") ||
+    t.includes("buscar meu código") ||
+    t.includes("buscar meu codigo") ||
+    t.includes("vim buscar") ||
+    t.includes("login")
+  );
+}
+
+async function sendCompreTudoWelcome(phone) {
+  return sendActionButtons(
+    phone,
+    `👋 Bem-vindo ao *CompreTudo.shop*!\n\n` +
+      `Aqui você encontra produtos, serviços, profissionais e oportunidades da sua cidade em um só lugar.\n\n` +
+      `O que você gostaria de fazer agora?`,
+    [
+      { id: "ct_comprar", title: "Comprar" },
+      { id: "ct_vender", title: "Vender" },
+      { id: "ct_empregos", title: "Empregos" },
+    ]
+  );
+}
+
+async function sendCompreTudoLinkByChoice(phone, text) {
+  if (text === "ct_comprar") {
+    return sendText(
+      phone,
+      `🛒 *Comprar no CompreTudo.shop*\n\n` +
+        `Acesse o marketplace e veja o que está disponível na sua cidade:\n\n` +
+        `${COMPRETUDO_MARKETPLACE_URL}`
+    );
+  }
+
+  if (text === "ct_vender") {
+    return sendText(
+      phone,
+      `🚀 *Venda no CompreTudo.shop*\n\n` +
+        `Crie sua vitrine, divulgue seus produtos/serviços e receba pedidos pelo WhatsApp.\n\n` +
+        `${COMPRETUDO_SELL_URL}`
+    );
+  }
+
+  if (text === "ct_empregos") {
+    return sendText(
+      phone,
+      `💼 *Vagas e oportunidades*\n\n` +
+        `Veja vagas, missões e oportunidades disponíveis:\n\n` +
+        `${COMPRETUDO_JOBS_URL}`
+    );
+  }
+
+  return null;
+}
+
+async function sendDashboardAccess(phone) {
+  return sendText(
+    phone,
+    `🔐 *Acesso ao painel CompreTudo.shop*\n\n` +
+      `Acesse o painel abaixo e entre com o mesmo número deste WhatsApp:\n\n` +
+      `${DASHBOARD_URL}\n\n` +
+      `Se você solicitou um código de login no site, aguarde alguns instantes.`
+  );
+}
 
 function parseMoneyFromText(text = "") {
   const clean = String(text || "")
@@ -853,7 +888,7 @@ if (text === "staff_bookings") {
       process.env.FRONTEND_BASE_URL ||
       process.env.APP_PUBLIC_URL ||
       process.env.APP_BASE_URL ||
-      "https://rendaja.online";
+      "https://compretudo.shop";
 
     const slug = staff.profiles_pages?.slug || "";
     const ref = staff.affiliate_code || staff.affiliate_slug || "";
@@ -1626,15 +1661,7 @@ if (!user && orderCodeMatch) {
 
       user = created;
 
-await sendText(
-  phone,
-  "🤖 Você está falando com o assistente automático do RendaJá.\n\n" +
-    "Ele ajuda no cadastro e nas principais dúvidas.\n\n" +
-    "Se precisar, você também pode falar com um atendente humano.\n\n" +
-    "A qualquer momento, digite *suporte* para abrir a Central de ajuda."
-);
-
-return sendEntradaInicial(phone);
+return sendCompreTudoWelcome(phone);
     }
 
 const updateUser = async (data) => {
@@ -1718,13 +1745,11 @@ if (isAdmin) {
     // =====================
 
 
-    if (text === "iniciar_cadastro") {
-  await updateUser({
-    etapa: "tipo",
-    onboarding_finalizado: false,
-  });
+    const compreTudoChoice = await sendCompreTudoLinkByChoice(phone, text);
+if (compreTudoChoice) return compreTudoChoice;
 
-  return sendRootMenu(phone);
+if (isLoginRequest(text)) {
+  return sendDashboardAccess(phone);
 }
 
 if (text === "abrir_suporte" || text === "suporte") {
@@ -1734,7 +1759,7 @@ if (text === "abrir_suporte" || text === "suporte") {
 
   return sendList(
   phone,
-  "🛟 *Central de ajuda RendaJá*\n\n" +
+  "🛟 *Central de ajuda CompreTudo.shop*\n\n"+
   "Selecione uma opção abaixo ou fale com um atendente 👇",
   [
     {
@@ -1752,32 +1777,24 @@ if (text === "abrir_suporte" || text === "suporte") {
           id: "suporte_atendente",
           title: "👤 Falar com atendente",
         },
-        {
-          id: "iniciar_cadastro",
-          title: "🚀 Criar cadastro",
-        },
+    
       ],
     },
   ]
 );
 }
 
-    if (["oi", "menu", "inicio", "início"].includes(text)) {
-  if (user.onboarding_finalizado) {
-    return getMenuByTipo(user.tipo, phone);
-  }
-
+    if (isGreeting(text)) {
   await updateUser({
     etapa: "entrada",
   });
 
-  return sendEntradaInicial(phone);
+  return sendCompreTudoWelcome(phone);
 }
 
-    if (text === "voltar_menu") {
-      return getMenuByTipo(user.tipo, phone);
-    }
-
+if (text === "voltar_menu") {
+  return sendCompreTudoWelcome(phone);
+}
     if (text === "payment_check_status") {
       return handlePaymentCheckStatus(user, phone);
     }
@@ -1814,7 +1831,7 @@ if (text === "abrir_suporte" || text === "suporte") {
 
   const dashboardUrl =
     process.env.DASHBOARD_URL ||
-    "https://rendaja.online/dashboard/";
+    "https://compretudo.shop/dashboard";
 
   return sendText(
     phone,
@@ -1846,10 +1863,10 @@ if (text === "comprar_pagina") {
 
   await sendText(
     phone,
-    `💎 *Ativar página profissional RendaJá*\n\n` +
+    `💎 *Ativar página profissional CompreTudo.shop*\n\n` +
       `📦 *Plano:* Página profissional mensal\n` +
       `💵 *Valor:* R$ 19,90/mês\n\n` +
-      `💳 *Pagamento seguro via RendaJá*\n\n` +
+      `💳 *Pagamento seguro via CompreTudo.shop*\n\n` +
     `🔐 O Pix pode aparecer no nome do responsável pela plataforma.\n` +
     `Isso é normal — o pagamento é processado com segurança.\n\n` +
     `📌 *PIX copia e cola:*`
@@ -1891,7 +1908,7 @@ if (text === "prof_ver_pagina") {
     process.env.FRONTEND_BASE_URL ||
     process.env.APP_PUBLIC_URL ||
     process.env.APP_BASE_URL ||
-    "https://rendaja.online";
+    "https://compretudo.shop";
 
   const link = `${baseUrl.replace(/\/$/, "")}/p/${profile.slug}`;
 
@@ -1915,124 +1932,14 @@ if (text === "prof_ver_pagina") {
     { id: "voltar_menu", title: "Voltar ao menu" },
   ]);
 }
-    if (text === "redefinir_perfil") {
-      await updateUser({
-        etapa: "tipo",
-        onboarding_finalizado: false,
-        area_principal: null,
-        categoria_principal: null,
-        subcategorias_temp: [],
-        raio_km: 20,
-      });
-
-      return sendRootMenu(phone);
-    }
-
-    // =====================
-    // ONBOARDING
-    // =====================
-
-    const onboardingResponse = await handleOnboarding({
-      user,
-      text,
-      phone,
-      supabase,
-      updateUser,
-      getCategorias,
-      getCategoriasPorGrupos,
-    });
-
-    if (onboardingResponse) return onboardingResponse;
-
-    // =====================
-    // USUÁRIO
-    // =====================
-
-    if (user.tipo === "usuario") {
-      const jobs = await handleJobsMenu({
-  user,
-  text,
-  phone,
-  supabase,
-  updateUser,
-});
-      if (jobs) return jobs;
-
-      const missions = await handleMissions({
-        user,
-        text,
-        phone,
-        supabase,
-        updateUser,
-      });
-      if (missions) return missions;
-
-      return handleUserFallback(phone);
-    }
-
-    // =====================
-    // CONTRATANTE
-    // =====================
-
-    if (user.tipo === "contratante") {
-      const services = await handleServicesMenu({
-        user,
-        text,
-        phone,
-        supabase,
-        updateUser,
-        getCategorias,
-        getCategoriasPorGrupos,
-      });
-      if (services) return services;
-
-      const missions = await handleMissions({
-        user,
-        text,
-        phone,
-        supabase,
-        updateUser,
-      });
-      if (missions) return missions;
-
-      return handleContratanteFallback(phone);
-    }
-
-    // =====================
-    // EMPRESA
-    // =====================
-
-    if (user.tipo === "empresa") {
-  const company = await handleCompanyMenu({
-    user,
-    text,
-    phone,
-    supabase,
-    updateUser,
-    getCategorias,
-    getCategoriasPorGrupos,
-  });
-
-  if (company) return company;
-
-  const missions = await handleMissions({
-    user,
-    text,
-    phone,
-    supabase,
-    updateUser,
-  });
-
-  if (missions) return missions;
-
-  return handleCompanyFallback(phone);
-}
-
-    await updateUser({
+    
+await updateUser({
   etapa: "entrada",
 });
 
-return sendEntradaInicial(phone);
+return sendCompreTudoWelcome(phone);
+
+    
   } catch (err) {
     console.error("❌ erro geral:", err);
     return sendText(phone, "Erro ao processar mensagem.");
@@ -2041,3 +1948,4 @@ return sendEntradaInicial(phone);
   }
 }
 
+}
