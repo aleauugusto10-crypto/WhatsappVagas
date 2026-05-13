@@ -60,7 +60,20 @@ function gerarToken(user) {
     { expiresIn: "7d" }
   );
 }
+async function buscarPerfilPorTelefone(telefonesPossiveis = []) {
+  const { data: profile, error } = await supabase
+    .from("profiles_pages")
+    .select("id,user_id,nome,whatsapp,cidade,estado,is_active,subscription_expires_at")
+    .in("whatsapp", telefonesPossiveis)
+    .maybeSingle();
 
+  if (error) {
+    console.error("❌ erro ao buscar perfil por telefone:", error);
+    throw error;
+  }
+
+  return profile;
+}
 router.post("/request-code", async (req, res) => {
   try {
     const telefonesPossiveis = variantesTelefone(req.body?.telefone);
@@ -83,23 +96,42 @@ const telefone = telefonesPossiveis[0];
       return res.status(500).json({ error: "Erro ao buscar usuário." });
     }
 
+    let profile = null;
+
+    if (user) {
+      const { data: userProfile, error: profileError } = await supabase
+        .from("profiles_pages")
+        .select("id,user_id,nome,whatsapp,cidade,estado,is_active,subscription_expires_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("❌ erro ao buscar página no login:", profileError);
+        return res.status(500).json({
+          error: "Erro ao verificar sua página.",
+        });
+      }
+
+      profile = userProfile;
+    }
+
     if (!user) {
+      try {
+        profile = await buscarPerfilPorTelefone(telefonesPossiveis);
+      } catch {
+        return res.status(500).json({
+          error: "Erro ao verificar sua página.",
+        });
+      }
+    }
+
+    if (!profile) {
       return res.status(404).json({
-        error: "Número não encontrado. Use o mesmo WhatsApp cadastrado no RendaJá.",
+        error: "Número não encontrado. Use o mesmo WhatsApp cadastrado na sua vitrine.",
       });
     }
-const { data: profile, error: profileError } = await supabase
-  .from("profiles_pages")
-  .select("id, is_active, subscription_expires_at")
-  .eq("user_id", user.id)
-  .maybeSingle();
 
-if (profileError) {
-  console.error("❌ erro ao buscar página no login:", profileError);
-  return res.status(500).json({
-    error: "Erro ao verificar sua página.",
-  });
-}
+
 
 const paginaAtiva =
   profile?.is_active === true &&
@@ -189,8 +221,42 @@ const codigo = String(req.body?.codigo || "").trim();
       return res.status(500).json({ error: "Erro ao buscar usuário." });
     }
 
-    if (!user) {
-      return res.status(404).json({ error: "Usuário não encontrado." });
+    let finalUser = user;
+
+    if (!finalUser) {
+      const profile = await buscarPerfilPorTelefone(telefonesPossiveis);
+
+      if (!profile) {
+        return res.status(404).json({
+          error: "Usuário não encontrado.",
+        });
+      }
+
+      const { data: createdUser, error: createUserError } = await supabase
+        .from("usuarios")
+        .insert({
+          nome: profile.nome || "Profissional",
+          telefone: telefone,
+          tipo: "profissional",
+          cidade: profile.cidade || null,
+          estado: profile.estado || null,
+        })
+        .select("id,nome,telefone,tipo,cidade,estado")
+        .single();
+
+      if (createUserError) {
+        console.error("❌ erro ao criar usuário pelo perfil:", createUserError);
+        return res.status(500).json({
+          error: "Erro ao criar acesso para este perfil.",
+        });
+      }
+
+      finalUser = createdUser;
+
+      await supabase
+        .from("profiles_pages")
+        .update({ user_id: finalUser.id })
+        .eq("id", profile.id);
     }
 
     await supabase
@@ -198,12 +264,12 @@ const codigo = String(req.body?.codigo || "").trim();
       .update({ usado: true })
       .eq("id", codeData.id);
 
-    const token = gerarToken(user);
+    const token = gerarToken(finalUser);
 
     return res.json({
       success: true,
       token,
-      user,
+      user: finalUser,
     });
   } catch (err) {
     console.error("❌ verify-code error:", err);
