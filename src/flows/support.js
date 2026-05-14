@@ -260,7 +260,7 @@ async function handleAdmin({ supabase, text }) {
 
     await sendText(
       atendimento.cliente_phone,
-      `👤 Olá! Aqui é ${ADMIN_NAME}, suporte do RendaJá.\n\n` +
+      `👤 Olá! Aqui é ${ADMIN_NAME}, suporte do CompreTudo.shop.\n\n` +
         `Já estou com sua solicitação e vou te ajudar por aqui. Pode mandar sua mensagem 👍`
     );
 
@@ -300,7 +300,7 @@ async function handleAdmin({ supabase, text }) {
 
     await sendText(
       atendimentoAtivo.cliente_phone,
-      `✅ Atendimento finalizado por ${ADMIN_NAME}.\n\nObrigado por falar com o RendaJá.`
+      `✅ Atendimento finalizado por ${ADMIN_NAME}.\n\nObrigado por falar com o CompreTudo.shop.`
     );
 
     await sendText(ADMIN_PHONE, "✅ Atendimento finalizado.");
@@ -345,8 +345,8 @@ export async function handleSupport({
   if (text === "suporte_termos") {
     return sendText(
       phone,
-      "📄 *Termos de uso - RendaJá*\n\n" +
-        "O RendaJá é uma plataforma que conecta pessoas para oportunidades, serviços e missões.\n\n" +
+      "📄 *Termos de uso - CompreTudo.shop*\n\n" +
+        "O CompreTudo.shop é uma plataforma que conecta pessoas para oportunidades, serviços e missões.\n\n" +
         "• O usuário deve fornecer informações verdadeiras\n" +
         "• Cada pessoa pode ter apenas uma conta\n" +
         "• O CPF é usado para segurança e prevenção de fraudes\n" +

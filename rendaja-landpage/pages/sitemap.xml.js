@@ -1,44 +1,29 @@
-import { supabase } from "../src/lib/supabase";
-
 export async function getServerSideProps({ res }) {
-  const BASE_URL = "https://rendaja.online";
+  const BASE_URL = "https://compretudo.shop";
 
-  // 🔥 BUSCA TODOS OS PERFIS ATIVOS
-  const { data: profiles } = await supabase
-    .from("profiles_pages")
-    .select("slug, updated_at")
-    .eq("is_active", true);
+  const sitemapIndex = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
-  const urls = [
-    `
-    <url>
-      <loc>${BASE_URL}</loc>
-      <changefreq>daily</changefreq>
-      <priority>1.0</priority>
-    </url>
-    `,
-  ];
+  <sitemap>
+    <loc>${BASE_URL}/sitemaps/profiles.xml</loc>
+  </sitemap>
 
-  if (profiles && profiles.length) {
-    profiles.forEach((profile) => {
-      urls.push(`
-        <url>
-          <loc>${BASE_URL}/p/${profile.slug}</loc>
-          <lastmod>${profile.updated_at || new Date().toISOString()}</lastmod>
-          <changefreq>weekly</changefreq>
-          <priority>0.8</priority>
-        </url>
-      `);
-    });
-  }
+  <sitemap>
+    <loc>${BASE_URL}/sitemaps/categories.xml</loc>
+  </sitemap>
 
-  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-  <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    ${urls.join("")}
-  </urlset>`;
+  <sitemap>
+    <loc>${BASE_URL}/sitemaps/cities.xml</loc>
+  </sitemap>
+
+  <sitemap>
+    <loc>${BASE_URL}/sitemaps/seo-pages.xml</loc>
+  </sitemap>
+
+</sitemapindex>`;
 
   res.setHeader("Content-Type", "text/xml");
-  res.write(sitemap);
+  res.write(sitemapIndex);
   res.end();
 
   return {

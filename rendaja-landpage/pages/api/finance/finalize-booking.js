@@ -1,9 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabaseAdmin } from "../../../src/lib/supabaseAdmin";
 function calcCommission(staff, amount) {
   const finalAmount = Number(amount || 0);
   const value = Number(staff?.commission_value || 0);
@@ -50,7 +45,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const { data: booking, error: bookingError } = await supabase
+    const { data: booking, error: bookingError } = await supabaseAdmin
       .from("profile_bookings")
       .update({
         status: "completed",
@@ -69,11 +64,16 @@ export default async function handler(req, res) {
       .single();
 
     if (bookingError) throw bookingError;
-
+console.log("✅ BOOKING FINALIZADO:", {
+  id: booking?.id,
+  status: booking?.status,
+  payment_status: booking?.payment_status,
+  finalized_at: booking?.finalized_at,
+});
     let staff = null;
 
     if (staffId) {
-      const { data: staffData, error: staffError } = await supabase
+      const { data: staffData, error: staffError } = await supabaseAdmin
         .from("profile_staff")
         .select("*")
         .eq("id", staffId)
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
 
     const commissionAmount = calcCommission(staff, finalAmount);
 
-    const { error: movementError } = await supabase
+    const { error: movementError } = await supabaseAdmin
       .from("finance_movements")
       .insert({
         profile_page_id: profilePageId,

@@ -734,7 +734,7 @@ export async function createProfilePageSubscriptionPayment({ user, profile }) {
       status: "pendente",
       valor,
       metadata: {
-        titulo: "Assinatura mensal da página profissional RendaJá",
+        titulo: "Assinatura mensal da página profissional CompreTudo.shop",
         profile_page_id: profile.id,
         profile_slug: profile.slug,
         dias_assinatura: 30,
@@ -911,7 +911,7 @@ async function sendAlertPlanWelcomeMessage(subscription) {
     mensagem += "🎯 Missões e oportunidades rápidas\n";
   }
 
-  mensagem += "\n📲 O RendaJá irá avisar automaticamente quando surgirem novas oportunidades perto de você.";
+  mensagem += "\n📲 O CompreTudo.shop irá avisar automaticamente quando surgirem novas oportunidades perto de você.";
 
   try {
     await sendText(telefone, mensagem);

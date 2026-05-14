@@ -4,6 +4,9 @@ import { useRouter } from "next/router";
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://whatsappvagas.onrender.com";
 
+const WHATSAPP_LOGIN_NUMBER =
+  process.env.NEXT_PUBLIC_WHATSAPP_LOGIN_NUMBER || "5579999033717";
+
 function normalizePhone(value = "") {
   const digits = String(value).replace(/\D/g, "");
 
@@ -15,8 +18,6 @@ function normalizePhone(value = "") {
 
   return `55${digits}`;
 }
-const WHATSAPP_LOGIN_NUMBER =
-  process.env.NEXT_PUBLIC_WHATSAPP_LOGIN_NUMBER || "5579999033717";
 
 function buildWhatsAppLoginUrl(phone) {
   const message =
@@ -27,6 +28,7 @@ function buildWhatsAppLoginUrl(phone) {
     message
   )}`;
 }
+
 function maskPhoneBR(value = "") {
   const digits = String(value).replace(/\D/g, "").slice(0, 11);
 
@@ -46,12 +48,18 @@ export default function Login() {
   const [telefoneNormalizado, setTelefoneNormalizado] = useState("");
   const [codigo, setCodigo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
 
   async function pedirCodigo() {
     try {
       setLoading(true);
 
       const telefoneLimpo = telefone.replace(/\D/g, "");
+
+      if (!telefoneLimpo || telefoneLimpo.length < 10) {
+        alert("Digite um número de WhatsApp válido.");
+        return;
+      }
 
       const res = await fetch(`${API_URL}/auth/request-code`, {
         method: "POST",
@@ -72,10 +80,9 @@ export default function Login() {
 
       const phone = normalizePhone(telefoneLimpo);
 
-setTelefoneNormalizado(phone);
-setStep("code");
-
-window.location.href = buildWhatsAppLoginUrl(phone);
+      setTelefoneNormalizado(phone);
+      setStep("code");
+      setShowWhatsappModal(true);
     } catch (err) {
       console.error(err);
       alert("Erro de conexão.");
@@ -88,8 +95,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
     try {
       setLoading(true);
 
-      const phone =
-        telefoneNormalizado || normalizePhone(telefone);
+      const phone = telefoneNormalizado || normalizePhone(telefone);
 
       const res = await fetch(`${API_URL}/auth/verify-code`, {
         method: "POST",
@@ -109,15 +115,8 @@ window.location.href = buildWhatsAppLoginUrl(phone);
         return;
       }
 
-      localStorage.setItem(
-        "rendaja_token",
-        json.token
-      );
-
-      localStorage.setItem(
-        "rendaja_user",
-        JSON.stringify(json.user)
-      );
+      localStorage.setItem("rendaja_token", json.token);
+      localStorage.setItem("rendaja_user", JSON.stringify(json.user));
 
       router.push("/dashboard");
     } catch (err) {
@@ -126,6 +125,17 @@ window.location.href = buildWhatsAppLoginUrl(phone);
     } finally {
       setLoading(false);
     }
+  }
+
+  function abrirWhatsappLogin() {
+    const phone = telefoneNormalizado || normalizePhone(telefone);
+
+    if (!phone) {
+      alert("Digite seu WhatsApp primeiro.");
+      return;
+    }
+
+    window.open(buildWhatsAppLoginUrl(phone), "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -138,54 +148,36 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           <aside className="login-visual">
             <div className="login-overlay" />
 
-            <div className="login-brand">
-              CompreTudo.shop
-            </div>
+            <div className="login-brand">CompreTudo.shop</div>
 
             <div className="login-visual-content">
-              <span className="login-kicker">
-                Sua presença digital local
-              </span>
+              <span className="login-kicker">Sua presença digital local</span>
 
-              <h1>
-                Acesse sua vitrine, pedidos e
-                configurações em poucos segundos.
-              </h1>
+              <h1>Acesse sua vitrine, pedidos e configurações em poucos segundos.</h1>
 
               <p>
-                Entre com o WhatsApp cadastrado
-                para administrar sua página,
+                Entre com o WhatsApp cadastrado para administrar sua página,
                 produtos e serviços.
               </p>
 
               <div className="login-mini-grid">
                 <div className="login-mini-card">
                   <strong>🛍️ Vitrine</strong>
-                  <span>
-                    Página pública profissional
-                  </span>
+                  <span>Página pública profissional</span>
                 </div>
 
                 <div className="login-mini-card">
                   <strong>📲 WhatsApp</strong>
-                  <span>
-                    Login simples e rápido
-                  </span>
+                  <span>Login simples e rápido</span>
                 </div>
               </div>
             </div>
           </aside>
 
           <section className="login-card">
-            <div className="login-badge">
-              Painel da vitrine
-            </div>
+            <div className="login-badge">Painel da vitrine</div>
 
-            <h2>
-              {step === "phone"
-                ? "Entrar no painel"
-                : "Confirme seu acesso"}
-            </h2>
+            <h2>{step === "phone" ? "Entrar no painel" : "Confirme seu acesso"}</h2>
 
             <p className="login-description">
               {step === "phone"
@@ -201,20 +193,11 @@ window.location.href = buildWhatsAppLoginUrl(phone);
                   type="tel"
                   placeholder="(79) 99999-9999"
                   value={telefone}
-                  onChange={(e) =>
-                    setTelefone(
-                      maskPhoneBR(e.target.value)
-                    )
-                  }
+                  onChange={(e) => setTelefone(maskPhoneBR(e.target.value))}
                 />
 
-                <button
-                  onClick={pedirCodigo}
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Enviando..."
-                    : "Receber código"}
+                <button onClick={pedirCodigo} disabled={loading}>
+                  {loading ? "Enviando..." : "Receber código"}
                 </button>
               </>
             )}
@@ -227,18 +210,11 @@ window.location.href = buildWhatsAppLoginUrl(phone);
                   type="text"
                   placeholder="Digite o código"
                   value={codigo}
-                  onChange={(e) =>
-                    setCodigo(e.target.value)
-                  }
+                  onChange={(e) => setCodigo(e.target.value)}
                 />
 
-                <button
-                  onClick={validarCodigo}
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Validando..."
-                    : "Entrar"}
+                <button onClick={validarCodigo} disabled={loading}>
+                  {loading ? "Validando..." : "Entrar"}
                 </button>
 
                 <button
@@ -246,6 +222,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
                   onClick={() => {
                     setStep("phone");
                     setCodigo("");
+                    setShowWhatsappModal(false);
                   }}
                 >
                   Trocar número
@@ -262,15 +239,51 @@ window.location.href = buildWhatsAppLoginUrl(phone);
             <button
               className="create-btn"
               onClick={() =>
-                router.push(
-                  "/p/compretudo-shop-itabaiana-se#criar-vitrine"
-                )
+                router.push("/p/compretudo-shop-itabaiana-se#criar-vitrine")
               }
             >
               Criar minha vitrine
             </button>
           </section>
         </section>
+
+        {showWhatsappModal && (
+          <div className="whatsapp-modal-backdrop">
+            <div className="whatsapp-modal">
+              <button
+                className="modal-close"
+                onClick={() => setShowWhatsappModal(false)}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+
+              <div className="whatsapp-icon">📲</div>
+
+              <h3>Código solicitado</h3>
+
+              <p>
+                Se o código não chegar automaticamente no seu WhatsApp, abra
+                nossa conversa e envie a mensagem pronta para buscar seu acesso.
+              </p>
+
+              <div className="modal-info">
+                Seu número: <strong>{telefoneNormalizado}</strong>
+              </div>
+
+              <button className="whatsapp-open-btn" onClick={abrirWhatsappLogin}>
+                Abrir conversa no WhatsApp
+              </button>
+
+              <button
+                className="modal-secondary-btn"
+                onClick={() => setShowWhatsappModal(false)}
+              >
+                Já recebi o código
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       <style jsx>{`
@@ -278,13 +291,12 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           min-height: 100vh;
           position: relative;
           overflow-x: hidden;
-          background:
-            radial-gradient(
-              circle at top left,
-              #2b174d 0%,
-              #07111f 42%,
-              #030712 100%
-            );
+          background: radial-gradient(
+            circle at top left,
+            #2b174d 0%,
+            #07111f 42%,
+            #030712 100%
+          );
           display: flex;
           align-items: center;
           justify-content: center;
@@ -300,7 +312,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
         .login-glow-1 {
           width: 420px;
           height: 420px;
-          background: rgba(217,168,78,.25);
+          background: rgba(217, 168, 78, 0.25);
           top: -100px;
           left: -100px;
         }
@@ -308,7 +320,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
         .login-glow-2 {
           width: 520px;
           height: 520px;
-          background: rgba(99,102,241,.22);
+          background: rgba(99, 102, 241, 0.22);
           right: -180px;
           bottom: -180px;
         }
@@ -317,13 +329,13 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           width: 100%;
           max-width: 1050px;
           display: grid;
-          grid-template-columns: 1.1fr .9fr;
+          grid-template-columns: 1.1fr 0.9fr;
           border-radius: 34px;
           overflow: hidden;
-          background: rgba(255,255,255,.08);
-          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           backdrop-filter: blur(18px);
-          box-shadow: 0 40px 120px rgba(0,0,0,.45);
+          box-shadow: 0 40px 120px rgba(0, 0, 0, 0.45);
           position: relative;
           z-index: 2;
         }
@@ -334,8 +346,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           padding: 42px;
           display: flex;
           align-items: flex-end;
-          background-image:
-            url("https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1600&auto=format&fit=crop");
+          background-image: url("https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1600&auto=format&fit=crop");
           background-size: cover;
           background-position: center;
         }
@@ -343,13 +354,12 @@ window.location.href = buildWhatsAppLoginUrl(phone);
         .login-overlay {
           position: absolute;
           inset: 0;
-          background:
-            linear-gradient(
-              135deg,
-              rgba(7,17,31,.94),
-              rgba(7,17,31,.65),
-              rgba(217,168,78,.25)
-            );
+          background: linear-gradient(
+            135deg,
+            rgba(7, 17, 31, 0.94),
+            rgba(7, 17, 31, 0.65),
+            rgba(217, 168, 78, 0.25)
+          );
         }
 
         .login-brand {
@@ -359,7 +369,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           z-index: 2;
           padding: 10px 14px;
           border-radius: 999px;
-          background: rgba(255,255,255,.14);
+          background: rgba(255, 255, 255, 0.14);
           color: #fff;
           font-weight: 900;
         }
@@ -374,7 +384,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           display: inline-flex;
           padding: 8px 14px;
           border-radius: 999px;
-          background: rgba(217,168,78,.18);
+          background: rgba(217, 168, 78, 0.18);
           color: #f5d28b;
           font-weight: 900;
           margin-bottom: 18px;
@@ -382,14 +392,14 @@ window.location.href = buildWhatsAppLoginUrl(phone);
 
         .login-visual-content h1 {
           font-size: 54px;
-          line-height: .95;
-          letter-spacing: -.06em;
+          line-height: 0.95;
+          letter-spacing: -0.06em;
           margin: 0;
         }
 
         .login-visual-content p {
           margin-top: 18px;
-          color: rgba(255,255,255,.78);
+          color: rgba(255, 255, 255, 0.78);
           line-height: 1.7;
         }
 
@@ -403,15 +413,15 @@ window.location.href = buildWhatsAppLoginUrl(phone);
         .login-mini-card {
           padding: 16px;
           border-radius: 20px;
-          background: rgba(255,255,255,.12);
-          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255, 255, 255, 0.12);
+          border: 1px solid rgba(255, 255, 255, 0.14);
           display: flex;
           flex-direction: column;
           gap: 6px;
         }
 
         .login-card {
-          background: rgba(255,255,255,.97);
+          background: rgba(255, 255, 255, 0.97);
           padding: 42px;
           display: flex;
           flex-direction: column;
@@ -432,7 +442,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           margin: 0;
           font-size: 40px;
           line-height: 1;
-          letter-spacing: -.05em;
+          letter-spacing: -0.05em;
           color: #07111f;
         }
 
@@ -463,7 +473,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
 
         .login-card input:focus {
           border-color: #d9a84e;
-          box-shadow: 0 0 0 4px rgba(217,168,78,.18);
+          box-shadow: 0 0 0 4px rgba(217, 168, 78, 0.18);
         }
 
         .login-card button {
@@ -476,6 +486,11 @@ window.location.href = buildWhatsAppLoginUrl(phone);
           font-weight: 900;
           cursor: pointer;
           font-size: 15px;
+        }
+
+        .login-card button:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
         }
 
         .secondary-btn {
@@ -499,13 +514,123 @@ window.location.href = buildWhatsAppLoginUrl(phone);
         }
 
         .create-btn {
-          background:
-            linear-gradient(
-              135deg,
-              #f5d28b,
-              #d9a84e
-            ) !important;
+          background: linear-gradient(135deg, #f5d28b, #d9a84e) !important;
           color: #111827 !important;
+        }
+
+        .whatsapp-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 20;
+          background: rgba(3, 7, 18, 0.72);
+          backdrop-filter: blur(10px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+
+        .whatsapp-modal {
+          width: 100%;
+          max-width: 430px;
+          position: relative;
+          border-radius: 30px;
+          padding: 34px 28px 26px;
+          background:
+            radial-gradient(circle at top left, rgba(217, 168, 78, 0.22), transparent 34%),
+            #ffffff;
+          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+          text-align: center;
+          animation: modalIn 0.22s ease-out;
+        }
+
+        .modal-close {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          width: 38px;
+          height: 38px;
+          border: 0;
+          border-radius: 999px;
+          background: #f1f5f9;
+          color: #07111f;
+          font-size: 24px;
+          cursor: pointer;
+          line-height: 1;
+        }
+
+        .whatsapp-icon {
+          width: 66px;
+          height: 66px;
+          border-radius: 24px;
+          background: #07111f;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 18px;
+          font-size: 30px;
+          box-shadow: 0 18px 40px rgba(7, 17, 31, 0.28);
+        }
+
+        .whatsapp-modal h3 {
+          margin: 0;
+          color: #07111f;
+          font-size: 30px;
+          letter-spacing: -0.04em;
+        }
+
+        .whatsapp-modal p {
+          margin: 14px 0 18px;
+          color: #64748b;
+          line-height: 1.65;
+        }
+
+        .modal-info {
+          margin-bottom: 18px;
+          padding: 12px 14px;
+          border-radius: 16px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          color: #475569;
+          font-size: 14px;
+        }
+
+        .whatsapp-open-btn {
+          width: 100%;
+          min-height: 56px;
+          border: 0;
+          border-radius: 16px;
+          background: #16a34a;
+          color: #ffffff;
+          font-weight: 900;
+          cursor: pointer;
+          font-size: 15px;
+          box-shadow: 0 18px 40px rgba(22, 163, 74, 0.25);
+        }
+
+        .modal-secondary-btn {
+          width: 100%;
+          min-height: 52px;
+          margin-top: 10px;
+          border: 0;
+          border-radius: 16px;
+          background: transparent;
+          color: #07111f;
+          font-weight: 900;
+          cursor: pointer;
+          font-size: 15px;
+        }
+
+        @keyframes modalIn {
+          from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
         }
 
         @media (max-width: 768px) {
@@ -542,8 +667,7 @@ window.location.href = buildWhatsAppLoginUrl(phone);
             padding: 26px 22px;
             position: relative;
             z-index: 3;
-            box-shadow:
-              0 24px 70px rgba(0,0,0,.28);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
           }
 
           .login-card h2 {
@@ -557,6 +681,15 @@ window.location.href = buildWhatsAppLoginUrl(phone);
 
           .login-card button {
             min-height: 58px;
+          }
+
+          .whatsapp-modal {
+            border-radius: 26px;
+            padding: 32px 22px 22px;
+          }
+
+          .whatsapp-modal h3 {
+            font-size: 28px;
           }
         }
       `}</style>

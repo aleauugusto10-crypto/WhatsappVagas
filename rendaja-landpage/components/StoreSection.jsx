@@ -1,33 +1,35 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 
-
 function money(value = 0) {
   return Number(value || 0).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
 }
-function getAffiliateRef() {
 
+function getAffiliateRef() {
   if (typeof window === "undefined") return "";
 
   const params = new URLSearchParams(window.location.search);
 
   return (
-
     params.get("ref") ||
-
     params.get("affiliate") ||
-
     params.get("vendedor") ||
-
     ""
-
   );
-
 }
+
 function onlyDigits(value = "") {
   return String(value || "").replace(/\D/g, "");
+}
+
+function normalizeText(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 function isService(item) {
@@ -54,6 +56,7 @@ function getItemPriceLabel(item) {
   if (isQuote(item)) return "Sob orçamento";
   return money(item?.price || 0);
 }
+
 function itemControlsStock(item) {
   return isProduct(item) && item?.stock_mode === "quantity";
 }
@@ -95,8 +98,20 @@ function getPublicStockLabel(item) {
 
 function getCartQty(cart, itemId) {
   return cart
-    .filter((item) => item.id === itemId)
+    .filter((item) => String(item.id) === String(itemId))
     .reduce((acc, item) => acc + Number(item.qty || 0), 0);
+}
+
+function getCartTotalQty(cart) {
+  return cart.reduce((acc, item) => acc + Number(item.qty || 0), 0);
+}
+
+function productHasVariants(item) {
+  return (
+    item?.variants_enabled === true &&
+    Array.isArray(item?.variants) &&
+    item.variants.length > 0
+  );
 }
 
 function StoreDetailsModal({
@@ -109,29 +124,29 @@ function StoreDetailsModal({
 }) {
   const [qty, setQty] = useState(1);
   const [activeSlide, setActiveSlide] = useState(0);
-const sliderRef = useRef(null);
-
-function goToSlide(index) {
-  setActiveSlide(index);
-
-  const slider = sliderRef.current;
-  if (!slider) return;
-
-  slider.scrollTo({
-    left: slider.clientWidth * index,
-    behavior: "smooth",
-  });
-}
-
-function handleSliderScroll() {
-  const slider = sliderRef.current;
-  if (!slider) return;
-
-  const index = Math.round(slider.scrollLeft / slider.clientWidth);
-  setActiveSlide(index);
-}
+  const sliderRef = useRef(null);
 
   if (!item) return null;
+
+  function goToSlide(index) {
+    setActiveSlide(index);
+
+    const slider = sliderRef.current;
+    if (!slider) return;
+
+    slider.scrollTo({
+      left: slider.clientWidth * index,
+      behavior: "smooth",
+    });
+  }
+
+  function handleSliderScroll() {
+    const slider = sliderRef.current;
+    if (!slider) return;
+
+    const index = Math.round(slider.scrollLeft / slider.clientWidth);
+    setActiveSlide(index);
+  }
 
   const images = [];
 
@@ -170,11 +185,11 @@ function handleSliderScroll() {
         <div className="product-modal-media">
           {uniqueImages.length > 0 ? (
             <div
-  ref={sliderRef}
-  className="product-modal-slider"
-  onScroll={handleSliderScroll}
->
-  {uniqueImages.map((img, index) => (
+              ref={sliderRef}
+              className="product-modal-slider"
+              onScroll={handleSliderScroll}
+            >
+              {uniqueImages.map((img, index) => (
                 <div key={`${img.url}-${index}`} className="product-modal-slide">
                   <img src={img.url} alt={img.label} />
                 </div>
@@ -189,13 +204,14 @@ function handleSliderScroll() {
           {uniqueImages.length > 1 && (
             <div className="product-modal-dots">
               {uniqueImages.map((_, index) => (
-  <button
-    key={index}
-    type="button"
-    className={index === activeSlide ? "active" : ""}
-    onClick={() => goToSlide(index)}
-  />
-))}
+                <button
+                  key={index}
+                  type="button"
+                  className={index === activeSlide ? "active" : ""}
+                  onClick={() => goToSlide(index)}
+                  aria-label={`Ver imagem ${index + 1}`}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -204,31 +220,16 @@ function handleSliderScroll() {
           <div className="product-modal-topline">
             <span>{isProduct(item) ? "Produto" : "Serviço"}</span>
 
-            <button
-              type="button"
-              className="product-modal-mini-add"
-              disabled={isUnavailable}
-              onClick={() => onAdd(item, qty)}
-            >
-              + Sacola
-            </button>
+            {stockLabel && (
+              <small className={isUnavailable ? "danger" : ""}>{stockLabel}</small>
+            )}
           </div>
 
           <h3>{item.title || item.name || "Item sem nome"}</h3>
 
-          {stockLabel && (
-            <small
-              className={`product-modal-stock ${
-                isUnavailable ? "danger" : ""
-              }`}
-            >
-              {stockLabel}
-            </small>
-          )}
-
           <p>
             {item.description ||
-              "Confira os detalhes deste item e escolha a quantidade antes de adicionar à sacola."}
+              "Confira os detalhes deste item e escolha a quantidade antes de adicionar ao carrinho."}
           </p>
 
           <div className="product-modal-buy-row">
@@ -249,32 +250,214 @@ function handleSliderScroll() {
               </button>
             </div>
           </div>
+
+          <button
+            type="button"
+            className="product-modal-main-add"
+            disabled={isUnavailable}
+            onClick={() => onAdd(item, qty)}
+          >
+            {isUnavailable ? "Indisponível" : "Adicionar ao carrinho"}
+          </button>
         </div>
       </div>
     </div>
   );
 }
-export default function StoreSection({ profile }) {
-  if (profile?.show_store === false) return null;
-const [liveStoreItems, setLiveStoreItems] = useState(
-  Array.isArray(profile?.store_items) ? profile.store_items : []
-);
 
-useEffect(() => {
-  setLiveStoreItems(
+function CartModal({
+  cart,
+  total,
+  cartHasQuote,
+  cartHasBookableService,
+  automationWhatsapp,
+  profile,
+  customer,
+  onClose,
+  onChangeQty,
+  onRemove,
+  onCheckout,
+  onOpenBooking,
+}) {
+  const totalQty = getCartTotalQty(cart);
+
+  return (
+    <div className="store-cart-modal-backdrop" onClick={onClose}>
+      <div className="store-cart-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="store-cart-sheet-handle" />
+
+        <div className="store-cart-sheet-head">
+          <div>
+            <span>Seu carrinho</span>
+            <h3>{totalQty} item(ns) selecionado(s)</h3>
+          </div>
+
+          <button type="button" onClick={onClose} aria-label="Fechar carrinho">
+            ×
+          </button>
+        </div>
+
+        {cart.length === 0 ? (
+          <div className="cart-empty cart-empty-modal">
+            Adicione uma opção para continuar sua solicitação.
+          </div>
+        ) : (
+          <div className="store-cart-sheet-list">
+            {cart.map((item) => {
+              const quote = isQuote(item);
+              const canBook = serviceUsesBooking(item, profile);
+
+              return (
+                <div key={item.id} className="store-cart-sheet-item">
+                  <div className="store-cart-sheet-item-main">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt={item.title || "Item"} />
+                    ) : (
+                      <div className="store-cart-sheet-placeholder">
+                        {isProduct(item) ? "🛍️" : "✨"}
+                      </div>
+                    )}
+
+                    <div>
+                      <strong>{item.title || item.name || "Item"}</strong>
+
+                      {Array.isArray(item.selected_variants) &&
+                        item.selected_variants.length > 0 && (
+                          <small>
+                            {item.selected_variants
+                              .map((v) => `${v.variant_name}: ${v.label}`)
+                              .join(" • ")}
+                          </small>
+                        )}
+
+                      <small>
+                        {quote ? "Sob orçamento" : `${money(item.price)} cada`}
+                        {canBook ? " • precisa escolher horário" : ""}
+                      </small>
+                    </div>
+                  </div>
+
+                  <div className="store-cart-sheet-controls">
+                    <button type="button" onClick={() => onChangeQty(item.id, -1)}>
+                      −
+                    </button>
+
+                    <span>{item.qty}</span>
+
+                    <button type="button" onClick={() => onChangeQty(item.id, 1)}>
+                      +
+                    </button>
+
+                    <button
+                      type="button"
+                      className="remove"
+                      onClick={() => onRemove(item.id)}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="store-cart-sheet-summary">
+          <div>
+            <span>{cartHasQuote ? "Total parcial" : "Total estimado"}</span>
+            <strong>{money(total)}</strong>
+          </div>
+
+          {cartHasQuote && (
+            <p>Itens sob orçamento serão combinados pelo WhatsApp.</p>
+          )}
+
+          {cartHasBookableService ? (
+            <button
+              type="button"
+              className="cart-checkout"
+              onClick={onOpenBooking}
+              disabled={cart.length === 0}
+            >
+              Escolher horário
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`cart-checkout ${
+                cart.length === 0 || !automationWhatsapp ? "disabled" : ""
+              }`}
+              onClick={onCheckout}
+              disabled={cart.length === 0 || !automationWhatsapp}
+            >
+              {cartHasQuote ? "Solicitar orçamento" : "Finalizar pedido"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function StoreSection({ profile }) {
+  const [liveStoreItems, setLiveStoreItems] = useState(
     Array.isArray(profile?.store_items) ? profile.store_items : []
   );
-}, [profile?.store_items]);
-  const whatsapp = onlyDigits(profile?.whatsapp || profile?.phone || "");
 
-const automationWhatsapp = onlyDigits(
-  process.env.NEXT_PUBLIC_AUTOMATION_WHATSAPP ||
-  profile?.automation_whatsapp ||
-  profile?.whatsapp ||
-  profile?.phone ||
-  ""
-);
-const affiliateRef = getAffiliateRef();
+  const [cart, setCart] = useState([]);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [variantModalOpen, setVariantModalOpen] = useState(false);
+  const [variantProduct, setVariantProduct] = useState(null);
+  const [pendingVariantQty, setPendingVariantQty] = useState(1);
+  const [selectedVariants, setSelectedVariants] = useState({});
+  const [filter, setFilter] = useState("all");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [detailsItem, setDetailsItem] = useState(null);
+  const [customer, setCustomer] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    note: "",
+  });
+
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    setLiveStoreItems(
+      Array.isArray(profile?.store_items) ? profile.store_items : []
+    );
+  }, [profile?.store_items]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!searchRef.current) return;
+
+      if (!searchRef.current.contains(event.target)) {
+        setSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
+
+  const automationWhatsapp = onlyDigits(
+    process.env.NEXT_PUBLIC_AUTOMATION_WHATSAPP ||
+      profile?.automation_whatsapp ||
+      profile?.whatsapp ||
+      profile?.phone ||
+      ""
+  );
+
+  const affiliateRef = getAffiliateRef();
+
   const categories = useMemo(() => {
     return Array.isArray(profile?.store_categories)
       ? profile.store_categories.filter((category) => category?.active !== false)
@@ -282,10 +465,10 @@ const affiliateRef = getAffiliateRef();
   }, [profile]);
 
   const items = useMemo(() => {
-  return Array.isArray(liveStoreItems)
-    ? liveStoreItems.filter((item) => item?.active !== false)
-    : [];
-}, [liveStoreItems]);
+    return Array.isArray(liveStoreItems)
+      ? liveStoreItems.filter((item) => item?.active !== false)
+      : [];
+  }, [liveStoreItems]);
 
   const hasServices = items.some(isService);
   const hasProducts = items.some(isProduct);
@@ -293,8 +476,8 @@ const affiliateRef = getAffiliateRef();
   const dynamicTitle = useMemo(() => {
     if (profile?.store_title) return profile.store_title;
 
-    if (hasProducts && hasServices) return "Escolha o que você precisa";
-    if (hasProducts) return "Produtos selecionados";
+    if (hasProducts && hasServices) return "Cardápio e serviços";
+    if (hasProducts) return "Produtos disponíveis";
     if (hasServices) return "Serviços disponíveis";
 
     return "Catálogo";
@@ -304,7 +487,7 @@ const affiliateRef = getAffiliateRef();
     if (profile?.store_text) return profile.store_text;
 
     if (hasProducts && hasServices) {
-      return "Confira produtos, serviços e soluções disponíveis para solicitar com facilidade.";
+      return "Escolha produtos, serviços ou opções do cardápio e envie seu pedido com praticidade.";
     }
 
     if (hasProducts) {
@@ -319,80 +502,46 @@ const affiliateRef = getAffiliateRef();
   }, [profile?.store_text, hasProducts, hasServices]);
 
   const catalogLabel = useMemo(() => {
-    if (hasProducts && hasServices) return "Catálogo premium";
-    if (hasProducts) return "Produtos";
-    if (hasServices) return "Serviços";
+    if (hasProducts && hasServices) return "Marketplace local";
+    if (hasProducts) return "Vitrine de produtos";
+    if (hasServices) return "Vitrine de serviços";
     return "Catálogo";
   }, [hasProducts, hasServices]);
 
-  const [cart, setCart] = useState([]);
-  const [variantModalOpen, setVariantModalOpen] = useState(false);
-  
-const [variantProduct, setVariantProduct] = useState(null);
-const [pendingVariantQty, setPendingVariantQty] = useState(1);
-const [selectedVariants, setSelectedVariants] = useState({});
-const [filter, setFilter] = useState("all");
-const [searchOpen, setSearchOpen] = useState(false);
-const [searchTerm, setSearchTerm] = useState("");
-const searchRef = useRef(null);
-  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [detailsItem, setDetailsItem] = useState(null);
-  const [customer, setCustomer] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    note: "",
-  });
-
   const categoryMap = useMemo(() => {
-  return new Map(categories.map((category) => [category.id, category]));
-}, [categories]);
-useEffect(() => {
-  function handleClickOutside(event) {
-    if (!searchRef.current) return;
+    return new Map(categories.map((category) => [category.id, category]));
+  }, [categories]);
 
-    if (!searchRef.current.contains(event.target)) {
-      setSearchOpen(false);
-    }
-  }
+  const visibleItems = useMemo(() => {
+    const term = normalizeText(searchTerm);
 
-  document.addEventListener("mousedown", handleClickOutside);
-  document.addEventListener("touchstart", handleClickOutside);
+    return items.filter((item) => {
+      const matchFilter =
+        filter === "all" ||
+        (filter === "service" && isService(item)) ||
+        (filter === "product" && isProduct(item)) ||
+        item.category_id === filter;
 
-  return () => {
-    document.removeEventListener("mousedown", handleClickOutside);
-    document.removeEventListener("touchstart", handleClickOutside);
-  };
-}, []);
-const visibleItems = useMemo(() => {
-  const term = searchTerm.trim().toLowerCase();
+      const category = categoryMap.get(item.category_id);
 
-  return items.filter((item) => {
-    const matchFilter =
-      filter === "all" ||
-      (filter === "service" && isService(item)) ||
-      (filter === "product" && isProduct(item)) ||
-      item.category_id === filter;
+      const searchableText = normalizeText(
+        [
+          item.title,
+          item.name,
+          item.description,
+          item.type,
+          item.price_type,
+          category?.name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
 
-    const category = categoryMap.get(item.category_id);
+      const matchSearch = !term || searchableText.includes(term);
 
-    const searchableText = [
-      item.title,
-      item.name,
-      item.description,
-      item.type,
-      item.price_type,
-      category?.name,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    const matchSearch = !term || searchableText.includes(term);
-
-    return matchFilter && matchSearch;
-  });
-}, [items, filter, searchTerm, categoryMap]);
+      return matchFilter && matchSearch;
+    });
+  }, [items, filter, searchTerm, categoryMap]);
 
   const visibleCategoryGroups = useMemo(() => {
     return categories
@@ -418,129 +567,99 @@ const visibleItems = useMemo(() => {
     return acc + Number(item.price || 0) * item.qty;
   }, 0);
 
+  const totalCartQty = getCartTotalQty(cart);
+
+  if (profile?.show_store === false) return null;
+
   function updateCustomer(field, value) {
     setCustomer((prev) => ({ ...prev, [field]: value }));
   }
-  function productHasVariants(item) {
-  return item?.variants_enabled === true &&
-    Array.isArray(item?.variants) &&
-    item.variants.length > 0;
-}
-function handleAddItem(item, qty = 1) {
-  if (itemIsUnavailable(item)) {
-    alert("Este produto está indisponível no momento.");
-    return;
-  }
 
-  if (itemControlsStock(item)) {
-    const alreadyInCart = getCartQty(cart, item.id);
-    const available = getStockQty(item);
-
-    if (alreadyInCart >= available) {
-      alert(`Só existem ${available} peça(s) disponíveis deste produto.`);
+  function handleAddItem(item, qty = 1) {
+    if (itemIsUnavailable(item)) {
+      alert("Este produto está indisponível no momento.");
       return;
     }
-  }
 
-  if (productHasVariants(item)) {
-  setPendingVariantQty(qty);
-  setVariantProduct(item);
-  setSelectedVariants({});
-  setVariantModalOpen(true);
-  return;
-}
+    if (itemControlsStock(item)) {
+      const alreadyInCart = getCartQty(cart, item.id);
+      const available = getStockQty(item);
 
-  addToCart(item, qty);
-}
-function selectVariant(variantId, option) {
-  setSelectedVariants((prev) => ({
-    ...prev,
-    [variantId]: option,
-  }));
-}
-function allVariantsSelected() {
-  if (!variantProduct?.variants) return true;
-
-  return variantProduct.variants.every((variant) => {
-    if (variant.required === false) return true;
-    return selectedVariants[variant.id];
-  });
-}
-function confirmVariantSelection() {
-  if (!allVariantsSelected()) {
-    alert("Selecione todas as opções obrigatórias.");
-    return;
-  }
-
-  const variantSummary = Object.values(selectedVariants).map((opt) => ({
-  id: opt.id,
-  label: opt.label,
-  variant_name: opt.variant_name,
-  image_url: opt.image_url || "",
-}));
-
-  addToCart(
-  {
-    ...variantProduct,
-    selected_variants: variantSummary,
-  },
-  pendingVariantQty
-);
-
-  setVariantModalOpen(false);
-  setVariantProduct(null);
-  setSelectedVariants({});
-  setPendingVariantQty(1);
-}
-function getVariantImage() {
-  const options = Object.values(selectedVariants);
-
-  const withImage = options
-    .map((opt) => opt.image_url)
-    .filter(Boolean);
-
-  return withImage.at(-1) || variantProduct?.image_url;
-}
-function getItemGalleryImages(item) {
-  const images = [];
-
-  if (item?.image_url) {
-    images.push({
-      id: "main",
-      url: item.image_url,
-      label: "Foto principal",
-    });
-  }
-
-  const variants = Array.isArray(item?.variants) ? item.variants : [];
-
-  variants.forEach((variant) => {
-    const options = Array.isArray(variant.options) ? variant.options : [];
-
-    options.forEach((option) => {
-      if (option.image_url) {
-        images.push({
-          id: `${variant.id}-${option.id}`,
-          url: option.image_url,
-          label: `${variant.name}: ${option.label}`,
-        });
+      if (alreadyInCart >= available) {
+        alert(`Só existem ${available} peça(s) disponíveis deste produto.`);
+        return;
       }
-    });
-  });
+    }
 
-  return images.filter(
-    (image, index, arr) =>
-      image.url &&
-      arr.findIndex((current) => current.url === image.url) === index
-  );
-}
+    if (productHasVariants(item)) {
+      setPendingVariantQty(qty);
+      setVariantProduct(item);
+      setSelectedVariants({});
+      setVariantModalOpen(true);
+      return;
+    }
+
+    addToCart(item, qty);
+  }
+
+  function selectVariant(variantId, option) {
+    setSelectedVariants((prev) => ({
+      ...prev,
+      [variantId]: option,
+    }));
+  }
+
+  function allVariantsSelected() {
+    if (!variantProduct?.variants) return true;
+
+    return variantProduct.variants.every((variant) => {
+      if (variant.required === false) return true;
+      return selectedVariants[variant.id];
+    });
+  }
+
+  function confirmVariantSelection() {
+    if (!allVariantsSelected()) {
+      alert("Selecione todas as opções obrigatórias.");
+      return;
+    }
+
+    const variantSummary = Object.values(selectedVariants).map((opt) => ({
+      id: opt.id,
+      label: opt.label,
+      variant_name: opt.variant_name,
+      image_url: opt.image_url || "",
+    }));
+
+    addToCart(
+      {
+        ...variantProduct,
+        selected_variants: variantSummary,
+      },
+      pendingVariantQty
+    );
+
+    setVariantModalOpen(false);
+    setVariantProduct(null);
+    setSelectedVariants({});
+    setPendingVariantQty(1);
+  }
+
+  function getVariantImage() {
+    const options = Object.values(selectedVariants);
+
+    const withImage = options.map((opt) => opt.image_url).filter(Boolean);
+
+    return withImage.at(-1) || variantProduct?.image_url;
+  }
+
   function addToCart(item, qtyToAdd = 1) {
   if (itemIsUnavailable(item)) return;
 
   const qty = Math.max(1, Number(qtyToAdd || 1));
 
   setCart((prev) => {
-    const exists = prev.find((cartItem) => cartItem.id === item.id);
+    const exists = prev.find((cartItem) => String(cartItem.id) === String(item.id));
 
     if (itemControlsStock(item)) {
       const currentQty = exists ? Number(exists.qty || 0) : 0;
@@ -554,7 +673,7 @@ function getItemGalleryImages(item) {
 
     if (exists) {
       return prev.map((cartItem) =>
-        cartItem.id === item.id
+        String(cartItem.id) === String(item.id)
           ? { ...cartItem, qty: Number(cartItem.qty || 0) + qty }
           : cartItem
       );
@@ -565,29 +684,29 @@ function getItemGalleryImages(item) {
 }
 
   function removeFromCart(id) {
-    setCart((prev) => prev.filter((item) => item.id !== id));
+    setCart((prev) => prev.filter((item) => String(item.id) !== String(id)));
   }
 
   function changeQty(id, delta) {
-  setCart((prev) =>
-    prev.map((item) => {
-      if (item.id !== id) return item;
+    setCart((prev) =>
+      prev.map((item) => {
+        if (String(item.id) !== String(id)) return item;
 
-      const nextQty = Math.max(1, Number(item.qty || 1) + delta);
+        const nextQty = Math.max(1, Number(item.qty || 1) + delta);
 
-      if (delta > 0 && itemControlsStock(item)) {
-        const available = getStockQty(item);
+        if (delta > 0 && itemControlsStock(item)) {
+          const available = getStockQty(item);
 
-        if (nextQty > available) {
-          alert(`Só existem ${available} peça(s) disponíveis deste produto.`);
-          return item;
+          if (nextQty > available) {
+            alert(`Só existem ${available} peça(s) disponíveis deste produto.`);
+            return item;
+          }
         }
-      }
 
-      return { ...item, qty: nextQty };
-    })
-  );
-}
+        return { ...item, qty: nextQty };
+      })
+    );
+  }
 
   function openBookingFromCart() {
     const bookableServices = cart
@@ -625,6 +744,8 @@ function getItemGalleryImages(item) {
       })
     );
 
+    setCartModalOpen(false);
+
     document.getElementById("agendamento")?.scrollIntoView({
       behavior: "smooth",
       block: "start",
@@ -632,11 +753,11 @@ function getItemGalleryImages(item) {
   }
 
   function buildWhatsAppLink(orderId = "") {
-  if (!automationWhatsapp || cart.length === 0) return "#";
+    if (!automationWhatsapp || cart.length === 0) return "#";
 
-  const customerName = `${customer.firstName} ${customer.lastName}`.trim();
+    const customerName = `${customer.firstName} ${customer.lastName}`.trim();
 
-  const message = `Olá! Quero acompanhar minha solicitação.
+    const message = `Olá! Quero acompanhar minha solicitação.
 
 Código do pedido: ${orderId}
 
@@ -645,13 +766,16 @@ Página: ${profile?.nome || profile?.name || "Vitrine profissional"}
 
 Aguardo a confirmação.`;
 
-  return `https://wa.me/${automationWhatsapp}?text=${encodeURIComponent(message)}`;
-}
+    return `https://wa.me/${automationWhatsapp}?text=${encodeURIComponent(
+      message
+    )}`;
+  }
 
   function openCheckoutModal() {
-  if (cart.length === 0 || !automationWhatsapp) return;
-  setShowCheckoutModal(true);
-}
+    if (cart.length === 0 || !automationWhatsapp) return;
+    setCartModalOpen(false);
+    setShowCheckoutModal(true);
+  }
 
   async function confirmCheckout() {
     const firstName = customer.firstName.trim();
@@ -674,571 +798,465 @@ Aguardo a confirmação.`;
       return;
     }
 
-const orderItems = cart.map((item) => ({
+    const orderItems = cart.map((item) => ({
+      id: item.id,
+      type: item.type || "service",
+      title: item.title || item.name || "Item",
+      qty: item.qty || 1,
+      price: isQuote(item) ? null : Number(item.price || 0),
+      price_type: item.price_type || "fixed",
+      category_id: item.category_id || "",
+      image_url: item.image_url || "",
+      commission_enabled: item.commission_enabled === true,
+      allowed_staff_ids:
+        item.allowed_staff_ids || item.staff_ids || item.seller_staff_ids || [],
+      allow_all_staff: item.allow_all_staff === true || item.all_staff === true || false,
+      stock_mode: item.stock_mode || "single",
+      stock_enabled: item.stock_enabled === true || item.stock_mode === "quantity",
+      stock_qty: Number(item.stock_qty || 0),
+      reserved_qty: Number(item.reserved_qty || 0),
+      sold_qty: Number(item.sold_qty || 0),
+      available_qty: getStockQty(item),
+      in_stock: item.in_stock !== false,
+      selected_variants: Array.isArray(item.selected_variants)
+        ? item.selected_variants
+        : [],
+    }));
 
-  id: item.id,
+    const res = await fetch("/api/profile-orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        profile_page_id: profile.id,
+        customer_name: customerName,
+        customer_phone: phone,
+        note: customer.note.trim(),
+        items: orderItems,
+        total,
+        has_quote: cartHasQuote,
+        affiliate_ref: affiliateRef,
+        source_ref: affiliateRef,
+        source_channel: affiliateRef ? "affiliate_link" : "whatsapp_automation",
+        automation_status: "waiting_owner_confirmation",
+        profile_owner_name: profile.nome || profile.name || "",
+        profile_owner_phone: onlyDigits(profile.whatsapp || profile.phone || ""),
+      }),
+    });
 
-  type: item.type || "service",
+    const data = await res.json().catch(() => ({}));
 
-  title: item.title || item.name || "Item",
+    if (!res.ok) {
+      console.error("Erro ao salvar pedido:", data);
+      alert(data?.error || "Não foi possível salvar o pedido.");
+      return;
+    }
 
-  qty: item.qty || 1,
+    const orderedItems = cart;
 
-  price: isQuote(item) ? null : Number(item.price || 0),
+    if (Array.isArray(data.updated_store_items)) {
+      setLiveStoreItems(data.updated_store_items);
+    } else {
+      setLiveStoreItems((prev) =>
+        prev.map((storeItem) => {
+          const orderedItem = orderedItems.find(
+            (item) => String(item.id) === String(storeItem.id)
+          );
 
-  price_type: item.price_type || "fixed",
+          if (
+            !orderedItem ||
+            storeItem.type !== "product" ||
+            storeItem.stock_enabled !== true ||
+            storeItem.stock_mode !== "quantity"
+          ) {
+            return storeItem;
+          }
 
-  category_id: item.category_id || "",
+          const qty = Number(orderedItem.qty || 0);
+          const reservedQty = Number(storeItem.reserved_qty || 0);
+          const soldQty = Number(storeItem.sold_qty || 0);
+          const stockQty = Number(storeItem.stock_qty || 0);
 
-  image_url: item.image_url || "",
+          const nextReservedQty = reservedQty + qty;
+          const availableQty = Math.max(0, stockQty - nextReservedQty - soldQty);
 
-  commission_enabled: item.commission_enabled === true,
-
-  allowed_staff_ids:
-
-    item.allowed_staff_ids ||
-
-    item.staff_ids ||
-
-    item.seller_staff_ids ||
-
-    [],
-
-  allow_all_staff:
-
-    item.allow_all_staff === true ||
-
-    item.all_staff === true ||
-
-    false,
-
-  stock_mode: item.stock_mode || "single",
-stock_enabled:
-  item.stock_enabled === true ||
-  item.stock_mode === "quantity",
-stock_qty: Number(item.stock_qty || 0),
-reserved_qty: Number(item.reserved_qty || 0),
-sold_qty: Number(item.sold_qty || 0),
-available_qty: getStockQty(item),
-in_stock: item.in_stock !== false,
-selected_variants: Array.isArray(item.selected_variants)
-  ? item.selected_variants
-  : [],
-}));
-const res = await fetch("/api/profile-orders", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
- body: JSON.stringify({
-
-  profile_page_id: profile.id,
-
-  customer_name: customerName,
-
-  customer_phone: phone,
-
-  note: customer.note.trim(),
-
-  items: orderItems,
-
-  total,
-
-  has_quote: cartHasQuote,
-
-  affiliate_ref: affiliateRef,
-
-  source_ref: affiliateRef,
-
-  source_channel: affiliateRef
-
-    ? "affiliate_link"
-
-    : "whatsapp_automation",
-
-  automation_status: "waiting_owner_confirmation",
-
-  profile_owner_name: profile.nome || profile.name || "",
-
-  profile_owner_phone: onlyDigits(profile.whatsapp || profile.phone || ""),
-
-}),
-});
-
-const data = await res.json().catch(() => ({}));
-
-if (!res.ok) {
-  console.error("Erro ao salvar pedido:", data);
-  alert(data?.error || "Não foi possível salvar o pedido.");
-  return;
-}
-const orderedItems = cart;
-
-if (Array.isArray(data.updated_store_items)) {
-  setLiveStoreItems(data.updated_store_items);
-} else {
-  setLiveStoreItems((prev) =>
-    prev.map((storeItem) => {
-      const orderedItem = orderedItems.find(
-        (item) => String(item.id) === String(storeItem.id)
+          return {
+            ...storeItem,
+            reserved_qty: nextReservedQty,
+            in_stock: availableQty > 0,
+          };
+        })
       );
+    }
 
-      if (
-        !orderedItem ||
-        storeItem.type !== "product" ||
-        storeItem.stock_enabled !== true ||
-        storeItem.stock_mode !== "quantity"
-      ) {
-        return storeItem;
-      }
+    setShowCheckoutModal(false);
+    setCart([]);
 
-      const qty = Number(orderedItem.qty || 0);
-      const reservedQty = Number(storeItem.reserved_qty || 0);
-      const soldQty = Number(storeItem.sold_qty || 0);
-      const stockQty = Number(storeItem.stock_qty || 0);
+    const orderId = data?.id || data?.order?.id || "";
 
-      const nextReservedQty = reservedQty + qty;
-      const availableQty = Math.max(0, stockQty - nextReservedQty - soldQty);
+    window.open(buildWhatsAppLink(orderId), "_blank", "noopener,noreferrer");
 
-      return {
-        ...storeItem,
-        reserved_qty: nextReservedQty,
-        in_stock: availableQty > 0,
-      };
-    })
-  );
-}
-setShowCheckoutModal(false);
-setCart([]);
-const orderId = data?.id || data?.order?.id || "";
+    setCustomer({
+      firstName: "",
+      lastName: "",
+      phone: "",
+      note: "",
+    });
 
-window.open(buildWhatsAppLink(orderId), "_blank", "noopener,noreferrer");
-
-setShowCheckoutModal(false);
-setCart([]);
-setCustomer({
-  firstName: "",
-  lastName: "",
-  phone: "",
-  note: "",
-});
-
-alert("Pedido enviado com sucesso!");
+    alert("Pedido enviado com sucesso!");
   }
 
-  function renderItemCard(item) {
+  function renderMarketplaceItem(item) {
     const product = isProduct(item);
     const quote = isQuote(item);
     const canBook = serviceUsesBooking(item, profile);
-const unavailable = itemIsUnavailable(item);
-const stockLabel = getPublicStockLabel(item);
-    return (
-  <article
-    key={item.id}
-    className="store-card"
-    onClick={() => setDetailsItem(item)}
-  >
-        {item.image_url ? (
-          <div className="store-card-image">
-            <img src={item.image_url} alt={item.title || "Item"} />
-          </div>
-        ) : (
-          <div className="store-card-image store-card-image-empty">
-            <span>{product ? "🛍️" : "✨"}</span>
-          </div>
-        )}
+    const unavailable = itemIsUnavailable(item);
+    const stockLabel = getPublicStockLabel(item);
+    const cartQty = getCartQty(cart, item.id);
 
-        <div className="store-card-body">
-          <div className="store-card-top">
+    return (
+      <article
+        key={item.id}
+        className={`store-market-item ${unavailable ? "unavailable" : ""}`}
+        onClick={() => setDetailsItem(item)}
+      >
+        <div className="store-market-info">
+          <div className="store-market-badges">
             <span>{product ? "Produto" : "Serviço"}</span>
 
-            <div>
-              {canBook && <small>Agenda online</small>}
-              {quote && <small>Orçamento</small>}
-            </div>
+            {canBook && <small>Agenda online</small>}
+            {quote && <small>Orçamento</small>}
           </div>
 
-          <h3>{item.title || "Item sem nome"}</h3>
+          <h3>{item.title || item.name || "Item sem nome"}</h3>
 
           {item.description && <p>{item.description}</p>}
-{stockLabel && (
-  <div className={`store-public-stock ${unavailable ? "danger" : ""}`}>
-    {stockLabel}
-  </div>
-)}
-          <div className="store-card-bottom">
+
+          {stockLabel && (
+            <div className={`store-public-stock ${unavailable ? "danger" : ""}`}>
+              {stockLabel}
+            </div>
+          )}
+
+          <div className="store-market-bottom">
             <strong>{getItemPriceLabel(item)}</strong>
 
-         <button
-  type="button"
-  onClick={(e) => {
-    e.stopPropagation();
-    handleAddItem(item);
-  }}
-  disabled={unavailable}
-  className={unavailable ? "disabled" : ""}
->
-  {unavailable ? "Indisponível" : "Adicionar"}
-</button>
+            {cartQty > 0 && (
+              <em>
+                {cartQty} no carrinho
+              </em>
+            )}
           </div>
+        </div>
+
+        <div className="store-market-media">
+          {item.image_url ? (
+            <img src={item.image_url} alt={item.title || item.name || "Item"} />
+          ) : (
+            <div className="store-market-placeholder">
+              {product ? "🛍️" : "✨"}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddItem(item);
+            }}
+            disabled={unavailable}
+            className={unavailable ? "disabled" : ""}
+            aria-label={`Adicionar ${item.title || item.name || "item"}`}
+          >
+            {unavailable ? "×" : "+"}
+          </button>
         </div>
       </article>
     );
   }
 
+  function renderCategorySection(title, subtitle, sectionItems, key) {
+    if (!sectionItems.length) return null;
+
+    return (
+      <section key={key} className="store-market-category">
+        <div className="store-market-category-head">
+          <div>
+            <span>{subtitle}</span>
+            <h3>{title}</h3>
+          </div>
+
+          
+        </div>
+
+        <div className="store-market-carousel">
+  {sectionItems.map(renderMarketplaceItem)}
+</div>
+      </section>
+    );
+  }
+
   return (
     <>
-      <section className="store-section" id="loja">
+      <section className="store-section store-section-marketplace" id="loja">
         <div className="store-shell">
-          <div className="store-luxury-head">
-            <div className="store-luxury-copy">
+          <div className="store-market-hero">
+            <div>
               <span className="store-luxury-kicker">{catalogLabel}</span>
               <h2>{dynamicTitle}</h2>
               <p>{dynamicText}</p>
             </div>
 
-            <div className="store-luxury-stats">
-              <div>
-                <strong>{items.length}</strong>
-                <span>opções</span>
-              </div>
+            
+          </div>
+
+          <div className="store-market-toolbar">
+            <div className="store-filters">
+              {(hasServices && hasProducts) || categories.length > 0 ? (
+                <button
+                  type="button"
+                  className={filter === "all" ? "active" : ""}
+                  onClick={() => setFilter("all")}
+                >
+                  Todos
+                </button>
+              ) : null}
 
               {hasProducts && (
-                <div>
-                  <strong>{items.filter(isProduct).length}</strong>
-                  <span>produtos</span>
-                </div>
+                <button
+                  type="button"
+                  className={filter === "product" ? "active" : ""}
+                  onClick={() => setFilter("product")}
+                >
+                  Produtos
+                </button>
               )}
 
               {hasServices && (
-                <div>
-                  <strong>{items.filter(isService).length}</strong>
-                  <span>serviços</span>
-                </div>
+                <button
+                  type="button"
+                  className={filter === "service" ? "active" : ""}
+                  onClick={() => setFilter("service")}
+                >
+                  Serviços
+                </button>
+              )}
+
+              {categories
+                .filter((category) =>
+                  items.some((item) => item.category_id === category.id)
+                )
+                .map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={filter === category.id ? "active" : ""}
+                    onClick={() => setFilter(category.id)}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+            </div>
+
+            <div
+              ref={searchRef}
+              className={`store-filter-search ${searchOpen ? "open" : ""}`}
+            >
+              <button
+                type="button"
+                className="store-filter-search-toggle"
+                onClick={() => setSearchOpen((prev) => !prev)}
+                aria-label="Buscar"
+              >
+                🔎
+              </button>
+
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar no catálogo..."
+              />
+
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="store-filter-search-clear"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Limpar busca"
+                >
+                  ×
+                </button>
               )}
             </div>
           </div>
 
-          <div className="store-layout">
-            <div className="store-content">
-              {(hasServices || hasProducts || categories.length > 0) && (
-                <div className="store-filters-row">
-  <div className="store-filters">
-    {(hasServices && hasProducts) || categories.length > 0 ? (
-      <button
-        type="button"
-        className={filter === "all" ? "active" : ""}
-        onClick={() => setFilter("all")}
-      >
-        Todos
-      </button>
-    ) : null}
+          {visibleItems.length === 0 ? (
+            <div className="store-empty">
+              <strong>
+                {searchTerm ? "Nenhum resultado encontrado" : "Nenhum item cadastrado ainda"}
+              </strong>
 
-    {hasServices && (
-      <button
-        type="button"
-        className={filter === "service" ? "active" : ""}
-        onClick={() => setFilter("service")}
-      >
-        Serviços
-      </button>
-    )}
-
-    {hasProducts && (
-      <button
-        type="button"
-        className={filter === "product" ? "active" : ""}
-        onClick={() => setFilter("product")}
-      >
-        Produtos
-      </button>
-    )}
-
-    {categories
-      .filter((category) =>
-        items.some((item) => item.category_id === category.id)
-      )
-      .map((category) => (
-        <button
-          key={category.id}
-          type="button"
-          className={filter === category.id ? "active" : ""}
-          onClick={() => setFilter(category.id)}
-        >
-          {category.name}
-        </button>
-      ))}
-  </div>
-
-  <div
-  ref={searchRef}
-  className={`store-filter-search ${searchOpen ? "open" : ""}`}
->
-    <button
-      type="button"
-      className="store-filter-search-toggle"
-      onClick={() => setSearchOpen((prev) => !prev)}
-      aria-label="Buscar"
-    >
-      🔎
-    </button>
-
-    <input
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      placeholder="Buscar..."
-    />
-
-    {searchTerm && (
-      <button
-        type="button"
-        className="store-filter-search-clear"
-        onClick={() => setSearchTerm("")}
-        aria-label="Limpar busca"
-      >
-        ×
-      </button>
-    )}
-  </div>
-</div>
-              )}
-
-              {visibleItems.length === 0 ? (
-                <div className="store-empty">
-                  <strong>
-  {searchTerm ? "Nenhum resultado encontrado" : "Nenhum item cadastrado ainda"}
-</strong>
-<p>
-  {searchTerm
-    ? "Tente buscar por outro nome, serviço ou categoria."
-    : "Em breve novas opções estarão disponíveis nesta página."}
-</p>
-                </div>
-              ) : (
-                <div className="store-category-stack">
-                  {visibleCategoryGroups.map(({ category, items }) => (
-                    <section key={category.id} className="store-category-block">
-                      <div className="store-category-head">
-                        <div>
-                          <span>Categoria</span>
-                          <h3>{category.name}</h3>
-                        </div>
-
-                        <small>{items.length} item(ns)</small>
-                      </div>
-
-                      <div className="store-carousel">
-                        {items.map(renderItemCard)}
-                      </div>
-                    </section>
-                  ))}
-
-                  {uncategorizedItems.length > 0 && (
-                    <section className="store-category-block">
-                      {visibleCategoryGroups.length > 0 && (
-                        <div className="store-category-head">
-                          <div>
-                            <span>Seleção</span>
-                            <h3>Outras opções</h3>
-                          </div>
-
-                          <small>{uncategorizedItems.length} item(ns)</small>
-                        </div>
-                      )}
-
-                      <div className="store-carousel">
-                        {uncategorizedItems.map(renderItemCard)}
-                      </div>
-                    </section>
-                  )}
-                </div>
-              )}
+              <p>
+                {searchTerm
+                  ? "Tente buscar por outro nome, serviço ou categoria."
+                  : "Em breve novas opções estarão disponíveis nesta página."}
+              </p>
             </div>
-
-            <aside className="cart-card">
-              <div className="cart-head">
-                <span>🛒</span>
-                <div>
-                  <strong>Sacola</strong>
-                  <small>{cart.length} item(ns)</small>
-                </div>
-              </div>
-
-              {cart.length === 0 ? (
-                <div className="cart-empty">
-                  Adicione uma opção para continuar sua solicitação.
-                </div>
-              ) : (
-                <div className="cart-list">
-                  {cart.map((item) => {
-                    const quote = isQuote(item);
-                    const canBook = serviceUsesBooking(item, profile);
-
-                    return (
-                      <div key={item.id} className="cart-item">
-                        <div>
-                          <strong>{item.title}</strong>
-                          {item.selected_variants && (
-  <small>
-    {item.selected_variants.map(v => `${v.variant_name}: ${v.label}`).join(" • ")}
-  </small>
-)}
-                          <small>
-                            {quote
-                              ? "Sob orçamento"
-                              : `${money(item.price)} cada`}
-                            {canBook ? " • precisa escolher horário" : ""}
-                          </small>
-                        </div>
-
-                        <div className="cart-controls">
-                          <button type="button" onClick={() => changeQty(item.id, -1)}>
-                            −
-                          </button>
-
-                          <span>{item.qty}</span>
-
-                          <button type="button" onClick={() => changeQty(item.id, 1)}>
-                            +
-                          </button>
-
-                          <button type="button" onClick={() => removeFromCart(item.id)}>
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+          ) : (
+            <div className="store-market-stack">
+              {visibleCategoryGroups.map(({ category, items }) =>
+                renderCategorySection(
+                  category.name,
+                  "Categoria",
+                  items,
+                  category.id
+                )
               )}
 
-              <div className="cart-total">
-                <span>{cartHasQuote ? "Total parcial" : "Total estimado"}</span>
-                <strong>{money(total)}</strong>
-              </div>
-
-              {cartHasQuote && (
-                <p className="cart-note">
-                  Itens sob orçamento serão combinados pelo WhatsApp.
-                </p>
-              )}
-              
-              {cartHasBookableService ? (
-                <button
-                  type="button"
-                  className={`cart-checkout ${cart.length === 0 ? "disabled" : ""}`}
-                  onClick={openBookingFromCart}
-                  disabled={cart.length === 0}
-                >
-                  Escolher horário
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className={`cart-checkout ${
-  cart.length === 0 || !automationWhatsapp ? "disabled" : ""
-}`}
-onClick={openCheckoutModal}
-disabled={cart.length === 0 || !automationWhatsapp}
-                >
-                  {cartHasQuote ? "Solicitar orçamento" : "Finalizar pedido"}
-                </button>
-              )}
-            </aside>
-          </div>
+              {uncategorizedItems.length > 0 &&
+                renderCategorySection(
+                  visibleCategoryGroups.length > 0 ? "Outras opções" : "Destaques",
+                  visibleCategoryGroups.length > 0 ? "Seleção" : "Catálogo",
+                  uncategorizedItems,
+                  "uncategorized"
+                )}
+            </div>
+          )}
         </div>
       </section>
-{detailsItem && (
-  <StoreDetailsModal
-    item={detailsItem}
-    onClose={() => setDetailsItem(null)}
-    isUnavailable={itemIsUnavailable(detailsItem)}
-    stockLabel={getPublicStockLabel(detailsItem)}
-    priceLabel={getItemPriceLabel(detailsItem)}
-    onAdd={(item, qty) => {
-  handleAddItem(item, qty);
-  setDetailsItem(null);
-}}
-  />
-)}
-{variantModalOpen && variantProduct && (
-  <div className="booking-modal-backdrop">
-    <div className="booking-modal variant-modal-clean">
-      <button
-        type="button"
-        className="variant-modal-x"
-        onClick={() => setVariantModalOpen(false)}
-      >
-        ×
-      </button>
 
-      <div className="variant-modal-cover">
-        <img src={getVariantImage()} alt={variantProduct.title || "Produto"} />
-      </div>
+      {totalCartQty > 0 && (
+       <button
+  type="button"
+  className="floating-cart-button"
+  data-count={totalCartQty}
+  onClick={() => setCartModalOpen(true)}
+>
+  <span>🛒</span>
 
-      <div className="variant-modal-content">
-        <h3>{variantProduct.title}</h3>
+  <strong>
+    {totalCartQty} item(ns)
+  </strong>
 
-        {variantProduct.description && (
-          <p>{variantProduct.description}</p>
-        )}
+  <small>{cartHasQuote ? "Ver carrinho" : money(total)}</small>
+</button>
+      )}
 
-        {variantProduct.variants.map((variant) => (
-          <div key={variant.id} className="variant-modal-group">
-            <strong>{variant.name}</strong>
+      {cartModalOpen && (
+        <CartModal
+          cart={cart}
+          total={total}
+          cartHasQuote={cartHasQuote}
+          cartHasBookableService={cartHasBookableService}
+          automationWhatsapp={automationWhatsapp}
+          profile={profile}
+          customer={customer}
+          onClose={() => setCartModalOpen(false)}
+          onChangeQty={changeQty}
+          onRemove={removeFromCart}
+          onCheckout={openCheckoutModal}
+          onOpenBooking={openBookingFromCart}
+        />
+      )}
 
-            <div className="variant-modal-options">
-              {variant.options.map((option) => {
-                const active =
-                  selectedVariants[variant.id]?.id === option.id;
+      {detailsItem && (
+        <StoreDetailsModal
+          item={detailsItem}
+          onClose={() => setDetailsItem(null)}
+          isUnavailable={itemIsUnavailable(detailsItem)}
+          stockLabel={getPublicStockLabel(detailsItem)}
+          priceLabel={getItemPriceLabel(detailsItem)}
+          onAdd={(item, qty) => {
+            handleAddItem(item, qty);
+            setDetailsItem(null);
+          }}
+        />
+      )}
 
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={active ? "active" : ""}
-                    onClick={() =>
-                      selectVariant(variant.id, {
-                        ...option,
-                        variant_name: variant.name,
-                      })
-                    }
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
+      {variantModalOpen && variantProduct && (
+        <div className="booking-modal-backdrop">
+          <div className="booking-modal variant-modal-clean">
+            <button
+              type="button"
+              className="variant-modal-x"
+              onClick={() => setVariantModalOpen(false)}
+            >
+              ×
+            </button>
+
+            <div className="variant-modal-cover">
+              <img src={getVariantImage()} alt={variantProduct.title || "Produto"} />
+            </div>
+
+            <div className="variant-modal-content">
+              <h3>{variantProduct.title}</h3>
+
+              {variantProduct.description && <p>{variantProduct.description}</p>}
+
+              {variantProduct.variants.map((variant) => (
+                <div key={variant.id} className="variant-modal-group">
+                  <strong>{variant.name}</strong>
+
+                  <div className="variant-modal-options">
+                    {variant.options.map((option) => {
+                      const active =
+                        selectedVariants[variant.id]?.id === option.id;
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={active ? "active" : ""}
+                          onClick={() =>
+                            selectVariant(variant.id, {
+                              ...option,
+                              variant_name: variant.name,
+                            })
+                          }
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {getPublicStockLabel(variantProduct) && (
+                <div
+                  className={`store-public-stock ${
+                    itemIsUnavailable(variantProduct) ? "danger" : ""
+                  }`}
+                >
+                  {getPublicStockLabel(variantProduct)}
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="variant-modal-add"
+                onClick={confirmVariantSelection}
+                disabled={itemIsUnavailable(variantProduct)}
+              >
+                {itemIsUnavailable(variantProduct)
+                  ? "Produto indisponível"
+                  : "Adicionar ao carrinho"}
+              </button>
             </div>
           </div>
-        ))}
-{getPublicStockLabel(variantProduct) && (
-  <div className={`store-public-stock ${
-    itemIsUnavailable(variantProduct) ? "danger" : ""
-  }`}>
-    {getPublicStockLabel(variantProduct)}
-  </div>
-)}
-<button
-  type="button"
-  className="variant-modal-add"
-  onClick={confirmVariantSelection}
-  disabled={itemIsUnavailable(variantProduct)}
->
-  {itemIsUnavailable(variantProduct)
-    ? "Produto indisponível"
-    : "Adicionar à sacola"}
-</button>
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
+
       {showCheckoutModal && (
         <div className="booking-modal-backdrop" role="presentation">
           <div className="booking-modal" role="dialog" aria-modal="true">
             <div className="booking-modal-head">
               <div>
                 <span className="eyebrow">Dados do cliente</span>
+
                 <h3>{cartHasQuote ? "Solicitar orçamento" : "Finalizar pedido"}</h3>
+
                 <p>
                   Informe seus dados para enviar a solicitação ao profissional pelo
                   WhatsApp.
@@ -1257,6 +1275,7 @@ disabled={cart.length === 0 || !automationWhatsapp}
             <div className="booking-client-form">
               <label>
                 <span>Nome</span>
+
                 <input
                   value={customer.firstName}
                   onChange={(e) => updateCustomer("firstName", e.target.value)}
@@ -1267,6 +1286,7 @@ disabled={cart.length === 0 || !automationWhatsapp}
 
               <label>
                 <span>Sobrenome</span>
+
                 <input
                   value={customer.lastName}
                   onChange={(e) => updateCustomer("lastName", e.target.value)}
@@ -1276,6 +1296,7 @@ disabled={cart.length === 0 || !automationWhatsapp}
 
               <label className="full">
                 <span>WhatsApp com DDD</span>
+
                 <input
                   value={customer.phone}
                   onChange={(e) => updateCustomer("phone", e.target.value)}
@@ -1285,6 +1306,7 @@ disabled={cart.length === 0 || !automationWhatsapp}
 
               <label className="full">
                 <span>Observação opcional</span>
+
                 <textarea
                   value={customer.note}
                   onChange={(e) => updateCustomer("note", e.target.value)}
@@ -1298,8 +1320,9 @@ disabled={cart.length === 0 || !automationWhatsapp}
                   {cartHasQuote ? "Total parcial" : "Total estimado"}:{" "}
                   {money(total)}
                 </strong>
+
                 <span>
-                  {cart.map((item) => `${item.qty}x ${item.title}`).join(" • ")}
+                  {cart.map((item) => `${item.qty}x ${item.title || item.name}`).join(" • ")}
                 </span>
               </div>
 
@@ -1307,7 +1330,10 @@ disabled={cart.length === 0 || !automationWhatsapp}
                 <button
                   type="button"
                   className="booking-modal-secondary"
-                  onClick={() => setShowCheckoutModal(false)}
+                  onClick={() => {
+                    setShowCheckoutModal(false);
+                    setCartModalOpen(true);
+                  }}
                 >
                   Voltar
                 </button>

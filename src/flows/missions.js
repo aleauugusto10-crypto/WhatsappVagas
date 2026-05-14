@@ -23,8 +23,8 @@ function isValorACombinar(text = "") {
 function buildPixOwnerNotice() {
   return (
     "ℹ️ *Informação importante sobre o Pix*\n\n" +
-    "O pagamento pode aparecer no nome do criador/responsável pelo RendaJá, pois a plataforma ainda está usando a conta operacional do sistema.\n\n" +
-    "Pode ficar tranquilo: esse Pix pertence ao ambiente de pagamentos do RendaJá."
+    "O pagamento pode aparecer no nome do criador/responsável pelo CompreTudo.shop, pois a plataforma ainda está usando a conta operacional do sistema.\n\n" +
+    "Pode ficar tranquilo: esse Pix pertence ao ambiente de pagamentos do CompreTudo.shop."
   );
 }
 

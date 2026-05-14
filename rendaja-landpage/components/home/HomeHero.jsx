@@ -14,7 +14,7 @@ export default function HomeHero() {
 
         <h1>
           Seu trabalho precisa ser visto.
-          <strong> O RendaJá coloca você online.</strong>
+          <strong> O CompreTudo.shop coloca você online.</strong>
         </h1>
 
         <p>

@@ -332,7 +332,7 @@ export default async function handler(req, res) {
             has_quote ? `Sob orçamento / parcial ${money(total)}` : money(total)
           }\n` +
           `${note ? `\n📝 Observação:\n${note}\n` : ""}` +
-          `Acesse o painel RendaJá para confirmar ou finalizar esse pedido.`
+          `Acesse o painel CompreTudo.shop para confirmar ou finalizar esse pedido.`
       );
     }
 

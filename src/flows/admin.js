@@ -26,7 +26,7 @@ function formatDate(value) {
 }
 
 async function sendAdminMenu(phone) {
-  return sendList(phone, "🛠️ *Menu Admin RendaJá*", [
+  return sendList(phone, "🛠️ *Menu Admin CompreTudo.shop*", [
     {
       title: "Painel",
       rows: [
@@ -411,7 +411,7 @@ async function adminSaquePagar({ phone, supabase, saqueId }) {
     `Chave Pix: ${saque.chave_pix || "-"}\n` +
     `Status: Pago\n` +
     `Data: ${formatDate(new Date().toISOString())}\n\n` +
-    `Obrigado por usar o RendaJá.`;
+    `Obrigado por usar o CompreTudo.shop.`;
 
   await supabase
     .from("saques")

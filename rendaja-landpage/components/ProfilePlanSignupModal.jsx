@@ -31,6 +31,12 @@ function buildFileName(file) {
 async function uploadReferenceImage(file) {
   if (!file) return "";
 
+  if (!supabase) {
+    throw new Error(
+      "Supabase não está configurado no navegador. Verifique NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY no Vercel."
+    );
+  }
+
   const fileName = buildFileName(file);
 
   const { error } = await supabase.storage
@@ -80,7 +86,7 @@ export default function ProfilePlanSignupModal({
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [cardError, setCardError] = useState("");
   const [cardResult, setCardResult] = useState(null);
-  const [brickReady, setBrickReady] = useState(false);
+  
   const [copied, setCopied] = useState(false);
 const [step, setStep] = useState("form");
 const [pendingSignupId, setPendingSignupId] = useState(null);
@@ -107,39 +113,96 @@ const [creatingProfile, setCreatingProfile] = useState(false);
   return localStorage.getItem("affiliate_ref") || "";
 }
 useEffect(() => {
-  if (!payment?.id) return;
+  const checkPaymentId = payment?.platform_payment_id || payment?.payment_id;
+
+  if (!checkPaymentId) return;
   if (createdProfile) return;
 
-  const timer = setInterval(async () => {
+  let statusTimer = null;
+  let profileTimer = null;
+
+  function stopStatusTimer() {
+    if (statusTimer) {
+      clearInterval(statusTimer);
+      statusTimer = null;
+    }
+  }
+
+  function stopProfileTimer() {
+    if (profileTimer) {
+      clearInterval(profileTimer);
+      profileTimer = null;
+    }
+  }
+
+  function showCreatedProfile(profile) {
+    setTimeout(() => {
+      setCreatedProfile({
+        ...profile,
+        publicUrl: `/p/${profile.slug}`,
+      });
+
+      setCreatingProfile(false);
+    }, 1800);
+  }
+
+  function startProfilePolling() {
+    if (profileTimer) return;
+
+    profileTimer = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/plans/check-payment?paymentId=${checkPaymentId}&pendingSignupId=${pendingSignupId || ""}`
+        );
+
+        const data = await res.json().catch(() => ({}));
+
+        if (data.profile?.slug) {
+          stopProfileTimer();
+          showCreatedProfile(data.profile);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar vitrine criada:", err);
+      }
+    }, 1800);
+  }
+
+  statusTimer = setInterval(async () => {
     try {
       const res = await fetch(
-        `/api/plans/check-payment?paymentId=${payment.id}&pendingSignupId=${pendingSignupId || ""}`
+        `/api/profile-payment-status?paymentId=${checkPaymentId}`
       );
 
       const data = await res.json().catch(() => ({}));
 
-      if (data.status === "pago" || data.paid === true) {
+      if (data.paid === true || data.payment_status === "pago") {
+        stopStatusTimer();
+
+        // AQUI aparece a tela imediatamente após confirmar pagamento
         setPaymentConfirmed(true);
         setCreatingProfile(true);
-      }
 
-      if (data.profile?.slug) {
-        clearInterval(timer);
-
-        setCreatingProfile(false);
-
-        setCreatedProfile({
-          ...data.profile,
-          publicUrl: `/p/${data.profile.slug}`,
-        });
+        if (data.profile?.slug) {
+          showCreatedProfile(data.profile);
+        } else {
+          startProfilePolling();
+        }
       }
     } catch (err) {
       console.error("Erro ao verificar pagamento:", err);
     }
-  }, 4000);
+  }, 1200);
 
-  return () => clearInterval(timer);
-}, [payment?.id, pendingSignupId, createdProfile]);
+  return () => {
+    stopStatusTimer();
+    stopProfileTimer();
+  };
+}, [
+  payment?.platform_payment_id,
+  payment?.payment_id,
+  pendingSignupId,
+  createdProfile,
+]);
   async function submitSignup() {
     if (sending) return;
 
@@ -221,10 +284,24 @@ useEffect(() => {
 }
 
 setPendingSignupId(data.pendingSignupId || null);
-setPreparedPixPayment(data.payment || null);
+setPreparedPixPayment(
+  data.payment
+    ? {
+        ...data.payment,
+        platform_payment_id: data.platformPaymentId || data.payment.platform_payment_id,
+      }
+    : null
+);
 setPayment(null);
 
-setPaymentProfile(null);
+setPaymentProfile({
+  pendingSignupId: data.pendingSignupId || null,
+  platformPaymentId:
+    data.platformPaymentId ||
+    data.payment?.platform_payment_id ||
+    null,
+});
+
 setCardError("");
 setCardResult(null);
 setPaymentConfirmed(false);
@@ -232,12 +309,6 @@ setCreatingProfile(false);
 
 setPaymentMethod("card");
 setStep("payment");
-
-setBrickReady(false);
-
-setTimeout(() => {
-  setBrickReady(true);
-}, 250);
     } catch (err) {
       console.error("Erro ao cadastrar plano:", err);
       alert(err?.message || "Erro ao criar cadastro.");
@@ -258,46 +329,63 @@ setTimeout(() => {
 }
 
   async function processCardPayment({ formData }) {
-    if (!paymentProfile?.id || !plan?.code) return;
-
-    setSending(true);
-    setCardError("");
-    setCardResult(null);
-
-    try {
-      const res = await fetch("/api/plans/process-card-payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          profilePageId: paymentProfile.id,
-          planCode: plan.code,
-          formData,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setCardError(data.error || "Erro ao processar cartão.");
-        return;
-      }
-
-      setCardResult(data);
-
-      if (data.approved) {
-        setPaymentConfirmed(true);
-        setCreatedProfile(paymentProfile);
-        setPaymentProfile(null);
-      }
-    } catch (err) {
-      console.error("Erro no cartão:", err);
-      setCardError("Erro ao processar cartão.");
-    } finally {
-      setSending(false);
-    }
+  if (
+    !paymentProfile?.pendingSignupId ||
+    !paymentProfile?.platformPaymentId ||
+    !plan?.code
+  ) {
+    setCardError("Cadastro de pagamento incompleto. Volte e tente novamente.");
+    return;
   }
+
+  setSending(true);
+  setCardError("");
+  setCardResult(null);
+
+  try {
+    const res = await fetch("/api/plans/process-card-signup-payment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        pendingSignupId: paymentProfile.pendingSignupId,
+        paymentId: paymentProfile.platformPaymentId,
+        planCode: plan.code,
+        formData,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      setCardError(data.error || "Erro ao processar cartão.");
+      return;
+    }
+
+    setCardResult(data);
+
+    if (data.approved && data.profile?.slug) {
+  setPaymentConfirmed(true);
+  setCreatingProfile(true);
+
+  setTimeout(() => {
+    setCreatedProfile({
+      ...data.profile,
+      publicUrl: `/p/${data.profile.slug}`,
+    });
+
+    setCreatingProfile(false);
+    setPaymentProfile(null);
+  }, 2200);
+}
+  } catch (err) {
+    console.error("Erro no cartão:", err);
+    setCardError("Erro ao processar cartão.");
+  } finally {
+    setSending(false);
+  }
+}
 
   async function copyPix() {
     if (!payment?.qr_code) return;
@@ -344,17 +432,12 @@ setTimeout(() => {
                   <button
                     type="button"
                     className={paymentMethod === "card" ? "active" : ""}
-                    onClick={() => {
-                      setPaymentMethod("card");
-                      setPayment(null);
-                      setCardError("");
-                      setCardResult(null);
-                      setBrickReady(false);
-
-                      setTimeout(() => {
-                        setBrickReady(true);
-                      }, 250);
-                    }}
+                onClick={() => {
+  setPaymentMethod("card");
+  setPayment(null);
+  setCardError("");
+  setCardResult(null);
+}}
                   >
                     Cartão
                   </button>
@@ -362,18 +445,17 @@ setTimeout(() => {
                   <button
                     type="button"
                     className={paymentMethod === "pix" ? "active" : ""}
-                    onClick={() => {
-                      setPaymentMethod("pix");
-                      setBrickReady(false);
-                      setCardError("");
-                      setCardResult(null);
-                    }}
+                 onClick={() => {
+  setPaymentMethod("pix");
+  setCardError("");
+  setCardResult(null);
+}}
                   >
                     Pix
                   </button>
                 </div>
 
-                {paymentMethod === "card" && brickReady && (
+                {paymentMethod === "card" && (
                   <div className="card-brick-box">
                     <MercadoPayment
                       key={`payment-${plan.code}-${plan.setup}`}

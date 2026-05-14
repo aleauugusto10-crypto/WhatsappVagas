@@ -67,7 +67,7 @@ const repeatTimes = Math.max(6, Math.ceil(minItems / profiles.length));
               <div className="profileShowcaseCover" />
               <div className="profileShowcaseAvatar">RJ</div>
               <h3>Carregando perfis...</h3>
-              <p>Buscando perfis ativos no RendaJá</p>
+              <p>Buscando perfis ativos no CompreTudo.shop</p>
               <div className="profileShowcaseMeta">
                 <span>Online</span>
                 <span>Aguarde</span>
@@ -81,7 +81,7 @@ const repeatTimes = Math.max(6, Math.ceil(minItems / profiles.length));
               <h3>Perfis em breve</h3>
               <p>Os perfis ativos aparecerão aqui automaticamente.</p>
               <div className="profileShowcaseMeta">
-                <span>RendaJá</span>
+                <span>CompreTudo.shop</span>
                 <span>Perfil ativo</span>
               </div>
               <button type="button">Em breve</button>

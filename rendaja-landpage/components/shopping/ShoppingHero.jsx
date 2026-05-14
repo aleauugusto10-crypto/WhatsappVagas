@@ -27,7 +27,7 @@ export default function ShoppingHero({
 
         <p>
           Explore vitrines, serviços, promoções e páginas profissionais do
-          RendaJá em um só lugar.
+          CompreTudo.shop em um só lugar.
         </p>
 
         <div className="shoppingHeroStats">

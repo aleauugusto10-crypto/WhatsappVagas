@@ -251,6 +251,7 @@ function canAccessMenu(profile, menuId) {
 export default function Dashboard() {
   const router = useRouter();
   const [active, setActive] = useState("overview");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 const [previewMode, setPreviewMode] = useState("desktop");
@@ -324,23 +325,23 @@ useEffect(() => {
       }
     )
     .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "profile_bookings",
-        filter: `profile_page_id=eq.${profile.id}`,
-      },
-      async (payload) => {
-        console.log("📅 NOVO AGENDAMENTO REALTIME:", payload);
+  "postgres_changes",
+  {
+    event: "*",
+    schema: "public",
+    table: "profile_bookings",
+    filter: `profile_page_id=eq.${profile.id}`,
+  },
+  async (payload) => {
+    console.log("📅 AGENDAMENTO REALTIME:", payload);
 
-        await loadBookings(profile.id);
+    await loadBookings(profile.id);
 
-        if (alertsEnabledRef.current) {
-          playDashboardAlert("booking");
-        }
-      }
-    )
+    if (payload.eventType === "INSERT" && alertsEnabledRef.current) {
+      playDashboardAlert("booking");
+    }
+  }
+)
     .subscribe((status) => {
       console.log("🔥 REALTIME STATUS:", status);
     });
@@ -494,9 +495,7 @@ setProfile((prev) => ({
 
 alert("Página salva com sucesso!");
   }
-
-
-  async function loadBookings(profileId) {
+async function loadBookings(profileId) {
   if (!profileId) return;
 
   setLoadingBookings(true);
@@ -505,7 +504,14 @@ alert("Página salva com sucesso!");
     .from("profile_bookings")
     .select("*")
     .eq("profile_page_id", profileId)
-    .order("created_at", { ascending: false });
+    .order("updated_at", { ascending: false });
+
+  console.log("📅 BOOKINGS CARREGADOS:", data?.map((b) => ({
+    id: b.id,
+    cliente: b.customer_name,
+    status: b.status,
+    updated_at: b.updated_at,
+  })));
 
   if (error) {
     console.error("Erro ao buscar agendamentos:", error);
@@ -648,6 +654,9 @@ async function loadReviewsAdmin(profileId) {
   setField(field, publicUrl);
 }
   if (loading) {
+
+
+    
     return (
       <div className="dash-loading">
         <div className="dash-spinner" />
@@ -655,8 +664,21 @@ async function loadReviewsAdmin(profileId) {
       </div>
     );
   }
+
+  function handleMenuClick(item) {
+  const locked = !canAccessMenu(profile, item.id);
+
+  if (locked) {
+    setActive("upgrade");
+    setSidebarOpen(false);
+    return;
+  }
+
+  setActive(item.id);
+  setSidebarOpen(false);
+}
 return (
-  <main className="dashboard-shell">
+  <main className={`dashboard-shell ${sidebarOpen ? "sidebar-open" : ""}`}>
     {dashboardAlert && (
       <div className={`dashboard-live-alert ${dashboardAlert.type}`}>
         <div>
@@ -669,7 +691,27 @@ return (
         </button>
       </div>
     )}
-      <aside className="dashboard-sidebar">
+
+    <button
+  type="button"
+  className={`dashboard-burger ${sidebarOpen ? "active" : ""}`}
+  onClick={() => setSidebarOpen((prev) => !prev)}
+  aria-label="Abrir menu"
+>
+  <span />
+  <span />
+  <span />
+</button>
+
+{sidebarOpen && (
+  <button
+    type="button"
+    className="dashboard-sidebar-overlay"
+    onClick={() => setSidebarOpen(false)}
+    aria-label="Fechar menu"
+  />
+)}
+      <aside className={`dashboard-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="dashboard-brand">
           <div className="dashboard-brand-icon">
             {profile.logo_url ? (
@@ -680,7 +722,7 @@ return (
           </div>
 
           <div>
-            <strong>RendaJá</strong>
+            <strong>CompreTudo.shop</strong>
             <small>Painel profissional</small>
           </div>
         </div>
@@ -696,14 +738,7 @@ return (
       className={`dashboard-menu-item ${active === item.id ? "active" : ""} ${
         locked ? "locked" : ""
       }`}
-      onClick={() => {
-        if (locked) {
-          setActive("upgrade");
-          return;
-        }
-
-        setActive(item.id);
-      }}
+      onClick={() => handleMenuClick(item)}
     >
       <span>{item.icon}</span>
       {item.label}
@@ -3234,7 +3269,7 @@ function StoreItemsEditor({ profile, setField, uploadImage }) {
   const [staffMembers, setStaffMembers] = useState([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-
+const [openVariantOptionId, setOpenVariantOptionId] = useState(null);
   const editingItem = items.find((item) => item.id === editingItemId);
 
   const workingDays = Array.isArray(profile.working_days)
@@ -3368,7 +3403,19 @@ function getStockClass(item) {
 
   return "ok";
 }
-
+function updateItemPatch(itemId, patch = {}) {
+  setField(
+    "store_items",
+    items.map((item) =>
+      item.id === itemId
+        ? {
+            ...item,
+            ...patch,
+          }
+        : item
+    )
+  );
+}
   function updateItem(id, field, value) {
     const next = items.map((item) => {
       if (item.id !== id) return item;
@@ -4024,19 +4071,7 @@ sold_qty: 0,
 
                 </div>
 
-                <button
-
-                  type="button"
-
-                  className="danger-button"
-
-                  onClick={() => removeItem(editingItem.id)}
-
-                >
-
-                  Excluir item
-
-                </button>
+                
 
               </div>
 
@@ -4319,12 +4354,17 @@ sold_qty: 0,
     label="Ativar controle de estoque"
     value={editingItem.stock_enabled === true}
     onChange={(v) => {
-      updateItem(editingItem.id, "stock_enabled", v);
-
-      if (!v) {
-        updateItem(editingItem.id, "stock_mode", "single");
-        updateItem(editingItem.id, "in_stock", true);
-      }
+      updateItemPatch(editingItem.id, {
+        stock_enabled: v,
+        ...(v
+          ? {}
+          : {
+              stock_mode: "single",
+              in_stock: true,
+              stock_quantity: null,
+              variants_stock: [],
+            }),
+      });
     }}
   />
 )}
@@ -4405,389 +4445,216 @@ sold_qty: 0,
                   )}
 
                 </div>
-
                 {editingItem.type === "product" && (
-
                   <div className="store-modal-section">
-
                     <div className="store-editor-head modern">
-
                       <div>
-
                         <span className="card-label">Variações</span>
 
                         <h3>Opções do produto</h3>
 
                         <p>Use para tamanho, cor, modelo, voltagem ou sabor.</p>
-
                       </div>
-
                     </div>
 
                     <ToggleField
-
                       label="Este produto tem variações"
-
                       value={editingItem.variants_enabled === true}
-
                       onChange={(v) => {
-
                         updateItem(editingItem.id, "variants_enabled", v);
 
                         if (v && !Array.isArray(editingItem.variants)) {
-
                           updateItem(editingItem.id, "variants", []);
-
                         }
-
                       }}
-
                     />
 
                     {editingItem.variants_enabled === true && (
-
                       <div className="product-variants-box clean">
-
                         <button
-
                           type="button"
-
                           className="finance-secondary-button"
-
                           onClick={() => addVariant(editingItem.id)}
-
                         >
-
                           + Adicionar variação
-
                         </button>
 
                         {getItemVariants(editingItem).length === 0 ? (
-
                           <div className="store-empty">
-
                             <strong>Nenhuma variação criada</strong>
-
                             <p>Exemplo: Tamanho, Cor, Sabor ou Modelo.</p>
-
                           </div>
-
                         ) : (
-
                           <div className="variants-list">
-
                             {getItemVariants(editingItem).map((variant) => (
-
                               <div
-
                                 key={variant.id}
-
                                 className="variant-editor-card"
-
                               >
-
                                 <div className="store-item-editor-head">
-
                                   <div>
-
                                     <span>Variação</span>
 
                                     <strong>
-
                                       {variant.name || "Variação sem nome"}
-
                                     </strong>
-
                                   </div>
 
                                   <button
-
                                     type="button"
-
                                     className="danger-button"
-
                                     onClick={() =>
-
                                       removeVariant(editingItem.id, variant.id)
-
                                     }
-
                                   >
-
                                     Remover
-
                                   </button>
-
                                 </div>
 
                                 <div className="form-grid">
-
                                   <Field label="Nome da variação">
-
                                     <input
-
                                       value={variant.name || ""}
-
                                       onChange={(e) =>
-
                                         updateVariant(
-
                                           editingItem.id,
-
                                           variant.id,
-
                                           "name",
-
                                           e.target.value
-
                                         )
-
                                       }
-
                                       placeholder="Ex: Tamanho"
-
                                     />
-
                                   </Field>
 
                                   <ToggleField
-
                                     label="Obrigatória"
-
                                     value={variant.required !== false}
-
                                     onChange={(v) =>
-
                                       updateVariant(
-
                                         editingItem.id,
-
                                         variant.id,
-
                                         "required",
-
                                         v
-
                                       )
-
                                     }
-
                                   />
-
                                 </div>
 
                                 <div className="variant-options-head">
-
                                   <strong>Opções</strong>
 
                                   <button
-
                                     type="button"
-
                                     onClick={() =>
-
                                       addVariantOption(editingItem.id, variant.id)
-
                                     }
-
                                   >
-
                                     + Opção
-
                                   </button>
-
                                 </div>
 
                                 <div className="variant-options-list">
-
-                                  {(variant.options || []).map((option) => (
-
-                                    <div
-
-                                      key={option.id}
-
-                                      className="variant-option-row"
-
-                                    >
-
-                                      <Field label="Nome da opção">
-
-                                        <input
-
-                                          value={option.label || ""}
-
-                                          onChange={(e) =>
-
-                                            updateVariantOption(
-
-                                              editingItem.id,
-
-                                              variant.id,
-
-                                              option.id,
-
-                                              "label",
-
-                                              e.target.value
-
-                                            )
-
-                                          }
-
-                                          placeholder="Ex: P, M, Vermelho..."
-
-                                        />
-
-                                      </Field>
-
-                                      <Field label="Imagem opcional">
-
-                                        <div className="upload-inline">
-
-                                          {option.image_url && (
-
-                                            <img
-
-                                              src={option.image_url}
-
-                                              alt={option.label || "Opção"}
-
-                                              style={{
-
-                                                width: 58,
-
-                                                height: 58,
-
-                                                objectFit: "cover",
-
-                                                borderRadius: 14,
-
-                                              }}
-
-                                            />
-
-                                          )}
-
-                                          <label className="upload-button">
-
-                                            Enviar
-
-                                            <input
-
-                                              type="file"
-
-                                              accept="image/*"
-
-                                              onChange={(e) =>
-
-                                                uploadImage(
-
-                                                  e,
-
-                                                  "store_items",
-
-                                                  (url) => {
-
-                                                    updateVariantOption(
-
-                                                      editingItem.id,
-
-                                                      variant.id,
-
-                                                      option.id,
-
-                                                      "image_url",
-
-                                                      url
-
-                                                    );
-
-                                                  }
-
-                                                )
-
-                                              }
-
-                                            />
-
-                                          </label>
-
-                                          <input
-
-                                            value={option.image_url || ""}
-
-                                            onChange={(e) =>
-
-                                              updateVariantOption(
-
-                                                editingItem.id,
-
-                                                variant.id,
-
-                                                option.id,
-
-                                                "image_url",
-
-                                                e.target.value
-
-                                              )
-
-                                            }
-
-                                            placeholder="URL da imagem"
-
-                                          />
-
-                                        </div>
-
-                                      </Field>
-
-                                      <button
-
-                                        type="button"
-
-                                        className="danger-button"
-
-                                        onClick={() =>
-
-                                          removeVariantOption(
-
-                                            editingItem.id,
-
-                                            variant.id,
-
-                                            option.id
-
-                                          )
-
-                                        }
-
+                                  {(variant.options || []).map((option) => {
+                                    const optionKey = `${variant.id}-${option.id}`;
+                                    const isOpen =
+                                      openVariantOptionId === optionKey;
+
+                                    return (
+                                      <div
+                                        key={option.id}
+                                        className={`variant-option-row ${
+                                          isOpen ? "open" : ""
+                                        }`}
                                       >
+                                        <button
+                                          type="button"
+                                          className="variant-option-summary"
+                                          onClick={() =>
+                                            setOpenVariantOptionId(
+                                              isOpen ? null : optionKey
+                                            )
+                                          }
+                                        >
+                                          <strong>
+                                            {option.label || "Nova opção"}
+                                          </strong>
 
-                                        Remover opção
+                                          <span>
+                                            {isOpen ? "Recolher ↑" : "Editar ↓"}
+                                          </span>
+                                        </button>
 
-                                      </button>
+                                        {isOpen && (
+                                          <div className="variant-option-details">
+  <Field label="Nome da opção">
+    <input
+      value={option.label || ""}
+      onChange={(e) =>
+        updateVariantOption(
+          editingItem.id,
+          variant.id,
+          option.id,
+          "label",
+          e.target.value
+        )
+      }
+      placeholder="Ex: P, M, Vermelho..."
+    />
+  </Field>
 
-                                    </div>
+  <div className="variant-option-media-row">
+    <div className="variant-option-avatar">
+      {option.image_url ? (
+        <img src={option.image_url} alt={option.label || "Opção"} />
+      ) : (
+        <span>📷</span>
+      )}
+    </div>
 
-                                  ))}
+    <label className="variant-option-upload-button">
+     📤
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) =>
+          uploadImage(e, "store_items", (url) => {
+            updateVariantOption(
+              editingItem.id,
+              variant.id,
+              option.id,
+              "image_url",
+              url
+            );
+          })
+        }
+      />
+    </label>
 
+    <button
+      type="button"
+      className="variant-option-remove-icon"
+      onClick={() =>
+        removeVariantOption(editingItem.id, variant.id, option.id)
+      }
+      aria-label="Remover opção"
+    >
+      ×
+    </button>
+  </div>
+</div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-
                               </div>
-
                             ))}
-
                           </div>
-
                         )}
-
                       </div>
-
                     )}
-
                   </div>
-
                 )}
 
                 <div className="store-modal-section">
@@ -5368,10 +5235,11 @@ async function updateBookingStatus(bookingId, status) {
         return;
       }
 
-      await reload();
-      closePaymentModal();
+   await reload();
+setStatusFilter("completed");
+closePaymentModal();
 
-      alert("Atendimento finalizado com sucesso!");
+alert("Atendimento finalizado com sucesso!");
     } catch (err) {
       console.error(err);
       alert("Erro ao finalizar atendimento.");
@@ -6132,7 +6000,7 @@ function JobsPanel() {
       <div className="bookings-panel-head">
         <PanelTitle
           title="Vagas"
-          text="Crie vagas usando áreas, categorias, créditos e pacotes do sistema RendaJá."
+          text="Crie vagas usando áreas, categorias, créditos e pacotes do sistema CompreTudo.shop."
         />
 
         <button type="button" onClick={loadJobsPanel} disabled={loading}>
@@ -6168,7 +6036,7 @@ function JobsPanel() {
              <button disabled={saving} onClick={() => setPaymentModal({
   type: "empresa_1_vaga",
   title: "Pacote com 1 vaga",
-  description: "Você compra 1 crédito para publicar uma vaga no RendaJá.",
+  description: "Você compra 1 crédito para publicar uma vaga no CompreTudo.shop.",
   amount: 9.9,
 })}>
   1 vaga - R$ 9,90
@@ -6177,7 +6045,7 @@ function JobsPanel() {
              <button disabled={saving} onClick={() => setPaymentModal({
   type: "empresa_3_vagas",
   title: "Pacote com 3 vagas",
-  description: "Você compra 3 créditos para publicar vagas no RendaJá.",
+  description: "Você compra 3 créditos para publicar vagas no CompreTudo.shop.",
   amount: 24.9,
 })}>
   3 vagas - R$ 24,90
@@ -6186,7 +6054,7 @@ function JobsPanel() {
 <button disabled={saving} onClick={() => setPaymentModal({
   type: "empresa_10_vagas",
   title: "Pacote com 10 vagas",
-  description: "Você compra 10 créditos para publicar vagas no RendaJá.",
+  description: "Você compra 10 créditos para publicar vagas no CompreTudo.shop.",
   amount: 79.9,
 })}>
   10 vagas - R$ 79,90

@@ -63,7 +63,7 @@ export default function ShoppingOutdoor({ profiles = [], products = [] }) {
     const profileSlides = profiles.slice(0, 8).map((profile) => ({
       type: "profile",
       eyebrow: profile.servico || "Vitrine em destaque",
-      title: profile.nome || "Comércio RendaJá",
+      title: profile.nome || "Comércio CompreTudo.shop",
       subtitle: `${profile.cidade || "Sua cidade"}${
         profile.estado ? `/${profile.estado}` : ""
       }`,
@@ -179,7 +179,7 @@ export default function ShoppingOutdoor({ profiles = [], products = [] }) {
                 alt={product.title || product.name || "Produto"}
               />
               <div>
-                <small>{product.business_name || "RendaJá"}</small>
+                <small>{product.business_name || "CompreTudo.shop"}</small>
                 <b>{product.title || product.name}</b>
               </div>
             </a>

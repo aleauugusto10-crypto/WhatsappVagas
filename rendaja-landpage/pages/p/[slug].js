@@ -232,7 +232,14 @@ function normalizePhoneBR(phone = "") {
 
   return `55${ddd}${rest}`;
 }
-
+function normalize(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 function buildTitle(profile) {
   return `${profile.servico || "Profissional"} em ${
     profile.cidade || "sua região"
@@ -446,6 +453,15 @@ delivery_fee: profile.delivery_fee ?? null,
    SERVER SIDE
 ========================= */
 export async function getServerSideProps({ params }) {
+  if (!supabase) {
+    return {
+      props: {
+        profile: null,
+        isPreview: false,
+      },
+    };
+  }
+
   const { data: profile, error } = await supabase
     .from("profiles_pages")
     .select("*")
@@ -464,7 +480,25 @@ export async function getServerSideProps({ params }) {
       },
     };
   }
+const citySlug = `${String(profile.cidade || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-|-$/g, "")}-${String(profile.estado || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-|-$/g, "")}`;
 
+const { data: seoKeywordRows } = await supabase
+  .from("profile_seo_keywords")
+  .select("keyword, keyword_slug, city_slug")
+  .eq("profile_page_id", profile.id)
+  .eq("active", true)
+  .eq("city_slug", citySlug)
+  .order("keyword", { ascending: true });
   const now = new Date();
 
   const previewValido =
@@ -496,9 +530,10 @@ export async function getServerSideProps({ params }) {
   return {
     props: {
       profile: {
-        ...profile,
-        bookings: bookings || [],
-      },
+  ...profile,
+  bookings: bookings || [],
+  seo_keyword_links: seoKeywordRows || [],
+},
       isPreview: previewValido && profile.is_active !== true,
     },
   };
@@ -507,7 +542,130 @@ export async function getServerSideProps({ params }) {
 /* =========================
    PAGE
 ========================= */
+function getProfileUrl(profile) {
+  return `https://compretudo.shop/p/${profile.slug}`;
+}
 
+function getProfileImage(profile) {
+  return (
+    profile.hero_image_url ||
+    profile.about_image_url ||
+    profile.logo_url ||
+    "https://compretudo.shop/compretudo.shop-logo.png"
+  );
+}
+
+function buildProfileSchema(profile, whatsapp, title, description) {
+  const url = getProfileUrl(profile);
+  const image = getProfileImage(profile);
+
+  const storeItems = normalizeJsonArray(profile.store_items);
+
+  const businessSchema = {
+    "@context": "https://schema.org",
+    "@type": profile.show_store ? "Store" : "LocalBusiness",
+    "@id": `${url}#business`,
+    name: profile.nome || title,
+    description,
+    url,
+    image,
+    logo: profile.logo_url || image,
+    telephone: whatsapp ? `+${whatsapp}` : undefined,
+
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: profile.cidade || undefined,
+      addressRegion: profile.estado || undefined,
+      addressCountry: "BR",
+    },
+
+    areaServed: {
+      "@type": "City",
+      name: profile.cidade || "Brasil",
+    },
+
+    sameAs: [
+      profile.instagram_url,
+      profile.facebook_url,
+      profile.youtube_url,
+      profile.tiktok_url,
+      profile.website_url,
+    ].filter(Boolean),
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "CompreTudo.shop",
+        item: "https://compretudo.shop",
+      },
+
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: profile.cidade
+          ? `Empresas em ${profile.cidade}-${profile.estado || ""}`
+          : "Empresas",
+
+        item: `https://compretudo.shop/${normalize(
+          profile.cidade
+        )}-${normalize(profile.estado)}`,
+      },
+
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: profile.nome || title,
+        item: url,
+      },
+    ],
+  };
+
+  const productSchemas = storeItems
+    .filter((item) => item?.active !== false)
+    .slice(0, 20)
+    .map((item) => ({
+      "@context": "https://schema.org",
+
+      "@type": "Product",
+
+      name: item.title || item.name || "Produto",
+
+      description: item.description || description,
+
+      image: item.image_url || image,
+
+      brand: {
+        "@type": "Brand",
+        name: profile.nome || "CompreTudo.shop",
+      },
+
+      offers: {
+        "@type": "Offer",
+
+        priceCurrency: "BRL",
+
+        price:
+          item.price_type === "quote"
+            ? undefined
+            : Number(item.price || 0).toFixed(2),
+
+        availability:
+          item.in_stock === false
+            ? "https://schema.org/OutOfStock"
+            : "https://schema.org/InStock",
+
+        url,
+      },
+    }));
+
+  return [businessSchema, breadcrumbSchema, ...productSchemas];
+}
 export default function Page({ profile, isPreview }) {
   const router = useRouter();
   if (!profile) {
@@ -542,7 +700,15 @@ export default function Page({ profile, isPreview }) {
     ...normalizedProfile,
     whatsapp,
   };
+const profileUrl = getProfileUrl(normalizedProfile);
+const profileImage = getProfileImage(normalizedProfile);
 
+const schemaData = buildProfileSchema(
+  normalizedProfile,
+  whatsapp,
+  title,
+  description
+);
   const ctaHref =
     normalizedProfile.cta_action_type === "custom_link" &&
     normalizedProfile.cta_custom_link
@@ -577,21 +743,43 @@ export default function Page({ profile, isPreview }) {
 
   return (
     <>
-      <Head>
-        <title>{normalizedProfile.seo_title || title}</title>
+     <Head>
+  <title>{normalizedProfile.seo_title || title}</title>
 
-<meta
-  name="description"
-  content={normalizedProfile.seo_description || description}
-/>
+  <meta
+    name="description"
+    content={normalizedProfile.seo_description || description}
+  />
 
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
+  <link rel="canonical" href={profileUrl} />
 
-        {normalizedProfile.hero_image_url && (
-          <meta property="og:image" content={normalizedProfile.hero_image_url} />
-        )}
-      </Head>
+  <meta property="og:type" content="business.business" />
+  <meta property="og:title" content={normalizedProfile.seo_title || title} />
+  <meta
+    property="og:description"
+    content={normalizedProfile.seo_description || description}
+  />
+  <meta property="og:url" content={profileUrl} />
+  <meta property="og:image" content={profileImage} />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={normalizedProfile.seo_title || title} />
+  <meta
+    name="twitter:description"
+    content={normalizedProfile.seo_description || description}
+  />
+  <meta name="twitter:image" content={profileImage} />
+
+  {schemaData.map((schema, index) => (
+    <script
+      key={`schema-${index}`}
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(schema).replace(/</g, "\\u003c"),
+      }}
+    />
+  ))}
+</Head>
 
       <main className="profile-page" style={themeStyle}>
   {isPreview && (
@@ -684,7 +872,7 @@ export default function Page({ profile, isPreview }) {
         </h2>
 <p>
   {normalizedProfile.seo_content ||
-    `${normalizedProfile.nome} está disponível no RendaJá como ${normalizedProfile.servico} em ${normalizedProfile.cidade}${normalizedProfile.estado ? `-${normalizedProfile.estado}` : ""}. Nesta página você encontra informações sobre atendimento, serviços, fotos, avaliações, formas de contato e detalhes para contratar com mais segurança.`}
+    `${normalizedProfile.nome} está disponível no CompreTudo.shop como ${normalizedProfile.servico} em ${normalizedProfile.cidade}${normalizedProfile.estado ? `-${normalizedProfile.estado}` : ""}. Nesta página você encontra informações sobre atendimento, serviços, fotos, avaliações, formas de contato e detalhes para contratar com mais segurança.`}
 </p>
 
         <div className="seo-ai-box">
@@ -692,25 +880,33 @@ export default function Page({ profile, isPreview }) {
 <p>
   {(normalizedProfile.seo_keywords || []).length
     ? normalizedProfile.seo_keywords.join(", ")
-    : `${normalizedProfile.servico} em ${normalizedProfile.cidade}${normalizedProfile.estado ? `-${normalizedProfile.estado}` : ""}, profissional em ${normalizedProfile.cidade}, atendimento em ${normalizedProfile.cidade}, serviços em ${normalizedProfile.cidade}, ${normalizedProfile.nome} em ${normalizedProfile.cidade}, contratar ${normalizedProfile.servico}, perfil profissional no RendaJá.`}
+    : `${normalizedProfile.servico} em ${normalizedProfile.cidade}${normalizedProfile.estado ? `-${normalizedProfile.estado}` : ""}, profissional em ${normalizedProfile.cidade}, atendimento em ${normalizedProfile.cidade}, serviços em ${normalizedProfile.cidade}, ${normalizedProfile.nome} em ${normalizedProfile.cidade}, contratar ${normalizedProfile.servico}, perfil profissional no CompreTudo.shop.`}
 </p>
         </div>
 
         <div className="seo-tags">
-  {(
-    normalizedProfile.seo_tags?.length
-      ? normalizedProfile.seo_tags
-      : [
-          normalizedProfile.servico,
-          normalizedProfile.cidade,
-          normalizedProfile.estado,
-          "Perfil profissional",
-          "Atendimento local",
-          "Contato pelo WhatsApp",
-        ].filter(Boolean)
-  ).map((tag) => (
-    <small key={tag}>{tag}</small>
-  ))}
+  {(normalizedProfile.seo_keyword_links || []).length > 0 ? (
+    normalizedProfile.seo_keyword_links.map((item) => (
+      <a
+        key={`${item.city_slug}-${item.keyword_slug}`}
+        href={`/${item.city_slug}/${item.keyword_slug}`}
+      >
+        {item.keyword} em {normalizedProfile.cidade}
+        {normalizedProfile.estado ? `-${normalizedProfile.estado}` : ""}
+      </a>
+    ))
+  ) : (
+    [
+      normalizedProfile.servico,
+      normalizedProfile.cidade,
+      normalizedProfile.estado,
+      "Perfil profissional",
+      "Atendimento local",
+      "Contato pelo WhatsApp",
+    ]
+      .filter(Boolean)
+      .map((tag) => <small key={tag}>{tag}</small>)
+  )}
 </div>
       </div>
 
@@ -718,14 +914,14 @@ export default function Page({ profile, isPreview }) {
         <span>Também quer aparecer?</span>
 
         <h3>
-          Tenha seu perfil profissional no RendaJá em{" "}
+          Tenha seu perfil profissional no CompreTudo.shop em{" "}
           {normalizedProfile.cidade}
           {normalizedProfile.estado ? `-${normalizedProfile.estado}` : ""}
         </h3>
 
         <p>
           Crie uma página elegante para seu negócio, serviço ou empresa. O
-          RendaJá organiza suas informações e ajuda seu perfil a ser encontrado
+          CompreTudo.shop organiza suas informações e ajuda seu perfil a ser encontrado
           na internet em {normalizedProfile.cidade}
           {normalizedProfile.estado ? `-${normalizedProfile.estado}` : ""}.
         </p>

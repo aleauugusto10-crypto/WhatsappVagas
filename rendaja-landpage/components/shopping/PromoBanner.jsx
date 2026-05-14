@@ -13,7 +13,7 @@ export default function PromoBanner() {
       </div>
 
       <a
-        href="https://wa.me/5579998192216?text=Oi%20%20Vi%20o%20shopping%20do%20RendaJá%20e%20queria%20entender%20como%20funciona%20para%20colocar%20meu%20negócio%20aqui."
+        href="https:compretudo.shop/p/compretudo-shop-itabaiana-se"
         target="_blank"
         rel="noreferrer"
       >

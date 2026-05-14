@@ -29,7 +29,7 @@ export default function ProductCard({ product }) {
       </a>
 
       <div className="productCardBody">
-        <small>{product.business_name || "RendaJá"}</small>
+        <small>{product.business_name || "CompreTudo.shop"}</small>
 
         <a href={url}>
           <h3>{product.title || product.name || "Produto ou serviço"}</h3>

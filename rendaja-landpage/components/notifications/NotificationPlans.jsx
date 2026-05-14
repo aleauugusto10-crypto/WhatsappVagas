@@ -12,7 +12,7 @@ export default function NotificationPlans() {
     <>
       <section className="notificationPlansContent">
         <div className="notificationPlansHero">
-          <small>Alertas RendaJá</small>
+          <small>Alertas CompreTudo.shop</small>
 
           <h1>
             Receba vagas e missões

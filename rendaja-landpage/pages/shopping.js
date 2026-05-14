@@ -283,10 +283,10 @@ export default function ShoppingPage() {
   return (
     <>
       <Head>
-        <title>Shopping RendaJá — Comércios e profissionais perto de você</title>
+        <title>CompreTudo.shop — Comércios e profissionais perto de você</title>
         <meta
           name="description"
-          content="Explore empresas, produtos, serviços e profissionais cadastrados no RendaJá. Um shopping digital aberto para sua cidade."
+          content="Explore empresas, produtos, serviços e profissionais cadastrados no CompreTudo.shop. Um shopping digital aberto para sua cidade."
         />
       </Head>
 
@@ -375,7 +375,7 @@ export default function ShoppingPage() {
     <ShoppingCarousel
               eyebrow="Destaques"
               title="Produtos em destaque"
-              subtitle="Itens aleatórios das vitrines do RendaJá."
+              subtitle="Itens aleatórios das vitrines do CompreTudo.shop."
             >
               {randomProducts.slice(0, 12).map((product) => (
                 <ProductCard key={`featured-${product.id}`} product={product} />
@@ -410,12 +410,15 @@ export default function ShoppingPage() {
               ))}
             </ShoppingCarousel>
 
-            <ProductWall
-              products={randomProducts}
-              eyebrow="Vitrine aberta"
-              title="Mais produtos no shopping"
-              subtitle="Itens, serviços para explorar."
-            />
+          <ShoppingCarousel
+  eyebrow="Vitrine aberta"
+  title="Mais produtos no shopping"
+  subtitle="Itens, serviços para explorar."
+>
+  {randomProducts.slice(12, 28).map((product) => (
+    <ProductCard key={`more-product-${product.id}`} product={product} />
+  ))}
+</ShoppingCarousel>
 
           <ShoppingCarousel
   eyebrow="Descoberta"

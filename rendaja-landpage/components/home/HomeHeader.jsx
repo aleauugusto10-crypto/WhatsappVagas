@@ -90,7 +90,7 @@ useEffect(() => {
   return (
     <header className="header">
       <a href="/" className="brand">
-        <img src="/rendaja-logo.png" alt="RendaJá" className="brandIcon" />
+        <img src="/rendaja-logo.png" alt="CompreTudo.shop" className="brandIcon" />
 
         <div className="logo">
           Renda<span>Já</span>
@@ -174,11 +174,11 @@ useEffect(() => {
       </nav>
 <div className="actions">
   <a
-    href="https://instagram.com/rendaja.zap"
+    href="https://instagram.com/compretudo.shop"
     target="_blank"
     rel="noopener noreferrer"
     className="btn-instagram"
-    aria-label="Instagram RendaJá"
+    aria-label="Instagram CompreTudo.shop"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"

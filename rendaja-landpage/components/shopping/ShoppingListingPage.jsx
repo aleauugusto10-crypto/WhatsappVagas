@@ -10,7 +10,7 @@ export default function ShoppingListingPage({
   return (
     <>
       <Head>
-        <title>{title} — RendaJá</title>
+        <title>{title} — CompreTudo.shop</title>
         <meta name="description" content={description} />
       </Head>
 

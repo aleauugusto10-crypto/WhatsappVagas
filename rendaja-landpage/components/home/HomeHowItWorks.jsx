@@ -3,7 +3,7 @@ export default function HomeHowItWorks() {
     {
       number: "01",
       title: "Chame no WhatsApp",
-      text: "Você começa pelo bot do RendaJá, sem precisar criar login complicado.",
+      text: "Você começa pelo bot do CompreTudo.shop, sem precisar criar login complicado.",
     },
     {
       number: "02",
@@ -34,7 +34,7 @@ export default function HomeHowItWorks() {
             <h2>Do WhatsApp para sua presença online.</h2>
 
             <p>
-              O RendaJá simplifica o caminho para quem quer divulgar seu trabalho,
+              O CompreTudo.shop simplifica o caminho para quem quer divulgar seu trabalho,
               encontrar oportunidades ou contratar profissionais.
             </p>
           </div>

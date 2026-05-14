@@ -92,7 +92,7 @@ export default function ShoppingJobsSection() {
         <div>
           <span>Vagas</span>
           <h2>Vagas perto de você</h2>
-          <p>Oportunidades cadastradas por empresas no RendaJá.</p>
+          <p>Oportunidades cadastradas por empresas no CompreTudo.shop.</p>
         </div>
       </div>
 
@@ -124,7 +124,7 @@ export default function ShoppingJobsSection() {
 
                   <p>
                     {job.descricao ||
-                      "Oportunidade cadastrada no Shopping RendaJá."}
+                      "Oportunidade cadastrada no CompreTudo.shop."}
                   </p>
 
                   <div className="shoppingListingMeta">
@@ -143,7 +143,7 @@ export default function ShoppingJobsSection() {
                   {whatsapp ? (
                     <a
                       href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(
-                        `Olá! Vi a vaga "${job.titulo || "disponível"}" no Shopping RendaJá e gostaria de saber mais.`
+                        `Olá! Vi a vaga "${job.titulo || "disponível"}" no CompreTudo.shop e gostaria de saber mais.`
                       )}`}
                       target="_blank"
                       rel="noreferrer"

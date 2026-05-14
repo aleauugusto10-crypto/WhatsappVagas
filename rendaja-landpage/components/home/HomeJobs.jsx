@@ -27,7 +27,7 @@ export default function HomeJobs() {
         <h2>Encontre trabalho de forma simples e direta</h2>
 
         <p>
-          O RendaJá conecta você a vagas, bicos e oportunidades reais. Tudo
+          O CompreTudo.shop conecta você a vagas, bicos e oportunidades reais. Tudo
           acontece de forma rápida e sem burocracia.
         </p>
       </div>

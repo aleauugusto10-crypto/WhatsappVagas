@@ -154,7 +154,7 @@ function buildTodasVagasPreview(vagas = []) {
   const preview = vagas.slice(0, 5);
   const restante = Math.max(0, vagas.length - preview.length);
 
-  let out = "🌍 *Vagas disponíveis no RendaJá agora:*\n";
+  let out = "🌍 *Vagas disponíveis no CompreTudo.shop agora:*\n";
 
   preview.forEach((vaga) => {
     out +=
@@ -252,7 +252,7 @@ function getJobPackageDetails(packageId) {
   titulo: "Desbloqueio geral de vagas por 24h",
   valor: 4.9,
   descricao:
-    "Libera por 24h a lista geral de vagas do RendaJá. Você poderá ver os detalhes das vagas e acessar o WhatsApp da empresa para enviar seu currículo diretamente.",
+    "Libera por 24h a lista geral de vagas do CompreTudo.shop. Você poderá ver os detalhes das vagas e acessar o WhatsApp da empresa para enviar seu currículo diretamente.",
   confirmId: "confirm_jobs_unlock_lista",
   backId: "user_explorar_vagas",
   backTitle: "Explorar vagas",

@@ -85,7 +85,7 @@ export default function ShoppingMissionsSection() {
 
                 <p>
                   {mission.descricao ||
-                    "Complete tarefas e ganhe dinheiro pelo RendaJá."}
+                    "Complete tarefas e ganhe dinheiro pelo CompreTudo.shop."}
                 </p>
 
                 <div className="shoppingListingMeta">

@@ -380,7 +380,7 @@ export default async function handler(req, res) {
 
           `${note ? `\n📝 Observação:\n${note}\n` : ""}` +
 
-          `Acesse o painel RendaJá para confirmar o atendimento.`
+          `Acesse o painel CompreTudo.shop para confirmar o atendimento.`
 
       );
 

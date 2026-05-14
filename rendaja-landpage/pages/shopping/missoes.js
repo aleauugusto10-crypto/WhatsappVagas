@@ -6,7 +6,7 @@ export default function ShoppingMissoesPage() {
   return (
     <>
       <Head>
-        <title>Missões — Shopping RendaJá</title>
+        <title>Missões — CompreTudo.shop</title>
       </Head>
 
       <main className="shoppingPage shoppingListingPage">

@@ -11,7 +11,7 @@ export default function HomeProfessionalPage() {
         </h2>
 
         <p>
-          O RendaJá ajuda profissionais e empresas a terem presença digital sem
+          O CompreTudo.shop ajuda profissionais e empresas a terem presença digital sem
           complicação. Sua página pode mostrar quem você é, o que faz, onde
           atende e como falar com você pelo WhatsApp.
         </p>

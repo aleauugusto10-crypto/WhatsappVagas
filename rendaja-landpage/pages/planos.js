@@ -73,7 +73,7 @@ export default function PlanosPage() {
   return (
     <>
       <Head>
-        <title>Planos RendaJá</title>
+        <title>Planos CompreTudo.shop</title>
       </Head>
 
       <main className="planosPage">

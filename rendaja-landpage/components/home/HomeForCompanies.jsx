@@ -60,7 +60,7 @@ export default function HomeForCompanies() {
       <div className="companiesContent">
         <span className="sectionLabel">Para empresas e contratantes</span>
 
-        <h2>Precisa contratar? O RendaJá aproxima você de quem resolve.</h2>
+        <h2>Precisa contratar? O CompreTudo.shop aproxima você de quem resolve.</h2>
 
         <p>
           Empresas, patrões e clientes podem encontrar profissionais, divulgar

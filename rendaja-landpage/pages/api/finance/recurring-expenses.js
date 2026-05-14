@@ -1,5 +1,37 @@
 import { supabase } from "../../../src/lib/supabase";
 
+function toDateOnly(date) {
+  if (!date) return null;
+  return new Date(date).toISOString().slice(0, 10);
+}
+
+function addRecurringPeriod(baseDate, frequency = "monthly", dueDay = null) {
+  const date = baseDate ? new Date(baseDate) : new Date();
+
+  if (frequency === "weekly") {
+    date.setDate(date.getDate() + 7);
+  } else if (frequency === "biweekly") {
+    date.setDate(date.getDate() + 14);
+  } else if (frequency === "yearly") {
+    date.setFullYear(date.getFullYear() + 1);
+  } else {
+    date.setMonth(date.getMonth() + 1);
+  }
+
+  if (dueDay) {
+    const day = Number(dueDay);
+    const lastDay = new Date(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      0
+    ).getDate();
+
+    date.setDate(Math.min(day, lastDay));
+  }
+
+  return toDateOnly(date);
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
@@ -26,9 +58,7 @@ export default async function handler(req, res) {
       if (commissionError) throw commissionError;
 
       const enriched = (data || []).map((item) => {
-        if (item.category !== "staff_payment" || !item.staff_id) {
-          return item;
-        }
+        if (item.category !== "staff_payment" || !item.staff_id) return item;
 
         const lastPaidAt = item.last_paid_at ? new Date(item.last_paid_at) : null;
 
@@ -49,7 +79,9 @@ export default async function handler(req, res) {
             0
           );
 
-        const fixedSalary = Number(item.fixed_salary || item.base_amount || item.amount || 0);
+        const fixedSalary = Number(
+          item.fixed_salary || item.base_amount || item.amount || 0
+        );
 
         return {
           ...item,
@@ -114,16 +146,54 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PATCH") {
-      const { id, updates } = req.body || {};
+      const { id, updates = {} } = req.body || {};
 
       if (!id) {
         return res.status(400).json({ error: "id obrigatório." });
       }
 
+      const { data: current, error: currentError } = await supabase
+        .from("finance_recurring_expenses")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (currentError) throw currentError;
+
+      if (!current) {
+        return res.status(404).json({ error: "Despesa recorrente não encontrada." });
+      }
+
+      const isMarkingAsPaid =
+        updates.mark_as_paid === true ||
+        updates.last_paid_at ||
+        updates.last_payment_movement_id;
+
+      const cleanUpdates = { ...updates };
+      delete cleanUpdates.mark_as_paid;
+
+      const now = new Date().toISOString();
+
       const payload = {
-        ...updates,
-        updated_at: new Date().toISOString(),
+        ...cleanUpdates,
+        updated_at: now,
       };
+
+      if (isMarkingAsPaid) {
+        const paidAt = updates.last_paid_at || now;
+
+        const baseDate =
+          current.next_due_date ||
+          current.due_date ||
+          paidAt;
+
+        payload.last_paid_at = paidAt;
+        payload.next_due_date = addRecurringPeriod(
+          baseDate,
+          current.frequency || "monthly",
+          current.due_day
+        );
+      }
 
       const { data, error } = await supabase
         .from("finance_recurring_expenses")

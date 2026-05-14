@@ -49,7 +49,7 @@ const PLANS = [
     code: "equipe_pro",
     badge: "NEGÓCIOS EM CRESCIMENTO",
     name: "Equipe Pro",
-    setup: 150,
+    setup: 50,
     monthly: 49.9,
     description:
       "Controle vendedores, equipe e distribuição de pedidos.",
@@ -67,7 +67,7 @@ const PLANS = [
     code: "complete_pro",
     badge: "OPERAÇÃO COMPLETA",
     name: "Finance Premium",
-    setup: 350,
+    setup: 50,
     monthly: 59.9,
     description:
       "Gestão avançada financeira e operacional completa.",

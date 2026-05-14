@@ -322,7 +322,7 @@ return {
 }
 
 function fallbackProfile(user = {}, images = {}) {
-  const nome = user.nome_empresa || user.nome || "Profissional RendaJá";
+  const nome = user.nome_empresa || user.nome || "Profissional CompreTudo.shop";
   const categoria = user.categoria_principal || user.area_principal || "serviços";
   const cidade = user.cidade || "sua região";
   const estado = user.estado || "";
@@ -334,16 +334,16 @@ function fallbackProfile(user = {}, images = {}) {
     cidade,
     estado,
     descricao: `${nome} oferece atendimento profissional em ${cidade}${estado ? `-${estado}` : ""}, com qualidade, confiança e contato direto pelo WhatsApp.`,
-    seo_title: `${categoria} em ${cidade}${estado ? `-${estado}` : ""} | ${nome} | RendaJá`,
-    seo_description: `${nome} atende como ${categoria} em ${cidade}${estado ? `-${estado}` : ""}. Veja serviços, informações, fotos e fale direto pelo WhatsApp pelo RendaJá.`,
-    seo_content: `${nome} está disponível no RendaJá como ${categoria} em ${cidade}${estado ? `-${estado}` : ""}. Nesta página você encontra informações sobre atendimento, serviços, fotos, avaliações e contato direto pelo WhatsApp.`,
+    seo_title: `${categoria} em ${cidade}${estado ? `-${estado}` : ""} | ${nome} | CompreTudo.shop`,
+    seo_description: `${nome} atende como ${categoria} em ${cidade}${estado ? `-${estado}` : ""}. Veja serviços, informações, fotos e fale direto pelo WhatsApp pelo CompreTudo.shop.`,
+    seo_content: `${nome} está disponível no CompreTudo.shop como ${categoria} em ${cidade}${estado ? `-${estado}` : ""}. Nesta página você encontra informações sobre atendimento, serviços, fotos, avaliações e contato direto pelo WhatsApp.`,
     seo_keywords: [
       `${categoria} em ${cidade}${estado ? `-${estado}` : ""}`,
       `${categoria} ${cidade}`,
       `profissional em ${cidade}`,
       `serviços em ${cidade}`,
       `${nome} em ${cidade}`,
-      `perfil profissional no RendaJá`,
+      `perfil profissional no CompreTudo.shop`,
     ],
     seo_tags: [
       categoria,

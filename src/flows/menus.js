@@ -3,7 +3,7 @@ import { sendButtons, sendList } from "../services/whatsapp.js";
 export function sendRootMenu(phone) {
   return sendButtons(
     phone,
-    "🚀 Bem-vindo ao RendaJá!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n🏢 Divulgar oportunidades\n\n🛟 Se precisar de ajuda, digite *suporte* a qualquer momento.\n\nComo você quer usar a plataforma?",
+    "🚀 Bem-vindo ao CompreTudo.shop!\n\n💸 Ganhe dinheiro, encontre profissionais ou descubra oportunidades perto de você.\n\nAqui você pode:\n💰 Trabalhar\n🧑‍🔧 Contratar\n🏢 Divulgar oportunidades\n\n🛟 Se precisar de ajuda, digite *suporte* a qualquer momento.\n\nComo você quer usar a plataforma?",
     [
       { id: "tipo_usuario", title: "💰 Quero trabalhar" },
       { id: "tipo_contratante", title: "🔎 Profissional" },
@@ -15,7 +15,7 @@ export function sendRootMenu(phone) {
 export function sendEntradaInicial(phone) {
   return sendButtons(
     phone,
-    "👋 Bem-vindo ao RendaJá!\n\nComo posso te ajudar agora?",
+    "👋 Bem-vindo ao CompreTudo.shop!\n\nComo posso te ajudar agora?",
     [
       { id: "iniciar_cadastro", title: "🚀 Iniciar cadastro" },
       { id: "abrir_suporte", title: "🛟 Tirar dúvidas" },

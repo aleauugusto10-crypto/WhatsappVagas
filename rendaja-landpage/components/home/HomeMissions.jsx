@@ -27,7 +27,7 @@ export default function HomeMissions() {
         <h2>Ganhe dinheiro fazendo tarefas simples perto de você.</h2>
 
         <p>
-          No RendaJá, uma missão pode ser uma divulgação, uma entrega, um favor,
+          No CompreTudo.shop, uma missão pode ser uma divulgação, uma entrega, um favor,
           um serviço rápido ou qualquer oportunidade honesta para gerar renda no
           dia a dia.
         </p>

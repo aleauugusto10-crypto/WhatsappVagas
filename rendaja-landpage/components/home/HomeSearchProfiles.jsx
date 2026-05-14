@@ -71,7 +71,7 @@ export default function HomeSearchProfiles() {
 
         <p>
           Pesquise por profissão, serviço, empresa, cidade ou nome. A busca
-          mostra os perfis públicos ativos dentro do RendaJá.
+          mostra os perfis públicos ativos dentro do CompreTudo.shop.
         </p>
       </div>
 

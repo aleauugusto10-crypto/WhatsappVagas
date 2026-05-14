@@ -7,7 +7,7 @@ export default function AlertasPage() {
   return (
     <>
       <Head>
-        <title>Alertas RendaJá — Receba vagas e missões</title>
+        <title>Alertas CompreTudo.shop — Receba vagas e missões</title>
         <meta
           name="description"
           content="Receba vagas, missões e oportunidades direto no WhatsApp."

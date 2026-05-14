@@ -1,5 +1,5 @@
 /* =========================================================
-   SHOPPING RENDAJÁ — DESKTOP PREMIUM V1
+   CompreTudo.shop — DESKTOP PREMIUM V1
    ========================================================= */
 
 .shoppingPage {
@@ -809,7 +809,7 @@
 
 
 /* =========================================================
-   SHOPPING RENDAJÁ — MOBILE PREMIUM V1
+   CompreTudo.shop — MOBILE PREMIUM V1
    ========================================================= */
 
 @media (max-width: 768px) {
@@ -2850,7 +2850,7 @@
 
 
 /* =========================================================
-   POPUP LOCALIZAÇÃO — SHOPPING RENDAJÁ
+   POPUP LOCALIZAÇÃO — CompreTudo.shop
 ========================================================= */
 
 .shoppingLocationOverlay {
@@ -3360,5 +3360,152 @@
     order: 3 !important;
     width: 100% !important;
     z-index: 80 !important;
+  }
+}
+
+.shoppingCarouselWrapper {
+  position: relative;
+}
+
+.shoppingCarouselArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 999px;
+
+  background: rgba(7, 17, 31, 0.88);
+  color: #fff;
+
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+
+  backdrop-filter: blur(10px);
+
+  transition:
+    transform .2s ease,
+    background .2s ease,
+    opacity .2s ease;
+}
+
+.shoppingCarouselArrow:hover {
+  background: #d9a84e;
+  color: #07111f;
+}
+
+.shoppingCarouselArrow.left {
+  left: -14px;
+}
+
+.shoppingCarouselArrow.right {
+  right: -14px;
+}
+
+.shoppingCarousel {
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 760px) {
+  .shoppingCarouselArrow {
+    display: none;
+  }
+}
+
+.shoppingCarouselWrapper {
+  position: relative;
+  isolation: isolate;
+}
+
+.shoppingCarouselArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+
+  background: rgba(7, 17, 31, 0.86);
+  color: #fff;
+
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  box-shadow: 0 14px 34px rgba(7, 17, 31, 0.22);
+}
+
+.shoppingCarouselArrow.left {
+  left: -58px;
+}
+
+.shoppingCarouselArrow.right {
+  right: -58px;
+}
+
+.shoppingCarouselArrow:hover {
+  background: #d9a84e;
+  color: #07111f;
+}
+
+@media (max-width: 1180px) {
+  .shoppingCarouselArrow.left {
+    left: -22px;
+  }
+
+  .shoppingCarouselArrow.right {
+    right: -22px;
+  }
+}
+
+@media (max-width: 760px) {
+  .shoppingCarouselArrow {
+    display: none;
+  }
+}
+
+.seasonalCarouselShell {
+  position: relative !important;
+}
+
+.shoppingCarouselArrow.seasonal.left {
+  left: -58px !important;
+}
+
+.shoppingCarouselArrow.seasonal.right {
+  right: -58px !important;
+}
+
+@media (max-width: 1180px) {
+  .shoppingCarouselArrow.seasonal.left {
+    left: -22px !important;
+  }
+
+  .shoppingCarouselArrow.seasonal.right {
+    right: -22px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .shoppingCarouselArrow.seasonal {
+    display: none !important;
   }
 }

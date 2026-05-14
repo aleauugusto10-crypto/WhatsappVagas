@@ -3,7 +3,7 @@ import { getBusinessStatus, getDeliveryBadges } from "../../src/lib/businessStat
 
 
 function getInitials(name = "") {
-  return String(name || "RendaJá")
+  return String(name || "CompreTudo.shop")
     .trim()
     .split(" ")
     .slice(0, 2)
@@ -43,7 +43,7 @@ const deliveryBadges = getDeliveryBadges(profile);
 
         <div className="businessCardInfo">
           <a href={url}>
-            <h3>{profile.nome || "Empresa RendaJá"}</h3>
+            <h3>{profile.nome || "Empresa CompreTudo.shop"}</h3>
           </a>
 
           <p>{profile.servico || "Serviços e produtos"}</p>

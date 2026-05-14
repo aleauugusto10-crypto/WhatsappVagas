@@ -33,7 +33,7 @@ export default function HomeLogoCarousel() {
 }, [profiles]);
 
   return (
-    <section className="homeLogoCarousel" aria-label="Perfis ativos no RendaJá">
+    <section className="homeLogoCarousel" aria-label="Perfis ativos no CompreTudo.shop">
       <div className="logoCarouselHeader">
         <span className="sectionLabel dark">Perfis ativos</span>
 

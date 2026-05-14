@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import ProductCard from "./ProductCard";
 import {
   DEFAULT_SEASONAL_CAMPAIGN,
@@ -35,18 +36,28 @@ function productMatchesCampaign(product, campaign) {
     ${product.description || ""}
   `);
 
-  return campaign.keywords.some((keyword) => {
-    const word = normalizeText(keyword);
-    return text.includes(word);
-  });
+  return campaign.keywords.some((keyword) =>
+    text.includes(normalizeText(keyword))
+  );
 }
 
 export default function SeasonalShowcase({ products = [] }) {
+  const carouselRef = useRef(null);
   const campaign = getCurrentSeasonalCampaign();
 
   const items = products
     .filter((product) => productMatchesCampaign(product, campaign))
     .slice(0, 24);
+
+  function scrollCarousel(direction) {
+    const el = carouselRef.current;
+    if (!el) return;
+
+    el.scrollBy({
+      left: direction === "left" ? -520 : 520,
+      behavior: "smooth",
+    });
+  }
 
   if (!items.length) return null;
 
@@ -68,10 +79,28 @@ export default function SeasonalShowcase({ products = [] }) {
         </div>
       </div>
 
-      <div className="seasonalProductCarousel">
-        {items.map((product) => (
-          <ProductCard key={`seasonal-${product.id}`} product={product} />
-        ))}
+      <div className="seasonalCarouselShell">
+        <button
+          type="button"
+          className="shoppingCarouselArrow left seasonal"
+          onClick={() => scrollCarousel("left")}
+        >
+          ‹
+        </button>
+
+        <div className="seasonalProductCarousel" ref={carouselRef}>
+          {items.map((product) => (
+            <ProductCard key={`seasonal-${product.id}`} product={product} />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="shoppingCarouselArrow right seasonal"
+          onClick={() => scrollCarousel("right")}
+        >
+          ›
+        </button>
       </div>
     </section>
   );

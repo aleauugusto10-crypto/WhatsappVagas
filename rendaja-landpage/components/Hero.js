@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getBusinessStatus, getDeliveryBadges } from "../src/lib/businessStatus";
+
 export default function Hero({ profile }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -12,6 +13,7 @@ export default function Hero({ profile }) {
   const nome = profile?.nome || "Profissional";
   const servico = profile?.servico || "Serviço profissional";
   const cidade = profile?.cidade || "Sua cidade";
+
   const descricao =
     profile?.descricao ||
     "Atendimento personalizado, comunicação direta e soluções para quem precisa contratar com mais confiança.";
@@ -31,26 +33,31 @@ export default function Hero({ profile }) {
   const accentColor = profile?.accent_color || buttonColor;
   const textColor = profile?.hero_text_color || "#ffffff";
   const overlayColor = profile?.hero_overlay_color || heroBg;
+
   const kicker =
-    profile?.hero_kicker || "Atendimento profissional com excelência";
+    profile?.hero_kicker ||
+    "Atendimento profissional com excelência";
 
   const showAbout = profile?.show_about !== false;
   const showServices = profile?.show_services !== false;
   const showPortfolio = profile?.show_portfolio !== false;
   const showReviews = profile?.show_reviews !== false;
   const showStore = profile?.show_store !== false;
-const businessStatus = getBusinessStatus(profile);
-const deliveryBadges = getDeliveryBadges(profile);
+
+  const businessStatus = getBusinessStatus(profile);
+  const deliveryBadges = getDeliveryBadges(profile);
+
   function closeMenu() {
     setMenuOpen(false);
   }
 
   function goHome() {
-  window.location.href = "/p/compretudo-shop-itabaiana-se";
-}
+    window.location.href = "/p/compretudo-shop-itabaiana-se";
+  }
 
   function openSearch() {
     setSearchOpen(true);
+
     setTimeout(() => {
       searchRef.current?.focus();
     }, 80);
@@ -62,73 +69,89 @@ const deliveryBadges = getDeliveryBadges(profile);
     setResults([]);
   }
 
-  function goToProfile(slug) {
-    if (!slug) return;
-    window.location.href = `/p/${slug}`;
-  }
-function SearchResultItem({ item, mobile = false }) {
-  const avatar = item.logo_url || item.hero_image_url || item.about_image_url || "";
-  const href = item?.slug ? `/p/${item.slug}` : "#";
+  function SearchResultItem({ item, mobile = false }) {
+    const avatar =
+      item.logo_url ||
+      item.hero_image_url ||
+      item.about_image_url ||
+      "";
 
-  function handleClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
+    const href = item?.slug ? `/p/${item.slug}` : "#";
 
-    if (!item?.slug) return;
+    function handleClick(e) {
+      e.preventDefault();
+      e.stopPropagation();
 
-    window.location.assign(`/p/${item.slug}`);
-  }
+      if (!item?.slug) return;
 
-  return (
-    <a
-      href={href}
-      className={mobile ? "mobile-profile-result-item" : "profile-search-item"}
-      onMouseDown={(e) => e.stopPropagation()}
-      onTouchStart={(e) => e.stopPropagation()}
-      onClick={handleClick}
-    >
-      <div
+      window.location.assign(`/p/${item.slug}`);
+    }
+
+    return (
+      <a
+        href={href}
         className={
-          mobile ? "mobile-profile-result-avatar" : "profile-search-avatar"
+          mobile
+            ? "mobile-profile-result-item"
+            : "profile-search-item"
         }
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onClick={handleClick}
       >
-        {avatar ? (
-          <img src={avatar} alt={item.nome || "Perfil"} />
-        ) : (
-          <span>{String(item.nome || "R").charAt(0)}</span>
-        )}
-      </div>
+        <div
+          className={
+            mobile
+              ? "mobile-profile-result-avatar"
+              : "profile-search-avatar"
+          }
+        >
+          {avatar ? (
+            <img src={avatar} alt={item.nome || "Perfil"} />
+          ) : (
+            <span>{String(item.nome || "R").charAt(0)}</span>
+          )}
+        </div>
 
-      <div
-        className={
-          mobile ? "mobile-profile-result-info" : "profile-search-info"
-        }
-      >
-        <strong>{item.nome}</strong>
-        <span>
-          {item.servico || "Profissional"}
-          {item.cidade ? ` • ${item.cidade}` : ""}
-          {item.estado ? `/${item.estado}` : ""}
-        </span>
-      </div>
+        <div
+          className={
+            mobile
+              ? "mobile-profile-result-info"
+              : "profile-search-info"
+          }
+        >
+          <strong>{item.nome}</strong>
 
-      <em>Ver</em>
-    </a>
-  );
-}
+          <span>
+            {item.servico || "Profissional"}
+            {item.cidade ? ` • ${item.cidade}` : ""}
+            {item.estado ? `/${item.estado}` : ""}
+          </span>
+        </div>
+
+        <em>Ver</em>
+      </a>
+    );
+  }
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (!searchRef.current) return;
 
       const box = searchRef.current.closest(".profile-search");
+
       if (box && !box.contains(event.target)) {
         closeSearch();
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    return () =>
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
   }, []);
 
   useEffect(() => {
@@ -186,42 +209,105 @@ function SearchResultItem({ item, mobile = false }) {
     >
       <nav className="topbar" style={{ background: topbarBg }}>
         <div className="topbar-inner">
-          <div className="brand" onClick={goHome} style={{ cursor: "pointer" }}>
+          <div
+            className="brand"
+            onClick={goHome}
+            style={{ cursor: "pointer" }}
+          >
             <div className="brand-logo">
-              {logo ? <img src={logo} alt={nome} /> : <span>{nome.charAt(0)}</span>}
+              {logo ? (
+                <img src={logo} alt={nome} />
+              ) : (
+                <span>{nome.charAt(0)}</span>
+              )}
             </div>
 
             <div className="brand-text">
               <strong>{nome}</strong>
-              <small>{servico}</small>
             </div>
           </div>
 
           <div className="nav-links">
-            <a href="/p/compretudo-shop-itabaiana-se">Início</a>
-<a href="/shopping">Shopping</a>
+            <a href="/p/compretudo-shop-itabaiana-se">
+              Início
+            </a>
+
             {showAbout && <a href="#sobre">Sobre</a>}
-            {showServices && <a href="#servicos">Serviços</a>}
+
+            {showServices && (
+              <a href="#servicos">Serviços</a>
+            )}
+
             {showStore && <a href="#loja">Loja</a>}
-            {showPortfolio && <a href="#portfolio">Galeria</a>}
-            {showReviews && <a href="#avaliacoes">Depoimentos</a>}
+
+            {showPortfolio && (
+              <a href="#portfolio">Galeria</a>
+            )}
+
+            {showReviews && (
+              <a href="#avaliacoes">Depoimentos</a>
+            )}
+
             <a href="#cta-final">Contato</a>
           </div>
+
+          {/* SHOPPING DESKTOP */}
+          <a
+            href="/shopping"
+            className="desktop-shopping-link"
+            aria-label="Shopping"
+          >
+            <svg
+              width="26"
+              height="26"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M8 9V7a4 4 0 0 1 8 0v2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+
+              <path
+                d="M5 9H19L18 18a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 9Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+
+              <path
+                d="M10 13H14"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </a>
 
           <div className={`profile-search ${searchOpen ? "open" : ""}`}>
             <div className="profile-search-shell">
               <button
                 type="button"
                 className="profile-search-trigger"
-                onClick={searchOpen ? closeSearch : openSearch}
+                onClick={
+                  searchOpen ? closeSearch : openSearch
+                }
                 aria-label="Buscar profissionais"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
                   <path
                     d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
                     stroke="currentColor"
                     strokeWidth="2.4"
                   />
+
                   <path
                     d="M16.2 16.2 21 21"
                     stroke="currentColor"
@@ -241,21 +327,29 @@ function SearchResultItem({ item, mobile = false }) {
               />
             </div>
 
-            {searchOpen && (searching || results.length > 0 || search.length >= 2) && (
-              <div className="profile-search-results">
-                {searching ? (
-                  <span className="profile-search-empty">Buscando...</span>
-                ) : results.length === 0 ? (
-                  <span className="profile-search-empty">
-                    Nenhum perfil ativo encontrado
-                  </span>
-                ) : (
-                  results.map((item) => (
-                    <SearchResultItem key={item.id || item.slug} item={item} />
-                  ))
-                )}
-              </div>
-            )}
+            {searchOpen &&
+              (searching ||
+                results.length > 0 ||
+                search.length >= 2) && (
+                <div className="profile-search-results">
+                  {searching ? (
+                    <span className="profile-search-empty">
+                      Buscando...
+                    </span>
+                  ) : results.length === 0 ? (
+                    <span className="profile-search-empty">
+                      Nenhum perfil ativo encontrado
+                    </span>
+                  ) : (
+                    results.map((item) => (
+                      <SearchResultItem
+                        key={item.id || item.slug}
+                        item={item}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
           </div>
 
           {whatsapp && (
@@ -264,19 +358,71 @@ function SearchResultItem({ item, mobile = false }) {
               href={`https://wa.me/${whatsapp}`}
               target="_blank"
               rel="noreferrer"
-              style={{ background: buttonColor, color: buttonTextColor }}
+              style={{
+                background: buttonColor,
+                color: buttonTextColor,
+              }}
             >
               Falar no WhatsApp
             </a>
           )}
-<a href="/login" className="my-showcase-button">
-  Minha vitrine
-</a>
+
+          {/* MINHA VITRINE DESKTOP */}
+          <a
+            href="/dashboard"
+            className="my-showcase-button"
+          >
+            Minha vitrine
+          </a>
+
+          {/* SHOPPING MOBILE */}
+          <a
+            href="/shopping"
+            className="mobile-shopping-button"
+            aria-label="Ir para o shopping"
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M8 9V7a4 4 0 0 1 8 0v2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+
+              <path
+                d="M5 9H19L18 18a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 9Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+
+              <path
+                d="M10 13H14"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </a>
+
           <button
             type="button"
-            className={`mobile-menu-button ${menuOpen ? "active" : ""}`}
-            onClick={() => setMenuOpen((prev) => !prev)}
-            aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+            className={`mobile-menu-button ${
+              menuOpen ? "active" : ""
+            }`}
+            onClick={() =>
+              setMenuOpen((prev) => !prev)
+            }
+            aria-label={
+              menuOpen
+                ? "Fechar menu"
+                : "Abrir menu"
+            }
           >
             <span className="menu-line menu-line-top" />
             <span className="menu-line menu-line-middle" />
@@ -297,17 +443,24 @@ function SearchResultItem({ item, mobile = false }) {
                   placeholder="Buscar profissionais..."
                 />
 
-                <button type="button" onClick={() => setSearchOpen(true)}>
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                >
                   Buscar
                 </button>
               </div>
 
-              {(searching || results.length > 0 || search.trim().length >= 2) && (
+              {(searching ||
+                results.length > 0 ||
+                search.trim().length >= 2) && (
                 <div className="mobile-profile-results">
                   {searching ? (
                     <span>Buscando...</span>
                   ) : results.length === 0 ? (
-                    <span>Nenhum perfil ativo encontrado</span>
+                    <span>
+                      Nenhum perfil ativo encontrado
+                    </span>
                   ) : (
                     results.map((item) => (
                       <SearchResultItem
@@ -321,30 +474,74 @@ function SearchResultItem({ item, mobile = false }) {
               )}
             </div>
 
-            <a href="/p/compretudo-shop-itabaiana-se" onClick={closeMenu}>Início</a>
-<a href="/shopping" onClick={closeMenu}>Shopping</a>
-<a href="/login" onClick={closeMenu} className="mobile-showcase-link">
-  Minha vitrine
-</a>
-            {showAbout && <a href="#sobre" onClick={closeMenu}>Sobre</a>}
-            {showServices && <a href="#servicos" onClick={closeMenu}>Serviços</a>}
-            {showStore && <a href="#loja" onClick={closeMenu}>Loja</a>}
-            {showPortfolio && <a href="#portfolio" onClick={closeMenu}>Galeria</a>}
-            {showReviews && <a href="#avaliacoes" onClick={closeMenu}>Depoimentos</a>}
-            <a href="#cta-final" onClick={closeMenu}>Contato</a>
+            <a
+              href="/p/compretudo-shop-itabaiana-se"
+              onClick={closeMenu}
+            >
+              Início
+            </a>
+
+            <a
+              href="/dashboard"
+              onClick={closeMenu}
+              className="mobile-showcase-link"
+            >
+              Minha vitrine
+            </a>
+
+            {showAbout && (
+              <a href="#sobre" onClick={closeMenu}>
+                Sobre
+              </a>
+            )}
+
+            {showServices && (
+              <a href="#servicos" onClick={closeMenu}>
+                Serviços
+              </a>
+            )}
+
+            {showStore && (
+              <a href="#loja" onClick={closeMenu}>
+                Loja
+              </a>
+            )}
+
+            {showPortfolio && (
+              <a href="#portfolio" onClick={closeMenu}>
+                Galeria
+              </a>
+            )}
+
+            {showReviews && (
+              <a href="#avaliacoes" onClick={closeMenu}>
+                Depoimentos
+              </a>
+            )}
+
+            <a href="#cta-final" onClick={closeMenu}>
+              Contato
+            </a>
           </div>
         )}
       </nav>
 
       <div className="hero-wrap">
         <div className="hero-copy">
-          <span className="hero-kicker" style={{ color: buttonColor }}>
+          <span
+            className="hero-kicker"
+            style={{ color: buttonColor }}
+          >
             {kicker}
           </span>
 
           <h1>
             {servico}
-            <em style={{ color: accentColor }}> em {cidade}</em>
+
+            <em style={{ color: accentColor }}>
+              {" "}
+              em {cidade}
+            </em>
           </h1>
 
           <p>{descricao}</p>
@@ -356,66 +553,90 @@ function SearchResultItem({ item, mobile = false }) {
                 href={`https://wa.me/${whatsapp}`}
                 target="_blank"
                 rel="noreferrer"
-                style={{ background: buttonColor, color: buttonTextColor }}
+                style={{
+                  background: buttonColor,
+                  color: buttonTextColor,
+                }}
               >
                 Falar no WhatsApp
               </a>
             )}
 
             {showServices && (
-              <a className="ghost-cta" href="#servicos">
+              <a
+                className="ghost-cta"
+                href="#servicos"
+              >
                 Especialidades
               </a>
             )}
           </div>
 
           <div className="hero-trust">
-  <div className={businessStatus.open ? "hero-status-open" : "hero-status-closed"}>
-    <span>{businessStatus.open ? "🟢" : "⚫"}</span>
-    <strong>{businessStatus.open ? "Aberto agora" : "Fechado agora"}</strong>
-    <small>{businessStatus.open ? "Atendimento disponível" : "Fora do horário"}</small>
-  </div>
+            <div
+              className={
+                businessStatus.open
+                  ? "hero-status-open"
+                  : "hero-status-closed"
+              }
+            >
+              <span>
+                {businessStatus.open ? "🟢" : "⚫"}
+              </span>
 
-  {deliveryBadges.slice(0, 3).map((badge) => (
-    <div key={badge.type}>
-      <span>
-        {badge.type === "free"
-          ? "🔥"
-          : badge.type === "delivery"
-          ? "🛵"
-          : badge.type === "pickup"
-          ? "🚗"
-          : "🏠"}
-      </span>
+              <strong>
+                {businessStatus.open
+                  ? "Aberto agora"
+                  : "Fechado agora"}
+              </strong>
 
-      <strong>{badge.label}</strong>
+              <small>
+                {businessStatus.open
+                  ? "Atendimento disponível"
+                  : "Fora do horário"}
+              </small>
+            </div>
 
-      <small>
-        {badge.type === "pickup"
-          ? "Busca no cliente"
-          : badge.type === "home"
-          ? "Atendimento externo"
-          : "Disponível"}
-      </small>
-    </div>
-  ))}
+            {deliveryBadges.slice(0, 3).map((badge) => (
+              <div key={badge.type}>
+                <span>
+                  {badge.type === "free"
+                    ? "🔥"
+                    : badge.type === "delivery"
+                    ? "🛵"
+                    : badge.type === "pickup"
+                    ? "🚗"
+                    : "🏠"}
+                </span>
 
-  {deliveryBadges.length === 0 && (
-    <>
-      <div>
-        <span>📍</span>
-        <strong>Atende em</strong>
-        <small>{cidade}</small>
-      </div>
+                <strong>{badge.label}</strong>
 
-      <div>
-        <span>✅</span>
-        <strong>Perfil</strong>
-        <small>Profissional</small>
-      </div>
-    </>
-  )}
-</div>
+                <small>
+                  {badge.type === "pickup"
+                    ? "Busca no cliente"
+                    : badge.type === "home"
+                    ? "Atendimento externo"
+                    : "Disponível"}
+                </small>
+              </div>
+            ))}
+
+            {deliveryBadges.length === 0 && (
+              <>
+                <div>
+                  <span>📍</span>
+                  <strong>Atende em</strong>
+                  <small>{cidade}</small>
+                </div>
+
+                <div>
+                  <span>✅</span>
+                  <strong>Perfil</strong>
+                  <small>Profissional</small>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="hero-photo">

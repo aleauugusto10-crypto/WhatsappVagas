@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+
 import { handleMessage } from "./src/bot.js";
 import paymentsRouter from "./src/routes/payments.js";
 import { processNotificationQueue } from "./src/services/notificationQueue.js";
@@ -7,6 +8,7 @@ import authRoutes from "./src/routes/authRoutes.js";
 import cors from "cors";
 
 dotenv.config();
+
 const app = express();
 
 app.use(cors({

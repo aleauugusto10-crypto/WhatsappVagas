@@ -16,7 +16,7 @@ function buildMissionMessage(payload) {
   return (
     `🔥 *Nova missão disponível!*\n\n` +
     `📌 ${payload.titulo || "Missão"}\n` +
-    `📝 ${payload.descricao || "Veja os detalhes no RendaJá."}\n` +
+    `📝 ${payload.descricao || "Veja os detalhes no CompreTudo.shop."}\n` +
     `💰 R$ ${payload.valor || payload.valor_por_pessoa || "A combinar"}\n` +
     `📍 ${payload.cidade || "-"}${payload.estado ? `/${payload.estado}` : ""}\n\n` +
     `👉 Digite *menu* para visualizar.`
