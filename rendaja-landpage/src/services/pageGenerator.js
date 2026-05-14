@@ -1060,7 +1060,7 @@ const { data, error } = await supabase
     throw error;
   }
 if (data?.id) {
-  regenerateProfileSeo(data.id);
+  generateSeoKeywordsForProfile(data.id);
 }
 
 return data;
@@ -1175,7 +1175,9 @@ export async function updateProfilePageFields({ supabase, userId, slug, patch = 
     console.error("Erro ao corrigir profiles_pages:", error);
     throw error;
   }
-await generateSeoKeywordsForProfile(data.id);
+if (data?.id) {
+  generateSeoKeywordsForProfile(data.id);
+}
 
 return data;
 }

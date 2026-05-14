@@ -60,11 +60,14 @@ function gerarToken(user) {
     { expiresIn: "7d" }
   );
 }
+
 async function buscarPerfilPorTelefone(telefonesPossiveis = []) {
   const { data: profile, error } = await supabase
     .from("profiles_pages")
     .select("id,user_id,nome,whatsapp,cidade,estado,is_active,subscription_expires_at")
     .in("whatsapp", telefonesPossiveis)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -98,40 +101,32 @@ const telefone = telefonesPossiveis[0];
 
     let profile = null;
 
-    if (user) {
-      const { data: userProfile, error: profileError } = await supabase
-        .from("profiles_pages")
-        .select("id,user_id,nome,whatsapp,cidade,estado,is_active,subscription_expires_at")
-        .eq("user_id", user.id)
-        .maybeSingle();
+  if (user) {
+  const { data: userProfile, error: profileError } = await supabase
+    .from("profiles_pages")
+    .select("id,user_id,nome,whatsapp,cidade,estado,is_active,subscription_expires_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-      if (profileError) {
-        console.error("❌ erro ao buscar página no login:", profileError);
-        return res.status(500).json({
-          error: "Erro ao verificar sua página.",
-        });
-      }
+  if (profileError) {
+    console.error("❌ erro ao buscar página no login:", profileError);
+    return res.status(500).json({
+      error: "Erro ao verificar sua página.",
+    });
+  }
 
-      profile = userProfile;
-    }
+  profile = userProfile;
+}
 
-    if (!user) {
-      try {
-        profile = await buscarPerfilPorTelefone(telefonesPossiveis);
-      } catch {
-        return res.status(500).json({
-          error: "Erro ao verificar sua página.",
-        });
-      }
-    }
-
-    if (!profile) {
-      return res.status(404).json({
-        error: "Número não encontrado. Use o mesmo WhatsApp cadastrado na sua vitrine.",
-      });
-    }
-
-
+if (!profile) {
+  try {
+    profile = await buscarPerfilPorTelefone(telefonesPossiveis);
+  } catch {
+    return res.status(500).json({
+      error: "Erro ao verificar sua página.",
+    });
+  }
+}
 
 const paginaAtiva =
   profile?.is_active === true &&
