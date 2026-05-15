@@ -339,9 +339,7 @@ async function findImagesForProfile(user = {}) {
 
   return {
     logo_url: normalizeImageUrl(logo),
-    hero_image_url: normalizeImageUrl(hero),
-    about_image_url: normalizeImageUrl(about),
-    product_image_url: normalizeImageUrl(productImage),
+    hero_image_url: normalizeImageUrl(hero),ct_image_url: normalizeImageUrl(productImage),
     gallery: [
       gallery1
         ? {
