@@ -682,6 +682,9 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
     user.plan_code === "free" ||
     user.planCode === "free";
 
+  const shouldCreateStoreItems =
+    user.create_store_items === true;
+
   const nome = cleanText(
     ai.nome,
     user.nome_empresa ||

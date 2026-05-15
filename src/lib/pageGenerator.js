@@ -183,233 +183,18 @@ function buildSearchTerms(user = {}) {
     user.categoria_principal ||
     user.area_principal ||
     user.servico_principal ||
-    user.workArea ||
     "negócio local";
 
   const cidade = user.cidade || "";
-  const estado = user.estado || "";
-
-  const normalized = String(categoria).toLowerCase();
-const nicheMap = {
-  pizzaria: [
-    "pizza restaurante pizzaria",
-    "pizza artesanal forno lenha",
-    "pizzaria ambiente comida",
-    "pizza delivery",
-  ],
-
-  restaurante: [
-    "restaurante comida brasileira",
-    "prato restaurante gourmet",
-    "restaurante ambiente elegante",
-    "chef cozinha restaurante",
-  ],
-
-  hamburgueria: [
-    "hamburguer artesanal restaurante",
-    "burger gourmet",
-    "hamburgueria ambiente",
-    "hamburguer delivery",
-  ],
-
-  lanchonete: [
-    "lanchonete brasileira",
-    "snack bar food",
-    "lanchonete atendimento",
-    "comida rápida brasileira",
-  ],
-
-  açai: [
-    "acai bowl food",
-    "loja de acai",
-    "acai delivery",
-    "sobremesa acai",
-  ],
-
-  padaria: [
-    "padaria artesanal",
-    "bakery breads",
-    "padaria interior",
-    "pães doces salgados",
-  ],
-
-  cafeteria: [
-    "cafeteria café especial",
-    "coffee shop cozy",
-    "cafeteria ambiente",
-    "espresso coffee",
-  ],
-
-  farmácia: [
-    "farmacia moderna",
-    "drugstore pharmacy",
-    "farmacia atendimento",
-    "medicamentos farmacia",
-  ],
-
-  clínica: [
-    "clinica médica moderna",
-    "medical clinic professional",
-    "consultório médico",
-    "saúde atendimento",
-  ],
-
-  dentista: [
-    "dentista consultório odontológico",
-    "clínica odontológica",
-    "dentista atendimento",
-    "odontologia profissional",
-  ],
-
-  academia: [
-    "academia musculação",
-    "fitness gym treino",
-    "academia moderna",
-    "personal trainer academia",
-  ],
-
-  barbearia: [
-    "barbearia corte masculino",
-    "barbershop premium",
-    "barbeiro profissional",
-    "barbearia interior",
-  ],
-
-  salão: [
-    "salão de beleza profissional",
-    "beauty salon premium",
-    "cabelo maquiagem beleza",
-    "estética feminina",
-  ],
-
-  estética: [
-    "estética facial corporal",
-    "beauty clinic luxury",
-    "procedimentos estéticos",
-    "spa estética",
-  ],
-
-  petshop: [
-    "pet shop animais",
-    "pet grooming dog cat",
-    "pet care professional",
-    "banho e tosa",
-  ],
-
-  oficina: [
-    "oficina mecânica automotiva",
-    "car repair garage",
-    "mecânico profissional",
-    "automotive service",
-  ],
-
-  auto: [
-    "auto elétrica oficina",
-    "car electrical repair",
-    "mecânico automotivo",
-    "automotive garage",
-  ],
-
-  material: [
-    "material construção loja",
-    "construction materials store",
-    "ferramentas construção",
-    "obra construção",
-  ],
-
-  papelaria: [
-    "papelaria escolar escritório",
-    "stationery shop",
-    "materiais escolares",
-    "papelaria moderna",
-  ],
-
-  ótica: [
-    "ótica óculos profissional",
-    "optical store eyewear",
-    "óculos atendimento",
-    "vision optical",
-  ],
-
-  roupa: [
-    "loja roupas fashion",
-    "boutique clothing store",
-    "moda feminina masculina",
-    "fashion retail",
-  ],
-
-  mercado: [
-    "mercado supermercado",
-    "grocery store interior",
-    "supermercado alimentos",
-    "market shelves",
-  ],
-
-  advogado: [
-    "advogado escritório advocacia",
-    "law office luxury",
-    "escritório jurídico",
-    "advocacia atendimento",
-  ],
-
-  imobiliária: [
-    "real estate office",
-    "imobiliária moderna",
-    "corretor imóveis",
-    "property agency",
-  ],
-
-  hotel: [
-    "hotel luxury interior",
-    "hotel reception",
-    "hotel room premium",
-    "hospitality business",
-  ],
-
-  pousada: [
-    "pousada brasileira",
-    "inn cozy hospitality",
-    "quarto pousada",
-    "hotel pequeno aconchegante",
-  ],
-
-  escola: [
-    "escola educação moderna",
-    "classroom school",
-    "educação infantil",
-    "teacher classroom",
-  ],
-
-  curso: [
-    "curso profissionalizante",
-    "training classroom",
-    "educação profissional",
-    "online education",
-  ],
-};
-
-  let nicheTerms = [];
-
-  for (const key of Object.keys(nicheMap)) {
-    if (normalized.includes(key)) {
-      nicheTerms = nicheMap[key];
-      break;
-    }
-  }
-
-  if (!nicheTerms.length) {
-    nicheTerms = [
-      `${categoria} profissional`,
-      `${categoria} atendimento`,
-      `${categoria} fachada`,
-      `${categoria} serviço`,
-    ];
-  }
+  const nome = user.nome_empresa || user.nome || "";
 
   return [
-    `${categoria} ${cidade} ${estado}`.trim(),
-    ...nicheTerms,
-  ];
+    `${categoria} brasileiro ${cidade}`,
+    `${categoria} restaurante comida pizza`,
+    `${categoria} fachada atendimento`,
+    `${categoria} produto serviço`,
+    `${nome} ${categoria}`,
+  ].filter(Boolean);
 }
 
 async function searchPexelsImage(query) {
@@ -759,6 +544,7 @@ Retorne SOMENTE JSON válido com estes campos:
 }
 
 Regras obrigatórias:
+
 - Responda apenas JSON puro.
 - Use português do Brasil.
 - O nome deve ser o nome comercial quando existir.
@@ -896,6 +682,9 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
     user.plan_code === "free" ||
     user.planCode === "free";
 
+  const shouldCreateStoreItems =
+    user.create_store_items === true;
+
   const nome = cleanText(
     ai.nome,
     user.nome_empresa ||
@@ -1008,7 +797,7 @@ const safeButtonTextColor =
       }))
     : fallback.services_items;
 
-  const storeCategories = shouldCreateStoreItems && Array.isArray(ai.store_categories)
+const storeCategories = shouldCreateStoreItems && Array.isArray(ai.store_categories)
   ? ai.store_categories.slice(0, 3).map((category, index) => ({
       id: category.id || `category-${index + 1}`,
       name: cleanText(category.name, "Produtos"),
