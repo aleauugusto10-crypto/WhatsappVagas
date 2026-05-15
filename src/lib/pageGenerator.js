@@ -1138,6 +1138,20 @@ button_text_color: safeButtonTextColor,
 }
 
 export async function generateProfilePagePayload(user = {}) {
+  console.log("🔥 [PAGE GENERATOR] generateProfilePagePayload()");
+
+  console.log("🔥 USER RECEBIDO:", {
+    nome: user.nome,
+    nome_empresa: user.nome_empresa,
+    businessName: user.businessName,
+    categoria_principal: user.categoria_principal,
+    ramo_empresa: user.ramo_empresa,
+    workArea: user.workArea,
+    cidade: user.cidade,
+    estado: user.estado,
+    create_store_items: user.create_store_items,
+    plan_code: user.plan_code,
+  });
   const isFreePlan =
   user.plan_code === "free" ||
   user.planCode === "free";
@@ -1167,7 +1181,29 @@ const images =
 
   const aiProfile = await generateAIProfile(user, images);
 
-  return normalizeGeneratedProfile(aiProfile, user, images);
+console.log("🖼️ IMAGENS GERADAS:", images);
+
+console.log("🤖 IA RETORNOU:", {
+  nome: aiProfile?.nome,
+  servico: aiProfile?.servico,
+  hero_title: aiProfile?.hero_title,
+  store_items: aiProfile?.store_items?.length || 0,
+});
+
+const finalProfile = normalizeGeneratedProfile(
+  aiProfile,
+  user,
+  images
+);
+
+console.log("✅ FINAL PROFILE:", {
+  logo_url: finalProfile.logo_url,
+  hero_image_url: finalProfile.hero_image_url,
+  about_image_url: finalProfile.about_image_url,
+  store_items: finalProfile.store_items?.length || 0,
+});
+
+return finalProfile;
 }
 
 
@@ -1195,7 +1231,33 @@ async function generateSeoKeywordsForProfile(profileId) {
 }
 
 export async function createOrUpdateProfilePage({ supabase, user }) {
+  console.log(`
+╔══════════════════════════════════════════════════════╗
+║ 🚀 PAGE GENERATOR VIVO - COMPRETUDO.SHOP            ║
+╠══════════════════════════════════════════════════════╣
+║ Arquivo: src/lib/pageGenerator.js                    ║
+║ Ambiente: ${process.env.NODE_ENV || "unknown"}       
+║ OpenAI: ${OPENAI_API_KEY ? "✅ OK" : "❌ AUSENTE"}
+║ Pexels: ${PEXELS_API_KEY ? "✅ OK" : "❌ AUSENTE"}
+║ Unsplash: ${UNSPLASH_ACCESS_KEY ? "✅ OK" : "❌ AUSENTE"}
+╠══════════════════════════════════════════════════════╣
+║ Empresa: ${user?.nome_empresa || user?.businessName || user?.nome || "SEM NOME"}
+║ Categoria: ${
+    user?.ramo_empresa ||
+    user?.categoria_principal ||
+    user?.area_principal ||
+    user?.servico_principal ||
+    user?.workArea ||
+    "SEM CATEGORIA"
+  }
+║ Cidade: ${user?.cidade || "SEM CIDADE"}
+║ Estado: ${user?.estado || "SEM ESTADO"}
+║ Create Store Items: ${user?.create_store_items === true ? "✅ SIM" : "❌ NÃO"}
+╚══════════════════════════════════════════════════════╝
+`);
+
   if (!supabase) {
+
     throw new Error("Supabase não informado.");
   }
 
