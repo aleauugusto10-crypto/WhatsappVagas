@@ -334,7 +334,11 @@ async function findImagesForProfile(user = {}) {
   const logo =
     (await findImage(terms.logo || terms.hero)) ||
     hero ||
-   
+    about ||
+    "";
+
+  return {
+    logo_url: normalizeImageUrl(logo),
     hero_image_url: normalizeImageUrl(hero),
     about_image_url: normalizeImageUrl(about),
     product_image_url: normalizeImageUrl(productImage),
