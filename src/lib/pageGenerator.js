@@ -165,23 +165,20 @@ function normalizeImageUrl(value) {
   return "";
 }
 function buildSearchTerms(user = {}) {
-  const categoria = String(
-    [
-      user.ramo_empresa,
-      user.categoria_principal,
-      user.area_principal,
-      user.servico_principal,
-      user.workArea,
-      user.nome_empresa,
-      user.businessName,
-      user.nome,
-    ]
-      .filter(Boolean)
-      .join(" ")
-  )
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+ const categoria = String(
+  user.ramo_empresa ||
+    user.categoria_principal ||
+    user.area_principal ||
+    user.servico_principal ||
+    user.workArea ||
+    user.nome_empresa ||
+    user.businessName ||
+    user.nome ||
+    ""
+)
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
 
   console.log("🔥 CATEGORIA FINAL PARA IMAGENS:", categoria);
 
