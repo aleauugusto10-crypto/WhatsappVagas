@@ -166,17 +166,28 @@ function normalizeImageUrl(value) {
 }
 function buildSearchTerms(user = {}) {
   const categoria = String(
-    user.ramo_empresa ||
-      user.categoria_principal ||
-      user.area_principal ||
-      user.servico_principal ||
-      user.workArea ||
-      ""
-  ).toLowerCase();
+    [
+      user.ramo_empresa,
+      user.categoria_principal,
+      user.area_principal,
+      user.servico_principal,
+      user.workArea,
+      user.nome_empresa,
+      user.businessName,
+      user.nome,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  console.log("🔥 CATEGORIA FINAL PARA IMAGENS:", categoria);
 
   const nicheMap = [
     {
-      keys: ["pizz", "restaurante", "hamb", "lanche", "food", "esfiha"],
+      keys: ["pizz", "pizza", "pizzaria", "restaurante", "hamb", "lanche", "food", "esfiha"],
       terms: {
         logo: "pizza restaurant logo storefront sign",
         hero: "pizza artesanal restaurante food photography ambiente",
@@ -417,11 +428,33 @@ async function searchUnsplashImage(query) {
 }
 
 async function findImage(query) {
+  console.log("🖼️ BUSCANDO IMAGEM:", query);
+
   const pexels = await searchPexelsImage(query);
-  if (pexels) return pexels;
+
+  if (pexels) {
+    console.log("✅ PEXELS RETORNOU:", {
+      query,
+      url: pexels,
+    });
+
+    return pexels;
+  }
+
+  console.log("⚠️ PEXELS NÃO RETORNOU. TENTANDO UNSPLASH:", query);
 
   const unsplash = await searchUnsplashImage(query);
-  if (unsplash) return unsplash;
+
+  if (unsplash) {
+    console.log("✅ UNSPLASH RETORNOU:", {
+      query,
+      url: unsplash,
+    });
+
+    return unsplash;
+  }
+
+  console.log("❌ NENHUMA IMAGEM ENCONTRADA:", query);
 
   return "";
 }
