@@ -177,21 +177,239 @@ function normalizeImageUrl(value) {
   }
   return "";
 }
-
 function buildSearchTerms(user = {}) {
-  const area = user.area_principal || "";
-  const categoria = user.categoria_principal || "";
-  const nome = user.nome_empresa || user.nome || "";
-  const cidade = user.cidade || "";
+  const categoria =
+    user.ramo_empresa ||
+    user.categoria_principal ||
+    user.area_principal ||
+    user.servico_principal ||
+    user.workArea ||
+    "negócio local";
 
-  const base = `${categoria} ${area} profissional ${cidade}`.trim();
+  const cidade = user.cidade || "";
+  const estado = user.estado || "";
+
+  const normalized = String(categoria).toLowerCase();
+const nicheMap = {
+  pizzaria: [
+    "pizza restaurante pizzaria",
+    "pizza artesanal forno lenha",
+    "pizzaria ambiente comida",
+    "pizza delivery",
+  ],
+
+  restaurante: [
+    "restaurante comida brasileira",
+    "prato restaurante gourmet",
+    "restaurante ambiente elegante",
+    "chef cozinha restaurante",
+  ],
+
+  hamburgueria: [
+    "hamburguer artesanal restaurante",
+    "burger gourmet",
+    "hamburgueria ambiente",
+    "hamburguer delivery",
+  ],
+
+  lanchonete: [
+    "lanchonete brasileira",
+    "snack bar food",
+    "lanchonete atendimento",
+    "comida rápida brasileira",
+  ],
+
+  açai: [
+    "acai bowl food",
+    "loja de acai",
+    "acai delivery",
+    "sobremesa acai",
+  ],
+
+  padaria: [
+    "padaria artesanal",
+    "bakery breads",
+    "padaria interior",
+    "pães doces salgados",
+  ],
+
+  cafeteria: [
+    "cafeteria café especial",
+    "coffee shop cozy",
+    "cafeteria ambiente",
+    "espresso coffee",
+  ],
+
+  farmácia: [
+    "farmacia moderna",
+    "drugstore pharmacy",
+    "farmacia atendimento",
+    "medicamentos farmacia",
+  ],
+
+  clínica: [
+    "clinica médica moderna",
+    "medical clinic professional",
+    "consultório médico",
+    "saúde atendimento",
+  ],
+
+  dentista: [
+    "dentista consultório odontológico",
+    "clínica odontológica",
+    "dentista atendimento",
+    "odontologia profissional",
+  ],
+
+  academia: [
+    "academia musculação",
+    "fitness gym treino",
+    "academia moderna",
+    "personal trainer academia",
+  ],
+
+  barbearia: [
+    "barbearia corte masculino",
+    "barbershop premium",
+    "barbeiro profissional",
+    "barbearia interior",
+  ],
+
+  salão: [
+    "salão de beleza profissional",
+    "beauty salon premium",
+    "cabelo maquiagem beleza",
+    "estética feminina",
+  ],
+
+  estética: [
+    "estética facial corporal",
+    "beauty clinic luxury",
+    "procedimentos estéticos",
+    "spa estética",
+  ],
+
+  petshop: [
+    "pet shop animais",
+    "pet grooming dog cat",
+    "pet care professional",
+    "banho e tosa",
+  ],
+
+  oficina: [
+    "oficina mecânica automotiva",
+    "car repair garage",
+    "mecânico profissional",
+    "automotive service",
+  ],
+
+  auto: [
+    "auto elétrica oficina",
+    "car electrical repair",
+    "mecânico automotivo",
+    "automotive garage",
+  ],
+
+  material: [
+    "material construção loja",
+    "construction materials store",
+    "ferramentas construção",
+    "obra construção",
+  ],
+
+  papelaria: [
+    "papelaria escolar escritório",
+    "stationery shop",
+    "materiais escolares",
+    "papelaria moderna",
+  ],
+
+  ótica: [
+    "ótica óculos profissional",
+    "optical store eyewear",
+    "óculos atendimento",
+    "vision optical",
+  ],
+
+  roupa: [
+    "loja roupas fashion",
+    "boutique clothing store",
+    "moda feminina masculina",
+    "fashion retail",
+  ],
+
+  mercado: [
+    "mercado supermercado",
+    "grocery store interior",
+    "supermercado alimentos",
+    "market shelves",
+  ],
+
+  advogado: [
+    "advogado escritório advocacia",
+    "law office luxury",
+    "escritório jurídico",
+    "advocacia atendimento",
+  ],
+
+  imobiliária: [
+    "real estate office",
+    "imobiliária moderna",
+    "corretor imóveis",
+    "property agency",
+  ],
+
+  hotel: [
+    "hotel luxury interior",
+    "hotel reception",
+    "hotel room premium",
+    "hospitality business",
+  ],
+
+  pousada: [
+    "pousada brasileira",
+    "inn cozy hospitality",
+    "quarto pousada",
+    "hotel pequeno aconchegante",
+  ],
+
+  escola: [
+    "escola educação moderna",
+    "classroom school",
+    "educação infantil",
+    "teacher classroom",
+  ],
+
+  curso: [
+    "curso profissionalizante",
+    "training classroom",
+    "educação profissional",
+    "online education",
+  ],
+};
+
+  let nicheTerms = [];
+
+  for (const key of Object.keys(nicheMap)) {
+    if (normalized.includes(key)) {
+      nicheTerms = nicheMap[key];
+      break;
+    }
+  }
+
+  if (!nicheTerms.length) {
+    nicheTerms = [
+      `${categoria} profissional`,
+      `${categoria} atendimento`,
+      `${categoria} fachada`,
+      `${categoria} serviço`,
+    ];
+  }
 
   return [
-    base,
-    `${categoria} service professional`,
-    `${area} profissional`,
-    nome,
-  ].filter(Boolean);
+    `${categoria} ${cidade} ${estado}`.trim(),
+    ...nicheTerms,
+  ];
 }
 
 async function searchPexelsImage(query) {
@@ -277,8 +495,8 @@ async function findImagesForProfile(user = {}) {
     (await findImage(terms[1])) ||
     "";
 const logo =
-  (await findImage(`${user.ramo_empresa || user.categoria_principal || user.area_principal || user.nome_empresa || user.nome} logo`)) ||
-  (await findImage(`${user.ramo_empresa || user.categoria_principal || user.area_principal || user.nome_empresa || user.nome} ícone`)) ||
+  (await findImage(`${user.categoria_principal || user.ramo_empresa} logo marca`)) ||
+  (await findImage(`${user.categoria_principal || user.ramo_empresa} ícone`)) ||
   hero ||
   "";
   const about =
@@ -639,8 +857,39 @@ Regras obrigatórias:
   }
 }
 
+function darkenColor(hex, amount = 120) {
+  let color = String(hex || "")
+    .replace("#", "")
+    .trim();
 
+  if (color.length === 3) {
+    color = color
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+
+  if (color.length !== 6) {
+    return "#06111d";
+  }
+
+  let r = parseInt(color.substring(0, 2), 16);
+  let g = parseInt(color.substring(2, 4), 16);
+  let b = parseInt(color.substring(4, 6), 16);
+
+  r = Math.max(0, r - amount);
+  g = Math.max(0, g - amount);
+  b = Math.max(0, b - amount);
+
+  return `#${[r, g, b]
+    .map((v) => v.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
 function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
+  const isFreePlan =
+    user.plan_code === "free" ||
+    user.planCode === "free";
+
   const nome = cleanText(
     ai.nome,
     user.nome_empresa ||
@@ -649,22 +898,92 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
       "Profissional CompreTudo"
   );
 
-  const slug = normalizeSlug(ai.slug || nome);
   const cidade = cleanText(user.cidade, "");
   const estado = cleanText(user.estado, "");
 
-  const servicoBase = cleanText(
-    ai.servico,
-    user.workArea ||
-      user.ramo_empresa ||
-      user.servico_principal ||
-      user.categoria_principal ||
-      user.area_principal ||
-      "Serviços profissionais"
+  const slug = normalizeSlug(
+    `${ai.slug || nome}-${cidade}${estado ? `-${estado}` : ""}`
   );
+
+
+  const servicoBase = cleanText(
+  ai.servico,
+  user.workArea ||
+    user.ramo_empresa ||
+    user.servico_principal ||
+    user.categoria_principal ||
+    user.area_principal ||
+    "Serviços profissionais"
+);
+
+
 
   const servicoLimpo = removeCidadeDoServico(servicoBase, cidade, estado);
   const safePalette = getSafeHeroPalette(user, ai);
+  function getContrastButtonColor(bg = "#06111d") {
+  const color = String(bg || "")
+    .replace("#", "")
+    .trim();
+
+  if (color.length !== 6) {
+    return "#d9a84e";
+  }
+
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  // fundo escuro → botão dourado
+  if (brightness < 120) {
+    return "#d9a84e";
+  }
+
+  // fundo claro → botão escuro
+  return "#06111d";
+}
+
+
+function getContrastTextColor(bg = "#d9a84e") {
+  const color = String(bg || "")
+    .replace("#", "")
+    .trim();
+
+  if (color.length !== 6) {
+    return "#07111f";
+  }
+
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  // fundo claro → texto escuro
+  if (brightness > 150) {
+    return "#07111f";
+  }
+
+  // fundo escuro → texto branco
+  return "#ffffff";
+}
+
+  const aiPrimary =
+  ai.primary_color ||
+  safePalette.primary_color ||
+  "#d9a84e";
+
+const safeTopbarColor = darkenColor(aiPrimary, 120);
+const safeButtonColor = getContrastButtonColor(
+  cleanText(
+    ai.hero_bg_color,
+    safePalette.hero_bg_color
+  )
+);
+
+const safeButtonTextColor =
+  getContrastTextColor(safeButtonColor);
   const fallback = fallbackProfile(user, images);
 
   const servicesItems = Array.isArray(ai.services_items)
@@ -686,14 +1005,16 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
   const storeCategories = [];
   const storeItems = [];
 
-  const previewExpiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const previewExpiresAt = isFreePlan
+  ? null
+  : new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
   return {
     user_id: user.id,
 
-    is_active: false,
-    is_preview: true,
-    preview_expires_at: previewExpiresAt,
+is_active: isFreePlan,
+is_preview: !isFreePlan,
+preview_expires_at: previewExpiresAt,
     activated_at: null,
 
     slug,
@@ -753,9 +1074,19 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
     hero_image_url: images.hero_image_url || user.reference_image_url || "",
     about_image_url: images.about_image_url || user.reference_image_url || "",
 
-    primary_color: safePalette.primary_color,
-    secondary_color: safePalette.secondary_color,
-    accent_color: safePalette.accent_color,
+    primary_color: safeButtonColor,
+
+secondary_color: cleanText(
+  ai.secondary_color,
+  safePalette.secondary_color
+),
+
+accent_color: cleanText(
+  ai.accent_color,
+  safePalette.accent_color
+),
+
+button_text_color: safeButtonTextColor,
 
     background_color: "#ffffff",
     text_color: "#07111f",
@@ -764,10 +1095,7 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
       ai.hero_bg_color,
       safePalette.hero_bg_color || "#06111d"
     ),
-    topbar_bg_color: cleanText(
-      ai.topbar_bg_color,
-      safePalette.topbar_bg_color || "#06111d"
-    ),
+    topbar_bg_color: safeTopbarColor,
     hero_overlay_color: cleanText(
       ai.hero_overlay_color,
       safePalette.hero_overlay_color || "rgba(6, 17, 29, 0.74)"
@@ -784,15 +1112,15 @@ function normalizeGeneratedProfile(ai = {}, user = {}, images = {}) {
     services_text_color: "#07111f",
 
     cta_bg_color: cleanText(
-      ai.cta_bg_color,
-      safePalette.primary_color || "#d9a84e"
-    ),
+  ai.cta_bg_color,
+  safeButtonColor
+),
 
     show_about: true,
     show_services: true,
     show_portfolio: true,
     show_reviews: true,
-    show_store: true,
+    show_store: !isFreePlan,
     show_booking: false,
     show_final_cta: true,
 
@@ -870,6 +1198,30 @@ const images =
   return normalizeGeneratedProfile(aiProfile, user, images);
 }
 
+
+async function generateSeoKeywordsForProfile(profileId) {
+  if (!profileId) return;
+
+  try {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.APP_BASE_URL ||
+      "https://compretudo.shop";
+
+    await fetch(`${baseUrl}/api/seo/generate-keywords`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        profile_id: profileId,
+      }),
+    });
+  } catch (err) {
+    console.error("Erro ao gerar SEO keywords:", err);
+  }
+}
+
 export async function createOrUpdateProfilePage({ supabase, user }) {
   if (!supabase) {
     throw new Error("Supabase não informado.");
@@ -887,14 +1239,28 @@ export async function createOrUpdateProfilePage({ supabase, user }) {
   .eq("user_id", user.id)
   .maybeSingle();
 
+
+  const isFreePlan =
+  user.plan_code === "free" ||
+  user.planCode === "free";
+
 const finalPayload = {
   ...payload,
-  is_active: existing?.is_active === true ? true : false,
-  is_preview: existing?.is_active === true ? false : true,
+
+  is_active:
+    isFreePlan || existing?.is_active === true ? true : false,
+
+  is_preview:
+    isFreePlan || existing?.is_active === true ? false : true,
+
   preview_expires_at:
-    existing?.is_active === true
+    isFreePlan || existing?.is_active === true
       ? null
       : new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+
+  plan_code: user.plan_code || user.planCode || "free",
+  plan_status: "active",
+  plan_price: isFreePlan ? 0 : payload.plan_price || null,
 };
 
 const { data, error } = await supabase
@@ -905,12 +1271,17 @@ const { data, error } = await supabase
   .select("*")
   .single();
 
+
+
   if (error) {
     console.error("Erro ao salvar profiles_pages:", error);
     throw error;
   }
+if (data?.id) {
+  generateSeoKeywordsForProfile(data.id);
+}
 
-  return data;
+return data;
 }
 
 export async function updateProfilePageFields({ supabase, userId, slug, patch = {} }) {
@@ -1022,8 +1393,11 @@ export async function updateProfilePageFields({ supabase, userId, slug, patch = 
     console.error("Erro ao corrigir profiles_pages:", error);
     throw error;
   }
+if (data?.id) {
+  generateSeoKeywordsForProfile(data.id);
+}
 
-  return data;
+return data;
 }
 
 export async function updateAnyTableRow({

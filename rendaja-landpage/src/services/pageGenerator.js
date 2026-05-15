@@ -177,20 +177,23 @@ function normalizeImageUrl(value) {
   }
   return "";
 }
-
 function buildSearchTerms(user = {}) {
-  const area = user.area_principal || "";
-  const categoria = user.categoria_principal || "";
-  const nome = user.nome_empresa || user.nome || "";
-  const cidade = user.cidade || "";
+  const categoria =
+    user.ramo_empresa ||
+    user.categoria_principal ||
+    user.area_principal ||
+    user.servico_principal ||
+    "negócio local";
 
-  const base = `${categoria} ${area} profissional ${cidade}`.trim();
+  const cidade = user.cidade || "";
+  const nome = user.nome_empresa || user.nome || "";
 
   return [
-    base,
-    `${categoria} service professional`,
-    `${area} profissional`,
-    nome,
+    `${categoria} brasileiro ${cidade}`,
+    `${categoria} restaurante comida pizza`,
+    `${categoria} fachada atendimento`,
+    `${categoria} produto serviço`,
+    `${nome} ${categoria}`,
   ].filter(Boolean);
 }
 
@@ -277,8 +280,8 @@ async function findImagesForProfile(user = {}) {
     (await findImage(terms[1])) ||
     "";
 const logo =
-  (await findImage(`${user.ramo_empresa || user.categoria_principal || user.area_principal || user.nome_empresa || user.nome} logo`)) ||
-  (await findImage(`${user.ramo_empresa || user.categoria_principal || user.area_principal || user.nome_empresa || user.nome} ícone`)) ||
+  (await findImage(`${user.categoria_principal || user.ramo_empresa} logo marca`)) ||
+  (await findImage(`${user.categoria_principal || user.ramo_empresa} ícone`)) ||
   hero ||
   "";
   const about =
