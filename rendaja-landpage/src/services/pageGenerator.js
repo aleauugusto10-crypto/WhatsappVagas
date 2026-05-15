@@ -164,21 +164,32 @@ function normalizeImageUrl(value) {
   }
   return "";
 }
-
 function buildSearchTerms(user = {}) {
   const categoria = String(
-    user.ramo_empresa ||
-      user.categoria_principal ||
-      user.area_principal ||
-      user.servico_principal ||
-      user.workArea ||
-      ""
-  ).toLowerCase();
+    [
+      user.ramo_empresa,
+      user.categoria_principal,
+      user.area_principal,
+      user.servico_principal,
+      user.workArea,
+      user.nome_empresa,
+      user.businessName,
+      user.nome,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  console.log("🔥 CATEGORIA FINAL PARA IMAGENS:", categoria);
 
   const nicheMap = [
     {
-      keys: ["pizz", "restaurante", "hamb", "lanche", "food", "esfiha"],
+      keys: ["pizz", "pizza", "pizzaria", "restaurante", "hamb", "lanche", "food", "esfiha"],
       terms: {
+        logo: "pizza restaurant logo storefront sign",
         hero: "pizza artesanal restaurante food photography ambiente",
         about: "chef preparando comida cozinha restaurante",
         gallery1: "prato servido restaurante mesa",
@@ -189,6 +200,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["barbearia", "barbeiro"],
       terms: {
+        logo: "barbershop logo storefront sign",
         hero: "barbearia moderna corte masculino profissional",
         about: "barbeiro cortando cabelo cliente",
         gallery1: "corte masculino barba resultado",
@@ -199,6 +211,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["beleza", "salão", "salao", "estética", "estetica", "make", "maquiagem"],
       terms: {
+        logo: "beauty salon logo storefront sign",
         hero: "salão de beleza moderno atendimento profissional",
         about: "profissional beleza atendendo cliente",
         gallery1: "maquiagem cabelo beleza resultado",
@@ -209,6 +222,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["oficina", "mecânica", "mecanica", "auto", "carro"],
       terms: {
+        logo: "auto repair shop logo storefront sign",
         hero: "oficina mecânica automotiva profissional",
         about: "mecânico trabalhando carro oficina",
         gallery1: "serviço automotivo resultado",
@@ -219,6 +233,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["mercado", "supermercado", "mercearia"],
       terms: {
+        logo: "supermarket logo storefront sign",
         hero: "mercado supermercado prateleiras produtos",
         about: "atendimento mercado cliente compras",
         gallery1: "produtos supermercado prateleira",
@@ -229,6 +244,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["farmácia", "farmacia", "drogaria"],
       terms: {
+        logo: "pharmacy logo storefront sign",
         hero: "farmácia moderna atendimento balcão",
         about: "farmacêutico atendendo cliente",
         gallery1: "produtos farmácia prateleira",
@@ -239,6 +255,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["advogado", "advocacia", "jurídico", "juridico"],
       terms: {
+        logo: "law office logo storefront sign",
         hero: "escritório advocacia moderno profissional",
         about: "advogado reunião cliente escritório",
         gallery1: "escritório jurídico moderno",
@@ -249,6 +266,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["pet", "petshop", "banho", "tosa"],
       terms: {
+        logo: "pet shop logo storefront sign",
         hero: "pet shop moderno cachorro gato atendimento",
         about: "banho e tosa cachorro profissional",
         gallery1: "pet grooming cachorro resultado",
@@ -259,6 +277,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["roupa", "moda", "loja", "boutique"],
       terms: {
+        logo: "clothing store logo storefront sign",
         hero: "loja de roupas boutique moda vitrine",
         about: "atendimento loja roupas cliente",
         gallery1: "roupas moda vitrine loja",
@@ -269,6 +288,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["material", "construção", "construcao", "ferragem"],
       terms: {
+        logo: "building materials store logo storefront sign",
         hero: "loja material construção ferramentas",
         about: "atendimento loja construção cliente",
         gallery1: "materiais construção prateleira",
@@ -284,6 +304,7 @@ function buildSearchTerms(user = {}) {
 
   return (
     found?.terms || {
+      logo: `${categoria || "negócio local"} logo fachada marca`,
       hero: `${categoria || "negócio local"} profissional atendimento`,
       about: `${categoria || "negócio local"} profissional trabalhando`,
       gallery1: `${categoria || "negócio local"} serviço resultado`,
@@ -291,6 +312,55 @@ function buildSearchTerms(user = {}) {
       product: `${categoria || "negócio local"} produto serviço`,
     }
   );
+}
+
+async function findImagesForProfile(user = {}) {
+  const terms = buildSearchTerms(user);
+
+  const hero = (await findImage(terms.hero)) || "";
+
+  const about = (await findImage(terms.about)) || hero || "";
+
+  const gallery1 = (await findImage(terms.gallery1)) || hero || "";
+
+  const gallery2 = (await findImage(terms.gallery2)) || about || hero || "";
+
+  const productImage =
+    (await findImage(terms.product)) ||
+    hero ||
+    about ||
+    "";
+
+  const logo =
+    (await findImage(terms.logo || terms.hero)) ||
+    hero ||
+    about ||
+    "";
+
+  return {
+    logo_url: normalizeImageUrl(logo),
+    hero_image_url: normalizeImageUrl(hero),
+    about_image_url: normalizeImageUrl(about),
+    product_image_url: normalizeImageUrl(productImage),
+    gallery: [
+      gallery1
+        ? {
+            id: "gallery-1",
+            url: normalizeImageUrl(gallery1),
+            title: "Trabalho realizado",
+            active: true,
+          }
+        : null,
+      gallery2
+        ? {
+            id: "gallery-2",
+            url: normalizeImageUrl(gallery2),
+            title: "Resultado profissional",
+            active: true,
+          }
+        : null,
+    ].filter(Boolean),
+  };
 }
 async function searchPexelsImage(query) {
   if (!PEXELS_API_KEY || !query) return null;
@@ -358,71 +428,37 @@ async function searchUnsplashImage(query) {
 }
 
 async function findImage(query) {
+  console.log("🖼️ BUSCANDO IMAGEM:", query);
+
   const pexels = await searchPexelsImage(query);
-  if (pexels) return pexels;
+
+  if (pexels) {
+    console.log("✅ PEXELS RETORNOU:", {
+      query,
+      url: pexels,
+    });
+
+    return pexels;
+  }
+
+  console.log("⚠️ PEXELS NÃO RETORNOU. TENTANDO UNSPLASH:", query);
 
   const unsplash = await searchUnsplashImage(query);
-  if (unsplash) return unsplash;
+
+  if (unsplash) {
+    console.log("✅ UNSPLASH RETORNOU:", {
+      query,
+      url: unsplash,
+    });
+
+    return unsplash;
+  }
+
+  console.log("❌ NENHUMA IMAGEM ENCONTRADA:", query);
 
   return "";
 }
-async function findImagesForProfile(user = {}) {
-  const terms = buildSearchTerms(user);
 
-  const hero =
-    (await findImage(terms.hero)) ||
-    "";
-
-  const about =
-    (await findImage(terms.about)) ||
-    hero ||
-    "";
-
-  const gallery1 =
-    (await findImage(terms.gallery1)) ||
-    hero ||
-    "";
-
-  const gallery2 =
-    (await findImage(terms.gallery2)) ||
-    about ||
-    hero ||
-    "";
-
-  const productImage =
-    (await findImage(terms.product)) ||
-    hero ||
-    about ||
-    "";
-    const logo =
-  (await findImage(terms.logo)) ||
-  "";
-return {
-  logo_url: normalizeImageUrl(logo),
-  hero_image_url: normalizeImageUrl(hero),
-    hero_image_url: normalizeImageUrl(hero),
-    about_image_url: normalizeImageUrl(about),
-    product_image_url: normalizeImageUrl(productImage),
-    gallery: [
-      gallery1
-        ? {
-            id: "gallery-1",
-            url: normalizeImageUrl(gallery1),
-            title: "Trabalho realizado",
-            active: true,
-          }
-        : null,
-      gallery2
-        ? {
-            id: "gallery-2",
-            url: normalizeImageUrl(gallery2),
-            title: "Resultado profissional",
-            active: true,
-          }
-        : null,
-    ].filter(Boolean),
-  };
-}
 function fallbackProfile(user = {}, images = {}) {
   const nome = user.nome_empresa || user.nome || "Profissional CompreTudo.shop";
   const categoria = user.categoria_principal || user.area_principal || "serviços";
@@ -539,9 +575,13 @@ function fallbackProfile(user = {}, images = {}) {
 }
 
 async function generateAIProfile(user = {}, images = {}) {
-  if (!OPENAI_API_KEY) {
-    return fallbackProfile(user, images);
-  }
+if (!OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY ausente. Usando fallbackProfile.", {
+    user,
+    images,
+  });
+  return fallbackProfile(user, images);
+}
 
   const referenceImageUrl =
     user.reference_image_url ||
@@ -730,9 +770,14 @@ create_store_items: true ou false
     const data = await res.json();
 
     if (!res.ok) {
-      console.error("Erro OpenAI pageGenerator:", data);
-      return fallbackProfile(user, images);
-    }
+  console.error("Erro OpenAI pageGenerator:", {
+    status: res.status,
+    data,
+    user,
+    images,
+  });
+  return fallbackProfile(user, images);
+}
 
     const content = data?.choices?.[0]?.message?.content;
     const parsed = safeJsonParse(content);
@@ -1093,6 +1138,20 @@ button_text_color: safeButtonTextColor,
 }
 
 export async function generateProfilePagePayload(user = {}) {
+  console.log("🔥 [PAGE GENERATOR] generateProfilePagePayload()");
+
+  console.log("🔥 USER RECEBIDO:", {
+    nome: user.nome,
+    nome_empresa: user.nome_empresa,
+    businessName: user.businessName,
+    categoria_principal: user.categoria_principal,
+    ramo_empresa: user.ramo_empresa,
+    workArea: user.workArea,
+    cidade: user.cidade,
+    estado: user.estado,
+    create_store_items: user.create_store_items,
+    plan_code: user.plan_code,
+  });
   const isFreePlan =
   user.plan_code === "free" ||
   user.planCode === "free";
@@ -1122,7 +1181,29 @@ const images =
 
   const aiProfile = await generateAIProfile(user, images);
 
-  return normalizeGeneratedProfile(aiProfile, user, images);
+console.log("🖼️ IMAGENS GERADAS:", images);
+
+console.log("🤖 IA RETORNOU:", {
+  nome: aiProfile?.nome,
+  servico: aiProfile?.servico,
+  hero_title: aiProfile?.hero_title,
+  store_items: aiProfile?.store_items?.length || 0,
+});
+
+const finalProfile = normalizeGeneratedProfile(
+  aiProfile,
+  user,
+  images
+);
+
+console.log("✅ FINAL PROFILE:", {
+  logo_url: finalProfile.logo_url,
+  hero_image_url: finalProfile.hero_image_url,
+  about_image_url: finalProfile.about_image_url,
+  store_items: finalProfile.store_items?.length || 0,
+});
+
+return finalProfile;
 }
 
 
@@ -1150,7 +1231,33 @@ async function generateSeoKeywordsForProfile(profileId) {
 }
 
 export async function createOrUpdateProfilePage({ supabase, user }) {
+  console.log(`
+╔══════════════════════════════════════════════════════╗
+║ 🚀 PAGE GENERATOR VIVO - COMPRETUDO.SHOP            ║
+╠══════════════════════════════════════════════════════╣
+║ Arquivo: src/lib/pageGenerator.js                    ║
+║ Ambiente: ${process.env.NODE_ENV || "unknown"}       
+║ OpenAI: ${OPENAI_API_KEY ? "✅ OK" : "❌ AUSENTE"}
+║ Pexels: ${PEXELS_API_KEY ? "✅ OK" : "❌ AUSENTE"}
+║ Unsplash: ${UNSPLASH_ACCESS_KEY ? "✅ OK" : "❌ AUSENTE"}
+╠══════════════════════════════════════════════════════╣
+║ Empresa: ${user?.nome_empresa || user?.businessName || user?.nome || "SEM NOME"}
+║ Categoria: ${
+    user?.ramo_empresa ||
+    user?.categoria_principal ||
+    user?.area_principal ||
+    user?.servico_principal ||
+    user?.workArea ||
+    "SEM CATEGORIA"
+  }
+║ Cidade: ${user?.cidade || "SEM CIDADE"}
+║ Estado: ${user?.estado || "SEM ESTADO"}
+║ Create Store Items: ${user?.create_store_items === true ? "✅ SIM" : "❌ NÃO"}
+╚══════════════════════════════════════════════════════╝
+`);
+
   if (!supabase) {
+
     throw new Error("Supabase não informado.");
   }
 
