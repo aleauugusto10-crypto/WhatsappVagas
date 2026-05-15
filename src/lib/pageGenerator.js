@@ -164,7 +164,6 @@ function normalizeImageUrl(value) {
   }
   return "";
 }
-
 function buildSearchTerms(user = {}) {
   const categoria = String(
     user.ramo_empresa ||
@@ -179,6 +178,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["pizz", "restaurante", "hamb", "lanche", "food", "esfiha"],
       terms: {
+        logo: "pizza restaurant logo storefront sign",
         hero: "pizza artesanal restaurante food photography ambiente",
         about: "chef preparando comida cozinha restaurante",
         gallery1: "prato servido restaurante mesa",
@@ -189,6 +189,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["barbearia", "barbeiro"],
       terms: {
+        logo: "barbershop logo storefront sign",
         hero: "barbearia moderna corte masculino profissional",
         about: "barbeiro cortando cabelo cliente",
         gallery1: "corte masculino barba resultado",
@@ -199,6 +200,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["beleza", "salão", "salao", "estética", "estetica", "make", "maquiagem"],
       terms: {
+        logo: "beauty salon logo storefront sign",
         hero: "salão de beleza moderno atendimento profissional",
         about: "profissional beleza atendendo cliente",
         gallery1: "maquiagem cabelo beleza resultado",
@@ -209,6 +211,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["oficina", "mecânica", "mecanica", "auto", "carro"],
       terms: {
+        logo: "auto repair shop logo storefront sign",
         hero: "oficina mecânica automotiva profissional",
         about: "mecânico trabalhando carro oficina",
         gallery1: "serviço automotivo resultado",
@@ -219,6 +222,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["mercado", "supermercado", "mercearia"],
       terms: {
+        logo: "supermarket logo storefront sign",
         hero: "mercado supermercado prateleiras produtos",
         about: "atendimento mercado cliente compras",
         gallery1: "produtos supermercado prateleira",
@@ -229,6 +233,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["farmácia", "farmacia", "drogaria"],
       terms: {
+        logo: "pharmacy logo storefront sign",
         hero: "farmácia moderna atendimento balcão",
         about: "farmacêutico atendendo cliente",
         gallery1: "produtos farmácia prateleira",
@@ -239,6 +244,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["advogado", "advocacia", "jurídico", "juridico"],
       terms: {
+        logo: "law office logo storefront sign",
         hero: "escritório advocacia moderno profissional",
         about: "advogado reunião cliente escritório",
         gallery1: "escritório jurídico moderno",
@@ -249,6 +255,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["pet", "petshop", "banho", "tosa"],
       terms: {
+        logo: "pet shop logo storefront sign",
         hero: "pet shop moderno cachorro gato atendimento",
         about: "banho e tosa cachorro profissional",
         gallery1: "pet grooming cachorro resultado",
@@ -259,6 +266,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["roupa", "moda", "loja", "boutique"],
       terms: {
+        logo: "clothing store logo storefront sign",
         hero: "loja de roupas boutique moda vitrine",
         about: "atendimento loja roupas cliente",
         gallery1: "roupas moda vitrine loja",
@@ -269,6 +277,7 @@ function buildSearchTerms(user = {}) {
     {
       keys: ["material", "construção", "construcao", "ferragem"],
       terms: {
+        logo: "building materials store logo storefront sign",
         hero: "loja material construção ferramentas",
         about: "atendimento loja construção cliente",
         gallery1: "materiais construção prateleira",
@@ -284,6 +293,7 @@ function buildSearchTerms(user = {}) {
 
   return (
     found?.terms || {
+      logo: `${categoria || "negócio local"} logo fachada marca`,
       hero: `${categoria || "negócio local"} profissional atendimento`,
       about: `${categoria || "negócio local"} profissional trabalhando`,
       gallery1: `${categoria || "negócio local"} serviço resultado`,
@@ -291,6 +301,55 @@ function buildSearchTerms(user = {}) {
       product: `${categoria || "negócio local"} produto serviço`,
     }
   );
+}
+
+async function findImagesForProfile(user = {}) {
+  const terms = buildSearchTerms(user);
+
+  const hero = (await findImage(terms.hero)) || "";
+
+  const about = (await findImage(terms.about)) || hero || "";
+
+  const gallery1 = (await findImage(terms.gallery1)) || hero || "";
+
+  const gallery2 = (await findImage(terms.gallery2)) || about || hero || "";
+
+  const productImage =
+    (await findImage(terms.product)) ||
+    hero ||
+    about ||
+    "";
+
+  const logo =
+    (await findImage(terms.logo || terms.hero)) ||
+    hero ||
+    about ||
+    "";
+
+  return {
+    logo_url: normalizeImageUrl(logo),
+    hero_image_url: normalizeImageUrl(hero),
+    about_image_url: normalizeImageUrl(about),
+    product_image_url: normalizeImageUrl(productImage),
+    gallery: [
+      gallery1
+        ? {
+            id: "gallery-1",
+            url: normalizeImageUrl(gallery1),
+            title: "Trabalho realizado",
+            active: true,
+          }
+        : null,
+      gallery2
+        ? {
+            id: "gallery-2",
+            url: normalizeImageUrl(gallery2),
+            title: "Resultado profissional",
+            active: true,
+          }
+        : null,
+    ].filter(Boolean),
+  };
 }
 async function searchPexelsImage(query) {
   if (!PEXELS_API_KEY || !query) return null;
@@ -366,63 +425,7 @@ async function findImage(query) {
 
   return "";
 }
-async function findImagesForProfile(user = {}) {
-  const terms = buildSearchTerms(user);
 
-  const hero =
-    (await findImage(terms.hero)) ||
-    "";
-
-  const about =
-    (await findImage(terms.about)) ||
-    hero ||
-    "";
-
-  const gallery1 =
-    (await findImage(terms.gallery1)) ||
-    hero ||
-    "";
-
-  const gallery2 =
-    (await findImage(terms.gallery2)) ||
-    about ||
-    hero ||
-    "";
-
-  const productImage =
-    (await findImage(terms.product)) ||
-    hero ||
-    about ||
-    "";
-    const logo =
-  (await findImage(terms.logo)) ||
-  "";
-return {
-  logo_url: normalizeImageUrl(logo),
-  hero_image_url: normalizeImageUrl(hero),
-    hero_image_url: normalizeImageUrl(hero),
-    about_image_url: normalizeImageUrl(about),
-    product_image_url: normalizeImageUrl(productImage),
-    gallery: [
-      gallery1
-        ? {
-            id: "gallery-1",
-            url: normalizeImageUrl(gallery1),
-            title: "Trabalho realizado",
-            active: true,
-          }
-        : null,
-      gallery2
-        ? {
-            id: "gallery-2",
-            url: normalizeImageUrl(gallery2),
-            title: "Resultado profissional",
-            active: true,
-          }
-        : null,
-    ].filter(Boolean),
-  };
-}
 function fallbackProfile(user = {}, images = {}) {
   const nome = user.nome_empresa || user.nome || "Profissional CompreTudo.shop";
   const categoria = user.categoria_principal || user.area_principal || "serviços";
@@ -539,9 +542,13 @@ function fallbackProfile(user = {}, images = {}) {
 }
 
 async function generateAIProfile(user = {}, images = {}) {
-  if (!OPENAI_API_KEY) {
-    return fallbackProfile(user, images);
-  }
+if (!OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY ausente. Usando fallbackProfile.", {
+    user,
+    images,
+  });
+  return fallbackProfile(user, images);
+}
 
   const referenceImageUrl =
     user.reference_image_url ||
@@ -730,9 +737,14 @@ create_store_items: true ou false
     const data = await res.json();
 
     if (!res.ok) {
-      console.error("Erro OpenAI pageGenerator:", data);
-      return fallbackProfile(user, images);
-    }
+  console.error("Erro OpenAI pageGenerator:", {
+    status: res.status,
+    data,
+    user,
+    images,
+  });
+  return fallbackProfile(user, images);
+}
 
     const content = data?.choices?.[0]?.message?.content;
     const parsed = safeJsonParse(content);
