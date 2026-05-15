@@ -480,6 +480,7 @@ ${JSON.stringify(
     area_principal: user.area_principal,
     categoria_principal: user.categoria_principal,
     plano: user.plan_code || user.planCode || "free",
+create_store_items: user.create_store_items === true,
   },
   null,
   2
@@ -543,6 +544,7 @@ Retorne SOMENTE JSON válido com estes campos:
 }
 
 Regras obrigatórias:
+
 - Responda apenas JSON puro.
 - Use português do Brasil.
 - O nome deve ser o nome comercial quando existir.
@@ -567,11 +569,14 @@ Regras obrigatórias:
 - portfolio_bg_color, reviews_bg_color, services_bg_color, about_bg_color e store_bg_color devem ser fundos claros, preferencialmente "#ffffff" ou "#f7f3ed".
 - Nunca use texto branco em seção clara.
 - Nunca use galeria com fundo branco e texto branco.
-- NÃO crie produtos, serviços de loja, ofertas, pacotes ou exemplos comerciais em store_items.
-- store_categories deve ser sempre [].
-- store_items deve ser sempre [].
-- A loja será preenchida manualmente depois pelo usuário no Dashboard.
-- Não invente nenhum produto, serviço vendável, preço, pacote ou oferta para a loja.
+- Quando create_store_items for true, crie exatamente 3 produtos ou ofertas relacionados ao segmento.
+- Quando create_store_items não for true, store_categories deve ser [] e store_items deve ser [].
+- Cada produto precisa ter: id, type, title, description, price, price_type, category_id, active, booking_enabled, duration_minutes.
+- Use type "product" para produto físico e "service" para serviço/orçamento.
+- Use price_type "fixed" quando houver preço definido.
+- Use price_type "quote" quando for orçamento.
+- Crie store_categories compatível com os produtos.
+- Não invente marcas famosas, CNPJ, endereço ou promessas falsas.
 - Para plano grátis, mantenha a página simples, profissional e institucional.
 - Para planos pagos, também não crie itens de loja automaticamente.
 - seo_title deve focar em serviço + cidade + estado + nome.
@@ -580,6 +585,8 @@ Regras obrigatórias:
 - seo_keywords deve ter 10 a 18 buscas locais naturais.
 - seo_tags deve ter 6 a 10 tags curtas.
 - Não invente endereço, CNPJ, certificados ou promessas falsas.
+Campo extra recebido:
+create_store_items: true ou false
 `;
 
   try {
@@ -787,8 +794,28 @@ const safeButtonTextColor =
       }))
     : fallback.services_items;
 
-  const storeCategories = [];
-  const storeItems = [];
+const storeCategories = shouldCreateStoreItems && Array.isArray(ai.store_categories)
+  ? ai.store_categories.slice(0, 3).map((category, index) => ({
+      id: category.id || `category-${index + 1}`,
+      name: cleanText(category.name, "Produtos"),
+      active: category.active !== false,
+    }))
+  : [];
+
+const storeItems = shouldCreateStoreItems && Array.isArray(ai.store_items)
+  ? ai.store_items.slice(0, 3).map((item, index) => ({
+      id: item.id || `item-${index + 1}`,
+      type: item.type === "service" ? "service" : "product",
+      title: cleanText(item.title, `Produto ${index + 1}`),
+      description: cleanText(item.description, "Produto disponível para consulta."),
+      price: Number(item.price || 0),
+      price_type: item.price_type === "fixed" ? "fixed" : "quote",
+      category_id: item.category_id || storeCategories[0]?.id || "category-1",
+      active: item.active !== false,
+      booking_enabled: item.booking_enabled === true,
+      duration_minutes: Number(item.duration_minutes || 60),
+    }))
+  : [];
 
   const previewExpiresAt = isFreePlan
   ? null
@@ -905,7 +932,7 @@ button_text_color: safeButtonTextColor,
     show_services: true,
     show_portfolio: true,
     show_reviews: true,
-    show_store: !isFreePlan,
+    show_store: shouldCreateStoreItems || !isFreePlan,
     show_booking: false,
     show_final_cta: true,
 
@@ -957,6 +984,9 @@ export async function generateProfilePagePayload(user = {}) {
   const isFreePlan =
   user.plan_code === "free" ||
   user.planCode === "free";
+
+const shouldCreateStoreItems =
+  user.create_store_items === true;
 
 const images =
   isFreePlan
@@ -1028,6 +1058,9 @@ export async function createOrUpdateProfilePage({ supabase, user }) {
   const isFreePlan =
   user.plan_code === "free" ||
   user.planCode === "free";
+
+const shouldCreateStoreItems =
+  user.create_store_items === true;
 
 const finalPayload = {
   ...payload,
