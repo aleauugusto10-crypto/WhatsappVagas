@@ -155,20 +155,7 @@ function removeCidadeDoServico(servico = "", cidade = "", estado = "") {
 function pick(arr = []) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-function buildFakeLogoUrl(user = {}) {
-  const ramo =
-    user.ramo_empresa ||
-    user.categoria_principal ||
-    user.area_principal ||
-    user.servico_principal ||
-    user.nome_empresa ||
-    user.nome ||
-    "negócio local";
 
-  return `https://source.unsplash.com/512x512/?${encodeURIComponent(
-    `${ramo} logo icon`
-  )}`;
-}
 function normalizeImageUrl(value) {
   if (!value) return "";
   if (typeof value === "string") return value;
@@ -177,26 +164,134 @@ function normalizeImageUrl(value) {
   }
   return "";
 }
+
 function buildSearchTerms(user = {}) {
-  const categoria =
+  const categoria = String(
     user.ramo_empresa ||
-    user.categoria_principal ||
-    user.area_principal ||
-    user.servico_principal ||
-    "negócio local";
+      user.categoria_principal ||
+      user.area_principal ||
+      user.servico_principal ||
+      user.workArea ||
+      ""
+  ).toLowerCase();
 
-  const cidade = user.cidade || "";
-  const nome = user.nome_empresa || user.nome || "";
+  const nicheMap = [
+    {
+      keys: ["pizz", "restaurante", "hamb", "lanche", "food", "esfiha"],
+      terms: {
+        hero: "pizza artesanal restaurante food photography ambiente",
+        about: "chef preparando comida cozinha restaurante",
+        gallery1: "prato servido restaurante mesa",
+        gallery2: "ambiente restaurante clientes",
+        product: "pizza artesanal queijo tomate forno",
+      },
+    },
+    {
+      keys: ["barbearia", "barbeiro"],
+      terms: {
+        hero: "barbearia moderna corte masculino profissional",
+        about: "barbeiro cortando cabelo cliente",
+        gallery1: "corte masculino barba resultado",
+        gallery2: "barbershop ambiente moderno",
+        product: "corte barba cabelo masculino",
+      },
+    },
+    {
+      keys: ["beleza", "salão", "salao", "estética", "estetica", "make", "maquiagem"],
+      terms: {
+        hero: "salão de beleza moderno atendimento profissional",
+        about: "profissional beleza atendendo cliente",
+        gallery1: "maquiagem cabelo beleza resultado",
+        gallery2: "salão beleza ambiente moderno",
+        product: "produto beleza maquiagem cabelo",
+      },
+    },
+    {
+      keys: ["oficina", "mecânica", "mecanica", "auto", "carro"],
+      terms: {
+        hero: "oficina mecânica automotiva profissional",
+        about: "mecânico trabalhando carro oficina",
+        gallery1: "serviço automotivo resultado",
+        gallery2: "oficina automotiva atendimento",
+        product: "peças automotivas óleo motor carro",
+      },
+    },
+    {
+      keys: ["mercado", "supermercado", "mercearia"],
+      terms: {
+        hero: "mercado supermercado prateleiras produtos",
+        about: "atendimento mercado cliente compras",
+        gallery1: "produtos supermercado prateleira",
+        gallery2: "mercearia mercado local",
+        product: "alimentos mercado supermercado produtos",
+      },
+    },
+    {
+      keys: ["farmácia", "farmacia", "drogaria"],
+      terms: {
+        hero: "farmácia moderna atendimento balcão",
+        about: "farmacêutico atendendo cliente",
+        gallery1: "produtos farmácia prateleira",
+        gallery2: "drogaria atendimento profissional",
+        product: "produtos farmácia higiene saúde",
+      },
+    },
+    {
+      keys: ["advogado", "advocacia", "jurídico", "juridico"],
+      terms: {
+        hero: "escritório advocacia moderno profissional",
+        about: "advogado reunião cliente escritório",
+        gallery1: "escritório jurídico moderno",
+        gallery2: "atendimento jurídico profissional",
+        product: "documentos contrato jurídico escritório",
+      },
+    },
+    {
+      keys: ["pet", "petshop", "banho", "tosa"],
+      terms: {
+        hero: "pet shop moderno cachorro gato atendimento",
+        about: "banho e tosa cachorro profissional",
+        gallery1: "pet grooming cachorro resultado",
+        gallery2: "loja pet shop produtos",
+        product: "produtos pet cachorro gato",
+      },
+    },
+    {
+      keys: ["roupa", "moda", "loja", "boutique"],
+      terms: {
+        hero: "loja de roupas boutique moda vitrine",
+        about: "atendimento loja roupas cliente",
+        gallery1: "roupas moda vitrine loja",
+        gallery2: "boutique moderna interior",
+        product: "roupas moda feminina masculina",
+      },
+    },
+    {
+      keys: ["material", "construção", "construcao", "ferragem"],
+      terms: {
+        hero: "loja material construção ferramentas",
+        about: "atendimento loja construção cliente",
+        gallery1: "materiais construção prateleira",
+        gallery2: "ferramentas construção loja",
+        product: "cimento ferramentas materiais construção",
+      },
+    },
+  ];
 
-  return [
-    `${categoria} brasileiro ${cidade}`,
-    `${categoria} restaurante comida pizza`,
-    `${categoria} fachada atendimento`,
-    `${categoria} produto serviço`,
-    `${nome} ${categoria}`,
-  ].filter(Boolean);
+  const found = nicheMap.find((item) =>
+    item.keys.some((key) => categoria.includes(key))
+  );
+
+  return (
+    found?.terms || {
+      hero: `${categoria || "negócio local"} profissional atendimento`,
+      about: `${categoria || "negócio local"} profissional trabalhando`,
+      gallery1: `${categoria || "negócio local"} serviço resultado`,
+      gallery2: `${categoria || "negócio local"} cliente atendimento`,
+      product: `${categoria || "negócio local"} produto serviço`,
+    }
+  );
 }
-
 async function searchPexelsImage(query) {
   if (!PEXELS_API_KEY || !query) return null;
 
@@ -271,39 +366,44 @@ async function findImage(query) {
 
   return "";
 }
-
 async function findImagesForProfile(user = {}) {
   const terms = buildSearchTerms(user);
 
   const hero =
-    (await findImage(terms[0])) ||
-    (await findImage(terms[1])) ||
+    (await findImage(terms.hero)) ||
     "";
-const logo =
-  (await findImage(`${user.categoria_principal || user.ramo_empresa} logo marca`)) ||
-  (await findImage(`${user.categoria_principal || user.ramo_empresa} ícone`)) ||
-  hero ||
-  "";
+
   const about =
-    (await findImage(terms[2])) ||
+    (await findImage(terms.about)) ||
     hero ||
     "";
 
   const gallery1 =
-    (await findImage(`${terms[0]} trabalho resultado`)) ||
+    (await findImage(terms.gallery1)) ||
     hero ||
     "";
 
   const gallery2 =
-    (await findImage(`${terms[0]} cliente serviço`)) ||
+    (await findImage(terms.gallery2)) ||
     about ||
     hero ||
     "";
+
+  const productImage =
+    (await findImage(terms.product)) ||
+    hero ||
+    about ||
+    "";
+    const logo =
+  (await findImage(terms.logo)) ||
+  "";
 return {
   logo_url: normalizeImageUrl(logo),
   hero_image_url: normalizeImageUrl(hero),
-  about_image_url: normalizeImageUrl(about),
-  gallery: [
+    hero_image_url: normalizeImageUrl(hero),
+    about_image_url: normalizeImageUrl(about),
+    product_image_url: normalizeImageUrl(productImage),
+    gallery: [
       gallery1
         ? {
             id: "gallery-1",
@@ -323,7 +423,6 @@ return {
     ].filter(Boolean),
   };
 }
-
 function fallbackProfile(user = {}, images = {}) {
   const nome = user.nome_empresa || user.nome || "Profissional CompreTudo.shop";
   const categoria = user.categoria_principal || user.area_principal || "serviços";
@@ -571,7 +670,8 @@ Regras obrigatórias:
 - Nunca use galeria com fundo branco e texto branco.
 - Quando create_store_items for true, crie exatamente 3 produtos ou ofertas relacionados ao segmento.
 - Quando create_store_items não for true, store_categories deve ser [] e store_items deve ser [].
-- Cada produto precisa ter: id, type, title, description, price, price_type, category_id, active, booking_enabled, duration_minutes.
+- Cada produto precisa ter: id, type, title, description, price, price_type, category_id, image_url, active, booking_enabled, duration_minutes.
+- image_url deve ser preenchido quando houver imagem disponível.
 - Use type "product" para produto físico e "service" para serviço/orçamento.
 - Use price_type "fixed" quando houver preço definido.
 - Use price_type "quote" quando for orçamento.
@@ -810,10 +910,19 @@ const storeItems = shouldCreateStoreItems && Array.isArray(ai.store_items)
       id: item.id || `item-${index + 1}`,
       type: item.type === "service" ? "service" : "product",
       title: cleanText(item.title, `Produto ${index + 1}`),
-      description: cleanText(item.description, "Produto disponível para consulta."),
+      description: cleanText(
+        item.description,
+        "Produto disponível para consulta."
+      ),
       price: Number(item.price || 0),
       price_type: item.price_type === "fixed" ? "fixed" : "quote",
       category_id: item.category_id || storeCategories[0]?.id || "category-1",
+      image_url:
+        item.image_url ||
+        images.product_image_url ||
+        images.hero_image_url ||
+        images.about_image_url ||
+        "",
       active: item.active !== false,
       booking_enabled: item.booking_enabled === true,
       duration_minutes: Number(item.duration_minutes || 60),
