@@ -218,6 +218,8 @@ export default function LeadsConversationsPage() {
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 const [discoveryCitiesText, setDiscoveryCitiesText] = useState("");
+const [discoveryState, setDiscoveryState] = useState("SE");
+const [loadingCities, setLoadingCities] = useState(false);
 const [discoveryCategoriesText, setDiscoveryCategoriesText] = useState(
   "academia\npizzaria\npadaria\nrestaurante\nbarbearia\nsalão de beleza\noficina\nclínica"
 );
@@ -338,6 +340,52 @@ const discoveredCities = useMemo(() => {
   } catch (err) {
     console.error("Erro ao processar fila:", err);
     alert("Erro ao processar fila. Veja o console.");
+  }
+}
+async function fetchCitiesByState() {
+  try {
+    setLoadingCities(true);
+
+    const uf = discoveryState
+      .trim()
+      .toUpperCase();
+
+    if (!uf || uf.length !== 2) {
+      alert("Digite uma UF válida. Ex: SE, BA, SP");
+      return;
+    }
+
+    const res = await fetch(
+      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`
+    );
+
+    const data = await res.json();
+
+    if (!Array.isArray(data)) {
+      alert("Erro ao buscar cidades.");
+      return;
+    }
+
+    const cities = data
+      .map((city) => city.nome)
+      .sort((a, b) =>
+        a.localeCompare(b, "pt-BR")
+      );
+
+    setDiscoveryCitiesText(
+      cities.join("\n")
+    );
+
+    alert(
+      `${cities.length} cidades carregadas de ${uf}`
+    );
+  } catch (err) {
+    console.error(err);
+    alert(
+      "Erro ao buscar cidades do estado."
+    );
+  } finally {
+    setLoadingCities(false);
   }
 }
   async function loadDiscoveryJobs() {
@@ -769,14 +817,43 @@ async function startFilteredProspection() {
 
   <div style={styles.discoveryGrid}>
     <label style={styles.discoveryLabel}>
-      Cidades, uma por linha
-      <textarea
-        value={discoveryCitiesText}
-        onChange={(e) => setDiscoveryCitiesText(e.target.value)}
-        placeholder={"Itabaiana\nLagarto\nAracaju"}
-        style={styles.discoveryTextarea}
-      />
-    </label>
+  Estado + cidades automáticas
+
+  <div style={styles.stateRow}>
+    <input
+      value={discoveryState}
+      onChange={(e) =>
+        setDiscoveryState(
+          e.target.value.toUpperCase()
+        )
+      }
+      placeholder="SE"
+      maxLength={2}
+      style={styles.stateInput}
+    />
+
+    <button
+      onClick={fetchCitiesByState}
+      style={styles.fetchCitiesButton}
+      disabled={loadingCities}
+    >
+      {loadingCities
+        ? "Buscando..."
+        : "Buscar cidades"}
+    </button>
+  </div>
+
+  <textarea
+    value={discoveryCitiesText}
+    onChange={(e) =>
+      setDiscoveryCitiesText(
+        e.target.value
+      )
+    }
+    placeholder="As cidades aparecerão aqui"
+    style={styles.discoveryTextarea}
+  />
+</label>
 
     <label style={styles.discoveryLabel}>
       Categorias, uma por linha
@@ -1554,7 +1631,30 @@ discoveryJobPill: {
     gridTemplateColumns: "1fr 1fr 1fr",
     gap: 8,
   },
+stateRow: {
+  display: "flex",
+  gap: 8,
+},
 
+stateInput: {
+  width: 80,
+  border: "1px solid #e2e8f0",
+  borderRadius: 14,
+  padding: "12px",
+  fontWeight: 900,
+  textAlign: "center",
+  outline: "none",
+},
+
+fetchCitiesButton: {
+  border: 0,
+  borderRadius: 14,
+  padding: "0 16px",
+  background: "#07111f",
+  color: "#fff",
+  fontWeight: 900,
+  cursor: "pointer",
+},
   assumeButton: {
     background: "#07111f",
     color: "#fff",

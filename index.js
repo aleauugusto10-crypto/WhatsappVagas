@@ -127,7 +127,50 @@ app.get("/", (req, res) => {
     service: "whatsapp-marketplace",
   });
 });
+app.get("/api/locations/cities", async (req, res) => {
+  try {
+    const uf = String(req.query.uf || "")
+      .trim()
+      .toUpperCase();
 
+    if (!uf || uf.length !== 2) {
+      return res.status(400).json({
+        error: "Informe a UF do estado. Exemplo: SE, BA, SP.",
+      });
+    }
+
+    const response = await fetch(
+      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`
+    );
+
+    if (!response.ok) {
+      return res.status(400).json({
+        error: "Não foi possível buscar cidades desse estado.",
+      });
+    }
+
+    const data = await response.json();
+
+    const cities = data
+      .map((item) => ({
+        name: item.nome,
+        city: item.nome,
+        state: uf,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    return res.json({
+      state: uf,
+      count: cities.length,
+      cities,
+    });
+  } catch (error) {
+    console.error("Erro ao buscar cidades:", error);
+    return res.status(500).json({
+      error: "Erro interno ao buscar cidades.",
+    });
+  }
+});
 /**
  * 🚀 START DO SERVIDOR
  */
