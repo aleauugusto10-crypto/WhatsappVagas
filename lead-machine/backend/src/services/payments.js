@@ -1,0 +1,1 @@
+export * from "../../../../rendaja-landpage/src/services/payments.js";

@@ -5,6 +5,8 @@ import { handleMessage } from "./src/bot.js";
 import paymentsRouter from "./src/routes/payments.js";
 import { processNotificationQueue } from "./src/services/notificationQueue.js";
 import authRoutes from "./src/routes/authRoutes.js";
+import leadsRoutes from "./lead-machine/backend/src/modules/leads/routes.js";
+import discoveryRoutes from "./lead-machine/backend/src/modules/discovery/routes.js";
 import cors from "cors";
 
 dotenv.config();
@@ -27,7 +29,8 @@ app.use("/payments", paymentsRouter);
 
 app.use("/auth", authRoutes);
 
-
+app.use("/api/leads", leadsRoutes);
+app.use("/api/discovery", discoveryRoutes);
 
 /**
  * 🔐 VERIFICAÇÃO DO WEBHOOK (META)

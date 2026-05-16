@@ -1,0 +1,1 @@
+export { createOrUpdateProfilePage } from "../../../../src/lib/pageGenerator.js";
