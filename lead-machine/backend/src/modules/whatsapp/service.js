@@ -16,9 +16,8 @@ export async function sendWhatsAppTemplate({
   to,
   businessName,
 }) {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId =
-    process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = String(process.env.WHATSAPP_ACCESS_TOKEN || "").trim();
+const phoneNumberId = String(process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
   const templateName =
     process.env.WHATSAPP_TEMPLATE_NAME ||
     "confirmacao_empresa_v1";
