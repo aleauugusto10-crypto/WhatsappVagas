@@ -18,6 +18,38 @@ export async function sendWhatsAppTemplate({
 }) {
   const token = String(process.env.WHATSAPP_ACCESS_TOKEN || "").trim();
 const phoneNumberId = String(process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
+console.log("========== WHATSAPP ENV DEBUG ==========");
+console.log(
+  "ACCESS TOKEN EXISTS:",
+  !!process.env.WHATSAPP_ACCESS_TOKEN
+);
+
+console.log(
+  "TOKEN START:",
+  process.env.WHATSAPP_ACCESS_TOKEN?.slice(0, 15)
+);
+
+console.log(
+  "TOKEN END:",
+  process.env.WHATSAPP_ACCESS_TOKEN?.slice(-15)
+);
+
+console.log(
+  "PHONE_NUMBER_ID:",
+  process.env.WHATSAPP_PHONE_NUMBER_ID
+);
+
+console.log(
+  "PHONE_ID:",
+  process.env.WHATSAPP_PHONE_ID
+);
+
+console.log(
+  "TOKEN ALT EXISTS:",
+  !!process.env.WHATSAPP_TOKEN
+);
+
+console.log("=======================================");
   const templateName =
     process.env.WHATSAPP_TEMPLATE_NAME ||
     "confirmacao_empresa_v1";
