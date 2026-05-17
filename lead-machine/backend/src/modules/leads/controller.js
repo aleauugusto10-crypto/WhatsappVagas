@@ -490,24 +490,23 @@ const {
     }
 
     const lead = await service.createOrGetLeadByPhone({
-      empresa: empresa || nome || "Nova empresa",
-      nome_responsavel: nome || null,
-      telefone: phone,
-      whatsapp: phone,
-      cidade:
-  extractedCity ||
-  cidade ||
-  null,
+  empresa: empresa || nome || "Nova empresa",
+  telefone: phone,
+  whatsapp: phone,
+  cidade:
+    extractedCity ||
+    cidade ||
+    null,
 
-estado:
-  extractedState ||
-  estado ||
-  "SE",
-      categoria: categoria || "comércio local",
-      status: "inbound",
-      source: "whatsapp_button_showcase",
-      last_message: inboundMessage,
-    });
+  estado:
+    extractedState ||
+    estado ||
+    "SE",
+  categoria: categoria || "comércio local",
+  status: "inbound",
+  source: "whatsapp_button_showcase",
+  last_message: inboundMessage,
+});
 
     const conversation =
       await service.getOrCreateConversation(lead.id);
