@@ -1416,7 +1416,42 @@ if (!phone) return;
       msg?.interactive?.list_reply?.id ||
       msg?.text?.body?.toLowerCase().trim() ||
       "";
+const rawText =
+  msg?.interactive?.button_reply?.title ||
+  msg?.interactive?.button_reply?.id ||
+  msg?.interactive?.list_reply?.title ||
+  msg?.interactive?.list_reply?.id ||
+  msg?.text?.body ||
+  "";
 
+const normalizedText = String(rawText || "")
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .trim();
+
+const isShowcaseLead =
+  normalizedText.includes("quero minha vitrine") ||
+  normalizedText.includes("quero vitrine") ||
+  normalizedText.includes("minha vitrine como faz");
+
+  if (isShowcaseLead) {
+  console.log("🔥 ENTROU NO FLUXO QUERO MINHA VITRINE:", {
+    phone,
+    rawText,
+  });
+
+  await sendText(
+    phone,
+    `Opa, que massa 😄
+
+Funciona assim: a gente monta uma vitrine profissional da sua empresa no CompreTudo.Shop, com botão direto para WhatsApp, informações organizadas, catálogo e presença online para ajudar mais pessoas da cidade a encontrarem você.
+
+Posso primeiro te mostrar um exemplo real de como fica?`
+  );
+
+  return;
+}
       // =====================
 // CLIENTE RESPONDE PRESENÇA DO AGENDAMENTO
 // =====================

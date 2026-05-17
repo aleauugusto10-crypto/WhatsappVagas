@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 
 import { handleMessage } from "./src/bot.js";
 import paymentsRouter from "./src/routes/payments.js";
@@ -7,17 +8,19 @@ import { processNotificationQueue } from "./src/services/notificationQueue.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import leadsRoutes from "./lead-machine/backend/src/modules/leads/routes.js";
 import discoveryRoutes from "./lead-machine/backend/src/modules/discovery/routes.js";
-import cors from "cors";
 
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 
@@ -26,9 +29,7 @@ const processedMessages = new Set();
 
 // ✅ ROTAS INTERNAS
 app.use("/payments", paymentsRouter);
-
 app.use("/auth", authRoutes);
-
 app.use("/api/leads", leadsRoutes);
 app.use("/api/discovery", discoveryRoutes);
 
@@ -62,6 +63,10 @@ app.post("/webhook", async (req, res) => {
     const change = entry?.changes?.[0];
     const value = change?.value;
 
+    const receiverPhoneNumberId = value?.metadata?.phone_number_id;
+
+    console.log("📞 Número que recebeu:", receiverPhoneNumberId);
+
     // 🚨 IGNORAR EVENTOS SEM MENSAGEM
     if (!value || !value.messages || !value.messages.length) {
       console.log("⛔ ignorado: sem messages (status/evento)");
@@ -78,6 +83,7 @@ app.post("/webhook", async (req, res) => {
 
     // 🚨 IGNORAR TIPOS NÃO SUPORTADOS
     const allowedTypes = ["text", "interactive"];
+
     if (!allowedTypes.includes(msg.type)) {
       console.log("⛔ tipo ignorado:", msg.type);
       return res.sendStatus(200);
@@ -91,7 +97,6 @@ app.post("/webhook", async (req, res) => {
 
     processedMessages.add(msg.id);
 
-    // limpa depois de 60s
     setTimeout(() => {
       processedMessages.delete(msg.id);
     }, 60000);
@@ -108,49 +113,79 @@ app.post("/webhook", async (req, res) => {
       console.log("🧠 interação:", JSON.stringify(msg.interactive, null, 2));
     }
 
-    // 🚀 PROCESSA LEAD QUENTE DA VITRINE
-if (isShowcaseLead) {
-  console.log("🔥 Lead quente detectado: Quero minha vitrine");
+    const textMessage =
+      msg.text?.body ||
+      msg.interactive?.button_reply?.title ||
+      msg.interactive?.button_reply?.id ||
+      msg.interactive?.list_reply?.title ||
+      msg.interactive?.list_reply?.id ||
+      "";
 
-  const response = await fetch(
-    "http://localhost:" + PORT + "/api/leads/inbound/showcase",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        whatsapp: msg.from,
-        message: textMessage,
-      }),
+    const normalizedText = String(textMessage)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    const isSecondWhatsappNumber =
+      String(receiverPhoneNumberId) ===
+        String(process.env.WHATSAPP_PHONE_NUMBER_ID) ||
+      String(receiverPhoneNumberId) ===
+        String(process.env.HATSAPP_PHONE_NUMBER_ID);
+
+    const isShowcaseLead =
+      normalizedText.includes("quero minha vitrine") ||
+      normalizedText.includes("minha vitrine como faz") ||
+      normalizedText.includes("quero vitrine") ||
+      normalizedText.includes("minha vitrine");
+
+    console.log("🧪 DEBUG WEBHOOK:", {
+      receiverPhoneNumberId,
+      envWhatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+      envHatsappPhoneNumberId: process.env.HATSAPP_PHONE_NUMBER_ID,
+      isSecondWhatsappNumber,
+      textMessage,
+      normalizedText,
+      isShowcaseLead,
+    });
+
+    // 🔥 FLUXO DO NÚMERO DE VENDAS / VITRINE
+    if (isSecondWhatsappNumber) {
+      console.log("🔥 Mensagem recebida no número de vendas/vitrine");
+
+      if (isShowcaseLead) {
+        console.log("🔥 Entrou no fluxo Quero Minha Vitrine");
+
+        const response = await fetch(
+          `http://localhost:${PORT}/api/leads/inbound/showcase`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              whatsapp: msg.from,
+              message: textMessage,
+            }),
+          }
+        );
+
+        const data = await response.json().catch(() => null);
+
+        console.log("✅ Fluxo vitrine iniciado:", data);
+
+        return res.sendStatus(200);
+      }
+
+      // Se chegou no número de vendas, mas não é a frase da vitrine,
+      // deixa o bot normal responder.
+      await handleMessage(msg);
+      return res.sendStatus(200);
     }
-  );
 
-  const data = await response.json().catch(() => null);
+    // 🔥 FLUXO NORMAL DO WHATSAPP
+    await handleMessage(msg);
 
-  console.log("✅ Fluxo vitrine iniciado:", data);
-
-  return res.sendStatus(200);
-}
-
-await handleMessage(msg);
-const textMessage =
-  msg.text?.body ||
-  msg.interactive?.button_reply?.title ||
-  msg.interactive?.button_reply?.id ||
-  msg.interactive?.list_reply?.title ||
-  msg.interactive?.list_reply?.id ||
-  "";
-
-const normalizedText = String(textMessage)
-  .toLowerCase()
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "");
-
-const isShowcaseLead =
-  normalizedText.includes("quero minha vitrine") ||
-  normalizedText.includes("minha vitrine como faz") ||
-  normalizedText.includes("quero vitrine");
     return res.sendStatus(200);
   } catch (err) {
     console.error("❌ erro no webhook:", err);
@@ -167,6 +202,10 @@ app.get("/", (req, res) => {
     service: "whatsapp-marketplace",
   });
 });
+
+/**
+ * 🏙️ BUSCAR CIDADES POR UF
+ */
 app.get("/api/locations/cities", async (req, res) => {
   try {
     const uf = String(req.query.uf || "")
@@ -206,25 +245,23 @@ app.get("/api/locations/cities", async (req, res) => {
     });
   } catch (error) {
     console.error("Erro ao buscar cidades:", error);
+
     return res.status(500).json({
       error: "Erro interno ao buscar cidades.",
     });
   }
 });
+
 /**
  * 🚀 START DO SERVIDOR
  */
-const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 
-  // roda uma vez ao subir
   processNotificationQueue(20).catch((err) => {
     console.error("❌ erro inicial no worker de notificações:", err);
   });
 
-  // roda continuamente
   setInterval(() => {
     processNotificationQueue(20).catch((err) => {
       console.error("❌ erro no worker de notificações:", err);
