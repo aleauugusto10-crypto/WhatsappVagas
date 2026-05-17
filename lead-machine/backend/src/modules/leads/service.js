@@ -6,6 +6,8 @@ export async function createOrGetLeadByPhone(payload) {
     .from("lead_leads")
     .select("*")
     .or(`whatsapp.eq.${phone},telefone.eq.${phone}`)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (existing.error) {
@@ -13,12 +15,53 @@ export async function createOrGetLeadByPhone(payload) {
   }
 
   if (existing.data) {
+    const safeUpdates = {
+      last_message: payload.last_message,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (
+      payload.empresa &&
+      payload.empresa !== "Cadastro em andamento" &&
+      payload.empresa !== "Nova empresa"
+    ) {
+      safeUpdates.empresa = payload.empresa;
+    }
+
+    if (
+      payload.categoria &&
+      payload.categoria !== "comércio local"
+    ) {
+      safeUpdates.categoria = payload.categoria;
+    }
+
+    if (payload.cidade) {
+      safeUpdates.cidade = payload.cidade;
+    }
+
+    if (payload.estado) {
+      safeUpdates.estado = payload.estado;
+    }
+
+    if (payload.whatsapp) {
+      safeUpdates.whatsapp = payload.whatsapp;
+    }
+
+    if (payload.telefone) {
+      safeUpdates.telefone = payload.telefone;
+    }
+
+    if (payload.status) {
+      safeUpdates.status = payload.status;
+    }
+
+    if (payload.source) {
+      safeUpdates.source = payload.source;
+    }
+
     const updated = await supabase
       .from("lead_leads")
-      .update({
-        ...payload,
-        updated_at: new Date().toISOString(),
-      })
+      .update(safeUpdates)
       .eq("id", existing.data.id)
       .select()
       .single();
@@ -30,7 +73,11 @@ export async function createOrGetLeadByPhone(payload) {
 
   const created = await supabase
     .from("lead_leads")
-    .insert(payload)
+    .insert({
+      ...payload,
+      empresa: payload.empresa || "Cadastro em andamento",
+      categoria: payload.categoria || "comércio local",
+    })
     .select()
     .single();
 
