@@ -971,13 +971,9 @@ Estamos ajudando empresas locais a serem encontradas mais facilmente na cidade.`
       );
 
     if (
-      currentStage ===
-        "greeting" ||
-      currentStage ===
-        "interest" ||
-      lastIntent ===
-        "inbound_showcase_request"
-    ) {
+  currentStage === "greeting" ||
+  lastIntent === "inbound_showcase_request"
+) {
       // veio direto do shopping
       if (
         cameFromShoppingButton
@@ -1121,7 +1117,36 @@ Estamos ajudando empresas locais a serem encontradas mais facilmente na cidade.`
     | FASE EXEMPLO / PRÉVIA
     |--------------------------------------------------------------------------
     */
+if (
+  currentStage === "interest" &&
+  isSimpleYes(userMessage)
+) {
+  const reply = buildExampleReply();
 
+  await updateAIState(conversationId, {
+    stage: "example",
+    last_intent: "example_sent",
+    lead_temperature: 7,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "example",
+      generated_by: "example_flow",
+    },
+  });
+
+  if (phone) {
+    await sendText(phone, reply, {
+      phoneNumberId: receiverPhoneNumberId,
+    });
+  }
+
+  return res.json(saved);
+}
     if (
       currentStage ===
       "interest"
