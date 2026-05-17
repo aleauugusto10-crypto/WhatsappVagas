@@ -108,9 +108,49 @@ app.post("/webhook", async (req, res) => {
       console.log("🧠 interação:", JSON.stringify(msg.interactive, null, 2));
     }
 
-    // 🚀 PROCESSA
-    await handleMessage(msg);
+    // 🚀 PROCESSA LEAD QUENTE DA VITRINE
+if (isShowcaseLead) {
+  console.log("🔥 Lead quente detectado: Quero minha vitrine");
 
+  const response = await fetch(
+    "http://localhost:" + PORT + "/api/leads/inbound/showcase",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        whatsapp: msg.from,
+        message: textMessage,
+      }),
+    }
+  );
+
+  const data = await response.json().catch(() => null);
+
+  console.log("✅ Fluxo vitrine iniciado:", data);
+
+  return res.sendStatus(200);
+}
+
+await handleMessage(msg);
+const textMessage =
+  msg.text?.body ||
+  msg.interactive?.button_reply?.title ||
+  msg.interactive?.button_reply?.id ||
+  msg.interactive?.list_reply?.title ||
+  msg.interactive?.list_reply?.id ||
+  "";
+
+const normalizedText = String(textMessage)
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
+
+const isShowcaseLead =
+  normalizedText.includes("quero minha vitrine") ||
+  normalizedText.includes("minha vitrine como faz") ||
+  normalizedText.includes("quero vitrine");
     return res.sendStatus(200);
   } catch (err) {
     console.error("❌ erro no webhook:", err);

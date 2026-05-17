@@ -15,6 +15,7 @@ import {
 } from "../../services/payments.js";
 import { sendWhatsAppTemplate } from "../whatsapp/service.js";
 import { sendLeadTemplate } from "../../services/whatsappLeads.js";
+import { sendText } from "../../../../../src/services/whatsapp.js";
 const DEFAULT_EXAMPLE_URL =
   process.env.DEFAULT_EXAMPLE_URL ||
   "https://compretudo.shop/p/sb-make-up-itabaiana-se";
@@ -547,7 +548,7 @@ Quer ver um exemplo?`;
         stage: "interest",
       },
     });
-
+await sendText(phone, aiMessage);
     await service.updateLead(lead.id, {
       status: "inbound_contacted",
       prospection_started_at: new Date().toISOString(),

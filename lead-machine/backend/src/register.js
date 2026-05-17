@@ -1,3 +1,4 @@
+import express from "express";
 import cors from "cors";
 import leadsRoutes from "./modules/leads/routes.js";
 import discoveryRoutes from "./modules/discovery/routes.js";
@@ -9,7 +10,5 @@ export function registerLeadMachine(app) {
   app.use("/api/leads", leadsRoutes);
   app.use("/api/discovery", discoveryRoutes);
 
-  console.log(
-    "✅ Lead Machine registrada"
-  );
+  console.log("✅ Lead Machine registrada");
 }
