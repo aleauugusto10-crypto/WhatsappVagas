@@ -3,7 +3,7 @@ export async function createOrGetLeadByPhone(payload) {
   const phone = payload.whatsapp || payload.telefone;
 
   const existing = await supabase
-    .from("leads")
+    .from("lead_leads")
     .select("*")
     .or(`whatsapp.eq.${phone},telefone.eq.${phone}`)
     .maybeSingle();
@@ -14,7 +14,7 @@ export async function createOrGetLeadByPhone(payload) {
 
   if (existing.data) {
     const updated = await supabase
-      .from("leads")
+      .from("lead_leads")
       .update({
         ...payload,
         updated_at: new Date().toISOString(),
@@ -29,7 +29,7 @@ export async function createOrGetLeadByPhone(payload) {
   }
 
   const created = await supabase
-    .from("leads")
+    .from("lead_leads")
     .insert(payload)
     .select()
     .single();
