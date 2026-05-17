@@ -547,7 +547,11 @@ Quer ver um exemplo?`;
         stage: "interest",
       },
     });
-await sendText(phone, aiMessage);
+await sendText(phone, aiMessage, {
+  phoneNumberId:
+    req.body.receiverPhoneNumberId ||
+    process.env.WHATSAPP_PHONE_NUMBER_ID,
+});
     await service.updateLead(lead.id, {
       status: "inbound_contacted",
       prospection_started_at: new Date().toISOString(),
