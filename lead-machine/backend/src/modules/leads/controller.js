@@ -1376,11 +1376,18 @@ Se fizer sentido, podemos ativar a versão completa da vitrine para sua empresa 
 
       return res.json(saved);
     }
+if (
+  currentStage !== "payment" &&
+  (
+    asksPrice ||
+    selectedBasicPlan ||
+    selectedFullPlan ||
+    (
+      isSimpleYes(userMessage) &&
+      ["closing", "offer", "preview"].includes(currentStage)
+    )
+  )
 
-    if (
-      asksPrice ||
-      selectedBasicPlan ||
-      selectedFullPlan ||
       (
         isSimpleYes(userMessage) &&
         ["closing", "offer", "preview"].includes(currentStage)
@@ -1433,11 +1440,14 @@ Posso gerar o Pix de ativação agora?`
 
       return res.json(saved);
     }
-
-    if (
-      currentStage === "payment" &&
-      isSimpleYes(userMessage)
-    ) {
+if (
+  currentStage === "payment" &&
+  (
+    isSimpleYes(userMessage) ||
+    selectedBasicPlan ||
+    selectedFullPlan
+  )
+) {
       const selectedPlan =
         lastIntent === "selected_full_plan"
           ? "complete_pro"
@@ -1673,23 +1683,54 @@ export async function startInboundShowcaseFlow(req, res) {
     }
 
     const lead = await service.createOrGetLeadByPhone({
-      empresa: empresa || nome || "Nova empresa",
-      telefone: phone,
-      whatsapp: phone,
-      cidade: extractedCity || cidade || null,
-      estado: extractedState || estado || "SE",
-      categoria: categoria || "comércio local",
-      status: "inbound",
-      source: "whatsapp_button_showcase",
-      last_message: inboundMessage,
-    });
+  empresa: empresa || nome || null,
+  telefone: phone,
+  whatsapp: phone,
+  cidade: extractedCity || cidade || null,
+  estado: extractedState || estado || "SE",
+  categoria: categoria || null,
+  status: "inbound",
+  source: "whatsapp_button_showcase",
+  last_message: inboundMessage,
+});
 
     const conversation =
       await service.getOrCreateConversation(lead.id);
 
     const currentAIState =
       await getOrCreateAIState(conversation.id);
+const missingBusinessInfo =
+  !lead.empresa ||
+  lead.empresa === "Nova empresa" ||
+  !lead.categoria ||
+  lead.categoria === "comércio local";
 
+if (missingBusinessInfo) {
+  await updateAIState(conversation.id, {
+    stage: "onboarding_name",
+    last_intent: "collect_business_info",
+    lead_temperature: 5,
+  });
+
+  const reply = `Perfeito 😄
+
+Antes de montar sua vitrine, me fala:
+
+Qual é o *nome comercial* da sua empresa ou serviço?`;
+
+  await sendText(phone, reply, {
+    phoneNumberId:
+      receiverPhoneNumberId ||
+      process.env.WHATSAPP_PHONE_ID,
+  });
+
+  return res.json({
+    onboarding: true,
+    stage: "onboarding_name",
+    conversation,
+    lead,
+  });
+}
     const alreadyStarted =
       currentAIState?.last_intent &&
       currentAIState?.last_intent !== "initial_greeting";
