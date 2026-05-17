@@ -1435,20 +1435,48 @@ const isShowcaseLead =
   normalizedText.includes("quero vitrine") ||
   normalizedText.includes("minha vitrine como faz");
 
-  if (isShowcaseLead) {
-  console.log("🔥 ENTROU NO FLUXO QUERO MINHA VITRINE:", {
+  const shouldStartSalesFlow =
+  isShowcaseLead ||
+  text === "ct_vender" ||
+  normalizedText.includes("vender") ||
+  normalizedText.includes("criar vitrine") ||
+  normalizedText.includes("quero vender") ||
+  normalizedText.includes("loja online") ||
+  normalizedText.includes("vitrine") ||
+  ["oi", "ola", "olá", "menu", "inicio", "início", "começar", "comecar"].includes(
+    normalizedText
+  );
+
+if (shouldStartSalesFlow) {
+  console.log("🔥 BOT PRINCIPAL → FLUXO DE VENDAS:", {
     phone,
     rawText,
   });
 
-  await sendText(
-    phone,
-    `Opa, que massa 😄
+  const PORT = process.env.PORT || 3000;
 
-Funciona assim: a gente monta uma vitrine profissional da sua empresa no CompreTudo.Shop, com botão direto para WhatsApp, informações organizadas, catálogo e presença online para ajudar mais pessoas da cidade a encontrarem você.
-
-Posso primeiro te mostrar um exemplo real de como fica?`
+  const response = await fetch(
+    `http://localhost:${PORT}/api/leads/inbound/showcase`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        whatsapp: phone,
+        telefone: phone,
+        message:
+          rawText ||
+          "Quero minha vitrine, como faz?",
+        receiverPhoneNumberId:
+          process.env.WHATSAPP_PHONE_ID,
+      }),
+    }
   );
+
+  const data = await response.json().catch(() => null);
+
+  console.log("✅ BOT PRINCIPAL → VENDAS PROCESSADO:", data);
 
   return;
 }
