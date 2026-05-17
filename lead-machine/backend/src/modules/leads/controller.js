@@ -1173,55 +1173,76 @@ Estamos ajudando empresas locais a serem encontradas mais facilmente na cidade.`
   )
 ) {
       // veio direto do shopping
-      if (
-        cameFromShoppingButton
-      ) {
-        const reply =
-          buildDirectClosingReply(
-            lead
-          );
+     if (cameFromShoppingButton) {
+  const missingBusinessData =
+    !lead.empresa ||
+    lead.empresa === "Cadastro em andamento" ||
+    lead.empresa === "Nova empresa" ||
+    !lead.cidade ||
+    !lead.estado ||
+    !lead.categoria ||
+    lead.categoria === "comércio local";
 
-        await updateAIState(
-          conversationId,
-          {
-            stage:
-              "closing",
-            last_intent:
-              "direct_showcase_entry",
-            lead_temperature:
-              8,
-          }
-        );
+  // NÃO TEM DADOS -> COMEÇA ONBOARDING
+  if (missingBusinessData) {
+    await updateAIState(conversationId, {
+      stage: "onboarding_name",
+      last_intent: "collect_business_name",
+      lead_temperature: 6,
+    });
 
-        const saved =
-          await service.createMessage(
-            {
-              conversation_id:
-                conversationId,
-              role: "assistant",
-              message: reply,
-              metadata: {
-                stage:
-                  "closing",
-                generated_by:
-                  "direct_showcase_flow",
-              },
-            }
-          );
+    const reply = `Perfeito 😄
 
-        if (phone) {
-          await sendText(
-            phone,
-            reply,
-            {
-              phoneNumberId:
-                receiverPhoneNumberId,
-            }
-          );
-        }
+Vou montar sua vitrine no CompreTudo.Shop.
 
-        return res.json(saved);
-      }
+Primeiro me diga o *nome comercial da empresa ou serviço*.`;
+
+    const saved = await service.createMessage({
+      conversation_id: conversationId,
+      role: "assistant",
+      message: reply,
+      metadata: {
+        stage: "onboarding_name",
+        generated_by: "direct_showcase_onboarding",
+      },
+    });
+
+    if (phone) {
+      await sendText(phone, reply, {
+        phoneNumberId: receiverPhoneNumberId,
+      });
+    }
+
+    return res.json(saved);
+  }
+
+  // TEM DADOS -> VAI PARA FECHAMENTO
+  const reply = buildDirectClosingReply(lead);
+
+  await updateAIState(conversationId, {
+    stage: "closing",
+    last_intent: "direct_showcase_entry",
+    lead_temperature: 8,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "closing",
+      generated_by: "direct_showcase_flow",
+    },
+  });
+
+  if (phone) {
+    await sendText(phone, reply, {
+      phoneNumberId: receiverPhoneNumberId,
+    });
+  }
+
+  return res.json(saved);
+}
 
       // saudação simples
       if (
