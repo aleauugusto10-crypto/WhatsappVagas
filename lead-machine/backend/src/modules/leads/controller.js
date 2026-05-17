@@ -1683,12 +1683,12 @@ export async function startInboundShowcaseFlow(req, res) {
     }
 
     const lead = await service.createOrGetLeadByPhone({
-  empresa: empresa || nome || null,
+  empresa: empresa || nome || "Cadastro em andamento",
   telefone: phone,
   whatsapp: phone,
   cidade: extractedCity || cidade || null,
   estado: extractedState || estado || "SE",
-  categoria: categoria || null,
+  categoria: categoria || "comércio local",
   status: "inbound",
   source: "whatsapp_button_showcase",
   last_message: inboundMessage,
@@ -1699,9 +1699,10 @@ export async function startInboundShowcaseFlow(req, res) {
 
     const currentAIState =
       await getOrCreateAIState(conversation.id);
-const missingBusinessInfo =
+      const missingBusinessInfo =
   !lead.empresa ||
   lead.empresa === "Nova empresa" ||
+  lead.empresa === "Cadastro em andamento" ||
   !lead.categoria ||
   lead.categoria === "comércio local";
 
