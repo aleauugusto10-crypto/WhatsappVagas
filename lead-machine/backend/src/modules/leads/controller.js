@@ -230,20 +230,44 @@ Depois, se quiser deixar mais completa, com catálogo, destaque e personalizaç�
 function buildPlanOfferReply() {
   return `Perfeito 😄
 
-A *Vitrine Inteligente* fica *R$ 19,90/mês* e inclui:
+Temos duas opções:
+
+1️⃣ *Vitrine Inteligente — R$ 19,90/mês*
 
 ✅ vitrine profissional  
-✅ loja/catálogo online  
+✅ catálogo online  
 ✅ botão direto para WhatsApp  
-✅ presença no marketplace local  
-✅ possibilidade de personalizar depois
+✅ presença no CompreTudo.Shop local  
 
-Também temos a *Gestão Completa* por *R$ 49,90/mês*, com mais recursos de pedidos, equipe e caixa.
+---
 
-Quer seguir com a Vitrine Inteligente ou prefere a Gestão Completa?`;
+2️⃣ *Gestão Completa — R$ 49,90/mês*
+
+✅ tudo da Vitrine Inteligente  
+✅ *visibilidade no Google*  
+✅ otimização para aparecer em buscas locais  
+✅ presença profissional no Google  
+✅ pedidos, equipe, caixa e gestão  
+✅ mais chances de clientes encontrarem sua empresa
+
+A presença no Google é ativada *somente na Gestão Completa*.
+
+Qual plano faz mais sentido para você hoje?`;
 }
 
 async function createPreviewForLead(lead) {
+    if (
+    !lead?.empresa ||
+    lead.empresa === "Nova empresa" ||
+    lead.empresa === "Cadastro em andamento" ||
+    !lead?.cidade ||
+    !lead?.categoria ||
+    lead.categoria === "comércio local"
+  ) {
+    throw new Error(
+      "Dados incompletos para gerar vitrine. Colete nome comercial, telefone, cidade/estado e ramo antes."
+    );
+  }
   const previewPage = await createOrUpdateProfilePage({
     supabase,
     user: {
@@ -747,7 +771,7 @@ if (currentStage === "onboarding_name") {
 
   const reply = `Perfeito 😄
 
-E qual é o *melhor WhatsApp de atendimento* da empresa?
+Agora me diga o *melhor WhatsApp para atendimento da empresa*.
 
 Pode ser esse mesmo número ou outro.`;
 
@@ -779,17 +803,60 @@ if (currentStage === "onboarding_phone") {
   });
 
   await updateAIState(conversationId, {
-    stage: "onboarding_category",
-    last_intent: "collect_business_category",
+    stage: "onboarding_city",
+    last_intent: "collect_business_city",
     lead_temperature: 7,
   });
 
   const reply = `Show 😄
 
-Agora me diga o *ramo de atividade*.
+Qual é a *cidade e estado* da empresa?
 
 Exemplo:
-academia, pizzaria, barbearia, loja de roupas, oficina, clínica, delivery, serviços, estética...`;
+Itabaiana - SE`;
+
+  await sendText(phone, reply, {
+    phoneNumberId: receiverPhoneNumberId,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "onboarding_city",
+      generated_by: "onboarding_flow",
+    },
+  });
+
+  return res.json(saved);
+}
+
+if (currentStage === "onboarding_city") {
+  const parts = String(userMessage || "").split(/-|,|\//);
+
+  const city = parts[0]?.trim() || userMessage;
+  const uf = parts[1]?.trim()?.toUpperCase() || lead.estado || "SE";
+
+  await service.updateLead(lead.id, {
+    cidade: city,
+    estado: uf,
+    last_message: userMessage,
+    updated_at: new Date().toISOString(),
+  });
+
+  await updateAIState(conversationId, {
+    stage: "onboarding_category",
+    last_intent: "collect_business_category",
+    lead_temperature: 8,
+  });
+
+  const reply = `Última coisa 😄
+
+Qual é o *ramo de atividade* da empresa?
+
+Exemplo:
+som automotivo, pizzaria, barbearia, oficina, estética, roupas, clínica...`;
 
   await sendText(phone, reply, {
     phoneNumberId: receiverPhoneNumberId,
@@ -815,13 +882,13 @@ if (currentStage === "onboarding_category") {
     updated_at: new Date().toISOString(),
   });
 
+  const updatedLead = await service.getLeadById(lead.id);
+
   await updateAIState(conversationId, {
     stage: "closing",
     last_intent: "onboarding_completed",
-    lead_temperature: 8,
+    lead_temperature: 9,
   });
-
-  const updatedLead = await service.getLeadById(lead.id);
 
   const reply = buildDirectClosingReply(updatedLead);
 
@@ -1562,11 +1629,10 @@ if (
     selectedFullPlan
   )
 ) {
-      const selectedPlan =
-        lastIntent === "selected_full_plan"
-          ? "complete_pro"
-          : "store_start";
-
+     const selectedPlan =
+  selectedFullPlan || lastIntent === "selected_full_plan"
+    ? "complete_pro"
+    : "store_start";
       let profile = null;
 
       if (lead.preview_url) {
@@ -1814,50 +1880,24 @@ export async function startInboundShowcaseFlow(req, res) {
     const currentAIState =
   await getOrCreateAIState(conversation.id);
 
+const onboardingIncomplete =
+  !lead.empresa ||
+  lead.empresa === "Nova empresa" ||
+  lead.empresa === "Cadastro em andamento" ||
+  !lead.whatsapp ||
+  !lead.cidade ||
+  !lead.estado ||
+  !lead.categoria ||
+  lead.categoria === "comércio local";
+
 const onboardingStages = [
   "onboarding_name",
   "onboarding_phone",
+  "onboarding_city",
   "onboarding_category",
 ];
 
-const alreadyStarted =
-  currentAIState?.last_intent &&
-  currentAIState?.last_intent !== "initial_greeting" &&
-  !onboardingStages.includes(currentAIState?.stage);
-if (alreadyStarted) {
-  const fakeReq = {
-    params: {
-      conversationId: conversation.id,
-    },
-    body: {
-      message: inboundMessage,
-      receiverPhoneNumberId:
-        receiverPhoneNumberId ||
-        process.env.WHATSAPP_PHONE_ID,
-    },
-  };
-
-  const fakeRes = {
-    status(code) {
-      this.statusCode = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return payload;
-    },
-  };
-
-  await continueConversation(fakeReq, fakeRes);
-
-  return res.json({
-    continued: true,
-    conversation,
-    response: fakeRes.payload,
-  });
-}
-
-if (isGreetingOnly(inboundMessage)) {
+if (isGreetingOnly(inboundMessage) && !isDirectShowcaseRequest(inboundMessage)) {
   await updateAIState(conversation.id, {
     stage: "greeting",
     last_intent: "marketplace_greeting",
@@ -1890,17 +1930,43 @@ if (isGreetingOnly(inboundMessage)) {
   });
 }
 
-const missingBusinessInfo =
-  !lead.empresa ||
-  lead.empresa === "Nova empresa" ||
-  lead.empresa === "Cadastro em andamento" ||
-  !lead.categoria ||
-  lead.categoria === "comércio local";
+if (onboardingStages.includes(currentAIState?.stage)) {
+  const fakeReq = {
+    params: {
+      conversationId: conversation.id,
+    },
+    body: {
+      message: inboundMessage,
+      receiverPhoneNumberId:
+        receiverPhoneNumberId ||
+        process.env.WHATSAPP_PHONE_ID,
+    },
+  };
 
-if (missingBusinessInfo) {
+  const fakeRes = {
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return payload;
+    },
+  };
+
+  await continueConversation(fakeReq, fakeRes);
+
+  return res.json({
+    continued: true,
+    conversation,
+    response: fakeRes.payload,
+  });
+}
+
+if (onboardingIncomplete) {
   await updateAIState(conversation.id, {
     stage: "onboarding_name",
-    last_intent: "collect_business_info",
+    last_intent: "collect_business_name",
     lead_temperature: 5,
   });
 
@@ -1908,7 +1974,7 @@ if (missingBusinessInfo) {
 
 Antes de montar sua vitrine, me fala:
 
-Qual é o *nome comercial* da sua empresa ou serviço?`;
+Qual é o *nome comercial da empresa ou serviço*?`;
 
   await sendText(phone, reply, {
     phoneNumberId:
@@ -1924,6 +1990,42 @@ Qual é o *nome comercial* da sua empresa ou serviço?`;
   });
 }
 
+const alreadyStarted =
+  currentAIState?.last_intent &&
+  currentAIState?.last_intent !== "initial_greeting";
+
+if (alreadyStarted) {
+  const fakeReq = {
+    params: {
+      conversationId: conversation.id,
+    },
+    body: {
+      message: inboundMessage,
+      receiverPhoneNumberId:
+        receiverPhoneNumberId ||
+        process.env.WHATSAPP_PHONE_ID,
+    },
+  };
+
+  const fakeRes = {
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return payload;
+    },
+  };
+
+  await continueConversation(fakeReq, fakeRes);
+
+  return res.json({
+    continued: true,
+    conversation,
+    response: fakeRes.payload,
+  });
+}
     await updateAIState(conversation.id, {
       stage: "closing",
       last_intent: "inbound_showcase_request",
