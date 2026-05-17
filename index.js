@@ -121,6 +121,18 @@ app.post("/webhook", async (req, res) => {
       msg.interactive?.list_reply?.id ||
       "";
 
+console.log("🧪 PAYLOAD DEBUG", {
+  receiverPhoneNumberId,
+  envWhatsappPhoneNumberId:
+    process.env.WHATSAPP_PHONE_NUMBER_ID,
+  envHatsappPhoneNumberId:
+    process.env.HATSAPP_PHONE_NUMBER_ID,
+  from: msg.from,
+  type: msg.type,
+  textMessage,
+  metadata: value?.metadata,
+  fullMessage: msg,
+});
     const normalizedText = String(textMessage)
       .toLowerCase()
       .normalize("NFD")
