@@ -16,6 +16,12 @@ const nextConfig = {
         destination: "/shopping",
         permanent: false,
       },
+
+      {
+        source: "/p/compretudo-shop-itabaiana-se",
+        destination: "/?ref=qr_antigo",
+        permanent: true,
+      },
     ];
   },
 };

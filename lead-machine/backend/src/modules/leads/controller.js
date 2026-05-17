@@ -54,7 +54,18 @@ Ela mostra como a empresa pode aparecer com visual profissional, informações o
 
 Quer que eu monte uma prévia gratuita de como ficaria a vitrine da sua empresa?`;
 }
+function extractLocation(message = "") {
+  const cityMatch =
+    message.match(/minha cidade:\s*(.+)/i);
 
+  const stateMatch =
+    message.match(/estado:\s*(.+)/i);
+
+  return {
+    cidade: cityMatch?.[1]?.trim() || null,
+    estado: stateMatch?.[1]?.trim() || null,
+  };
+}
 export async function startProspection(req, res) {
   try {
     const leadId = req.params.leadId;
@@ -443,6 +454,113 @@ Assim que o pagamento for confirmado, a vitrine será ativada automaticamente.`;
     });
   } catch (err) {
     console.error("Erro ao gerar pagamento manual:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
+  }
+}
+
+export async function startInboundShowcaseFlow(req, res) {
+  try {
+    const {
+      nome,
+      empresa,
+      telefone,
+      whatsapp,
+      cidade,
+      estado = "SE",
+      categoria,
+      message,
+    } = req.body;
+const inboundMessage =
+  message || "Quero minha vitrine, como faz?";
+
+const {
+  cidade: extractedCity,
+  estado: extractedState,
+} = extractLocation(inboundMessage);
+    const phone = whatsapp || telefone;
+
+    if (!phone) {
+      return res.status(400).json({
+        error: "whatsapp ou telefone obrigatório.",
+      });
+    }
+
+    const lead = await service.createOrGetLeadByPhone({
+      empresa: empresa || nome || "Nova empresa",
+      nome_responsavel: nome || null,
+      telefone: phone,
+      whatsapp: phone,
+      cidade:
+  extractedCity ||
+  cidade ||
+  null,
+
+estado:
+  extractedState ||
+  estado ||
+  "SE",
+      categoria: categoria || "comércio local",
+      status: "inbound",
+      source: "whatsapp_button_showcase",
+      last_message: inboundMessage,
+    });
+
+    const conversation =
+      await service.getOrCreateConversation(lead.id);
+
+    await getOrCreateAIState(conversation.id);
+
+    await updateAIState(conversation.id, {
+      stage: "interest",
+      last_intent: "inbound_showcase_request",
+      lead_temperature: 8,
+    });
+
+    await service.createMessage({
+      conversation_id: conversation.id,
+      role: "user",
+      message:
+        message || "Quero minha vitrine, como faz?",
+      metadata: {
+        source: "whatsapp_button_showcase",
+        inbound: true,
+      },
+    });
+
+    const aiMessage = `Opa, que massa 😄
+
+Funciona assim: a gente monta uma vitrine profissional da sua empresa no CompreTudo.Shop, com botão direto para WhatsApp, informações organizadas, catálogo e presença online para ajudar mais pessoas da cidade a encontrarem você.
+
+Eu posso primeiro te mostrar um exemplo real de como fica e, se fizer sentido, gero uma prévia gratuita da sua empresa.
+
+Quer ver um exemplo?`;
+
+    const savedReply = await service.createMessage({
+      conversation_id: conversation.id,
+      role: "assistant",
+      message: aiMessage,
+      metadata: {
+        generated_by: "inbound_showcase_flow",
+        stage: "interest",
+      },
+    });
+
+    await service.updateLead(lead.id, {
+      status: "inbound_contacted",
+      prospection_started_at: new Date().toISOString(),
+      last_message: aiMessage,
+    });
+
+    return res.json({
+      lead,
+      conversation,
+      message: savedReply,
+    });
+  } catch (err) {
+    console.error("Erro no fluxo inbound showcase:", err);
 
     return res.status(500).json({
       error: err.message,

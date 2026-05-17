@@ -105,16 +105,20 @@ export default function ShoppingTopbar({ location, onLocationChange }) {
        <a href="/p/compretudo-shop-itabaiana-se" className="shoppingTopbarBrand">
   <img src="/compretudo.shop-logo.png" alt="CompreTudo.shop" />
 </a>
+<a
+  href={`https://wa.me/5579991088490?text=${encodeURIComponent(
+    `Quero minha vitrine, como faz?
 
-        <a
-          href="https://compretudo.shop/p/compretudo-shop-itabaiana-se"
-          target="_blank"
-          rel="noreferrer"
-          className="shoppingTopbarCta"
-        >
-          <span>Quero minha vitrine</span>
-          <small>Apareça para clientes da sua cidade</small>
-        </a>
+Minha cidade: ${location?.city || "não informada"}
+Estado: ${location?.state || "não informado"}`
+  )}`}
+  target="_blank"
+  rel="noreferrer"
+  className="shoppingTopbarCta"
+>
+  <span>Quero minha vitrine</span>
+  <small>Apareça para clientes da sua cidade</small>
+</a>
       </header>
 
       {locationModalOpen && (

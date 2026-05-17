@@ -1,5 +1,43 @@
 import { supabase } from "../../supabase.js";
+export async function createOrGetLeadByPhone(payload) {
+  const phone = payload.whatsapp || payload.telefone;
 
+  const existing = await supabase
+    .from("leads")
+    .select("*")
+    .or(`whatsapp.eq.${phone},telefone.eq.${phone}`)
+    .maybeSingle();
+
+  if (existing.error) {
+    throw existing.error;
+  }
+
+  if (existing.data) {
+    const updated = await supabase
+      .from("leads")
+      .update({
+        ...payload,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.data.id)
+      .select()
+      .single();
+
+    if (updated.error) throw updated.error;
+
+    return updated.data;
+  }
+
+  const created = await supabase
+    .from("leads")
+    .insert(payload)
+    .select()
+    .single();
+
+  if (created.error) throw created.error;
+
+  return created.data;
+}
 export async function createLead(payload) {
   const { data, error } = await supabase
     .from("lead_leads")

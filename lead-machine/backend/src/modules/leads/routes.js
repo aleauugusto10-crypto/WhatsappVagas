@@ -138,4 +138,16 @@ router.post(
   "/:leadId/generate-payment",
   controller.generateLeadPayment
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| Inbound Hot Lead - Quero minha vitrine
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  "/inbound/showcase",
+  controller.startInboundShowcaseFlow
+);
 export default router;
