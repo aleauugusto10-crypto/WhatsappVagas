@@ -1699,6 +1699,38 @@ export async function startInboundShowcaseFlow(req, res) {
 
     const currentAIState =
       await getOrCreateAIState(conversation.id);
+      if (isGreetingOnly(inboundMessage)) {
+  await updateAIState(conversation.id, {
+    stage: "greeting",
+    last_intent: "marketplace_greeting",
+    lead_temperature: 1,
+  });
+
+  const reply = buildMarketplaceGreeting();
+
+  await service.createMessage({
+    conversation_id: conversation.id,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "greeting",
+      generated_by: "marketplace_greeting",
+    },
+  });
+
+  await sendText(phone, reply, {
+    phoneNumberId:
+      receiverPhoneNumberId ||
+      process.env.WHATSAPP_PHONE_ID,
+  });
+
+  return res.json({
+    greeting: true,
+    stage: "greeting",
+    conversation,
+    lead,
+  });
+}
       const missingBusinessInfo =
   !lead.empresa ||
   lead.empresa === "Nova empresa" ||
