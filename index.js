@@ -24,18 +24,13 @@ app.use(
 
 app.use(express.json());
 
-// 🔥 ANTI DUPLICAÇÃO EM MEMÓRIA
 const processedMessages = new Set();
 
-// ✅ ROTAS INTERNAS
 app.use("/payments", paymentsRouter);
 app.use("/auth", authRoutes);
 app.use("/api/leads", leadsRoutes);
 app.use("/api/discovery", discoveryRoutes);
 
-/**
- * 🔐 VERIFICAÇÃO DO WEBHOOK (META)
- */
 app.get("/webhook", (req, res) => {
   const verifyToken = process.env.VERIFY_TOKEN;
 
@@ -52,9 +47,6 @@ app.get("/webhook", (req, res) => {
   return res.sendStatus(403);
 });
 
-/**
- * 📩 RECEBENDO EVENTOS DO WHATSAPP
- */
 app.post("/webhook", async (req, res) => {
   try {
     console.log("📩 webhook recebido");
@@ -63,11 +55,12 @@ app.post("/webhook", async (req, res) => {
     const change = entry?.changes?.[0];
     const value = change?.value;
 
-    const receiverPhoneNumberId = value?.metadata?.phone_number_id;
+    const receiverPhoneNumberId =
+      value?.metadata?.phone_number_id;
 
     console.log("📞 Número que recebeu:", receiverPhoneNumberId);
+    console.log("📞 Número exibido:", value?.metadata?.display_phone_number);
 
-    // 🚨 IGNORAR EVENTOS SEM MENSAGEM
     if (!value || !value.messages || !value.messages.length) {
       console.log("⛔ ignorado: sem messages (status/evento)");
       return res.sendStatus(200);
@@ -75,13 +68,11 @@ app.post("/webhook", async (req, res) => {
 
     const msg = value.messages[0];
 
-    // 🚨 VALIDAR MENSAGEM
     if (!msg?.from || !msg?.id) {
       console.log("⛔ mensagem inválida");
       return res.sendStatus(200);
     }
 
-    // 🚨 IGNORAR TIPOS NÃO SUPORTADOS
     const allowedTypes = ["text", "interactive"];
 
     if (!allowedTypes.includes(msg.type)) {
@@ -89,7 +80,6 @@ app.post("/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    // 🔥 ANTI DUPLICAÇÃO
     if (processedMessages.has(msg.id)) {
       console.log("🔁 duplicado ignorado:", msg.id);
       return res.sendStatus(200);
@@ -101,18 +91,6 @@ app.post("/webhook", async (req, res) => {
       processedMessages.delete(msg.id);
     }, 60000);
 
-    // 🔍 LOGS PRA DEBUG
-    console.log("📱 de:", msg.from);
-    console.log("💬 tipo:", msg.type);
-
-    if (msg.text?.body) {
-      console.log("📝 texto:", msg.text.body);
-    }
-
-    if (msg.interactive) {
-      console.log("🧠 interação:", JSON.stringify(msg.interactive, null, 2));
-    }
-
     const textMessage =
       msg.text?.body ||
       msg.interactive?.button_reply?.title ||
@@ -121,29 +99,19 @@ app.post("/webhook", async (req, res) => {
       msg.interactive?.list_reply?.id ||
       "";
 
-console.log("🧪 PAYLOAD DEBUG", {
-  receiverPhoneNumberId,
-  envWhatsappPhoneNumberId:
-    process.env.WHATSAPP_PHONE_NUMBER_ID,
-  envHatsappPhoneNumberId:
-    process.env.HATSAPP_PHONE_NUMBER_ID,
-  from: msg.from,
-  type: msg.type,
-  textMessage,
-  metadata: value?.metadata,
-  fullMessage: msg,
-});
     const normalizedText = String(textMessage)
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .trim();
 
-    const isSecondWhatsappNumber =
+    const isSalesNumber =
       String(receiverPhoneNumberId) ===
-        String(process.env.WHATSAPP_PHONE_NUMBER_ID) ||
+      String(process.env.WHATSAPP_PHONE_NUMBER_ID);
+
+    const isMainNumber =
       String(receiverPhoneNumberId) ===
-        String(process.env.HATSAPP_PHONE_NUMBER_ID);
+      String(process.env.WHATSAPP_PHONE_ID);
 
     const isShowcaseLead =
       normalizedText.includes("quero minha vitrine") ||
@@ -153,49 +121,54 @@ console.log("🧪 PAYLOAD DEBUG", {
 
     console.log("🧪 DEBUG WEBHOOK:", {
       receiverPhoneNumberId,
-      envWhatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-      envHatsappPhoneNumberId: process.env.HATSAPP_PHONE_NUMBER_ID,
-      isSecondWhatsappNumber,
+      displayPhoneNumber: value?.metadata?.display_phone_number,
+      envMainPhoneId: process.env.WHATSAPP_PHONE_ID,
+      envSalesPhoneId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+      isMainNumber,
+      isSalesNumber,
       textMessage,
       normalizedText,
       isShowcaseLead,
     });
 
-    // 🔥 FLUXO DO NÚMERO DE VENDAS / VITRINE
-    if (isSecondWhatsappNumber) {
-      console.log("🔥 Mensagem recebida no número de vendas/vitrine");
+    if (isSalesNumber) {
+      console.log("🔥 Mensagem recebida no número de VENDAS/VITRINE");
 
-      if (isShowcaseLead) {
-        console.log("🔥 Entrou no fluxo Quero Minha Vitrine");
+      const response = await fetch(
+        `http://localhost:${PORT}/api/leads/inbound/showcase`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            whatsapp: msg.from,
+            message: textMessage,
+            receiverPhoneNumberId,
+          }),
+        }
+      );
 
-        const response = await fetch(
-          `http://localhost:${PORT}/api/leads/inbound/showcase`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              whatsapp: msg.from,
-              message: textMessage,
-            }),
-          }
-        );
+      const data = await response.json().catch(() => null);
 
-        const data = await response.json().catch(() => null);
+      console.log("✅ Fluxo vitrine iniciado:", data);
 
-        console.log("✅ Fluxo vitrine iniciado:", data);
-
-        return res.sendStatus(200);
-      }
-
-      // Se chegou no número de vendas, mas não é a frase da vitrine,
-      // deixa o bot normal responder.
-      await handleMessage(msg);
       return res.sendStatus(200);
     }
 
-    // 🔥 FLUXO NORMAL DO WHATSAPP
+    if (isMainNumber) {
+      console.log("🛒 Mensagem recebida no número PRINCIPAL/MARKETPLACE");
+
+      await handleMessage(msg);
+
+      return res.sendStatus(200);
+    }
+
+    console.log("⚠️ Número recebido não mapeado. Enviando para fluxo normal:", {
+      receiverPhoneNumberId,
+      displayPhoneNumber: value?.metadata?.display_phone_number,
+    });
+
     await handleMessage(msg);
 
     return res.sendStatus(200);
@@ -205,9 +178,6 @@ console.log("🧪 PAYLOAD DEBUG", {
   }
 });
 
-/**
- * ❤️ HEALTHCHECK
- */
 app.get("/", (req, res) => {
   return res.status(200).json({
     ok: true,
@@ -215,9 +185,6 @@ app.get("/", (req, res) => {
   });
 });
 
-/**
- * 🏙️ BUSCAR CIDADES POR UF
- */
 app.get("/api/locations/cities", async (req, res) => {
   try {
     const uf = String(req.query.uf || "")
@@ -248,7 +215,9 @@ app.get("/api/locations/cities", async (req, res) => {
         city: item.nome,
         state: uf,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, "pt-BR")
+      );
 
     return res.json({
       state: uf,
@@ -264,9 +233,6 @@ app.get("/api/locations/cities", async (req, res) => {
   }
 });
 
-/**
- * 🚀 START DO SERVIDOR
- */
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 

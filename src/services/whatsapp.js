@@ -1,32 +1,57 @@
 import axios from "axios";
 import dotenv from "dotenv";
+
 dotenv.config();
 
-const url = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`;
+function getPhoneNumberId(phoneNumberId) {
+  return phoneNumberId || process.env.WHATSAPP_PHONE_ID;
+}
 
-const headers = {
-  Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-  "Content-Type": "application/json"
-};
+function getToken() {
+  return (
+    process.env.WHATSAPP_TOKEN ||
+    process.env.WHATSAPP_ACCESS_TOKEN
+  );
+}
 
-// 🔥 FUNÇÃO CENTRAL COM LOG
-async function send(payload){
+function getUrl(phoneNumberId) {
+  const id = getPhoneNumberId(phoneNumberId);
+  return `https://graph.facebook.com/v19.0/${id}/messages`;
+}
+
+function getHeaders() {
+  return {
+    Authorization: `Bearer ${getToken()}`,
+    "Content-Type": "application/json",
+  };
+}
+
+async function send(payload, options = {}) {
   try {
+    const phoneNumberId = options.phoneNumberId;
 
-    await new Promise(r => setTimeout(r, 2000 + Math.random() * 2000));
+    await new Promise((r) =>
+      setTimeout(r, 1000 + Math.random() * 1000)
+    );
 
-    
-    const res = await axios.post(url, payload, { headers });
+    console.log("📤 ENVIANDO WHATSAPP:", {
+      to: payload.to,
+      phoneNumberId: getPhoneNumberId(phoneNumberId),
+    });
+
+    const res = await axios.post(
+      getUrl(phoneNumberId),
+      payload,
+      { headers: getHeaders() }
+    );
 
     console.log("✅ WHATSAPP OK:", JSON.stringify(res.data));
 
     return res.data;
-
   } catch (err) {
-
     console.error("❌ ERRO AO ENVIAR WHATSAPP:");
 
-    if(err.response){
+    if (err.response) {
       console.error("STATUS:", err.response.status);
       console.error("DATA:", JSON.stringify(err.response.data));
     } else {
@@ -37,53 +62,58 @@ async function send(payload){
   }
 }
 
-// 📩 TEXTO
-export async function sendText(to, text){
-  return send({
-    messaging_product: "whatsapp",
-    to,
-    text: { body: text }
-  });
+export async function sendText(to, text, options = {}) {
+  return send(
+    {
+      messaging_product: "whatsapp",
+      to,
+      text: { body: text },
+    },
+    options
+  );
 }
 
-// 🔘 BOTÕES
-export async function sendButtons(to, body, buttons){
-  return send({
-    messaging_product: "whatsapp",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "button",
-      body: { text: body },
-      action: {
-        buttons: buttons.slice(0,3).map(b => ({
-          type: "reply",
-          reply: {
-            id: b.id,
-            title: b.title
-          }
-        }))
-      }
-    }
-  });
+export async function sendButtons(to, body, buttons, options = {}) {
+  return send(
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: body },
+        action: {
+          buttons: buttons.slice(0, 3).map((b) => ({
+            type: "reply",
+            reply: {
+              id: b.id,
+              title: b.title,
+            },
+          })),
+        },
+      },
+    },
+    options
+  );
 }
 
-
-// 📋 LISTA
-export async function sendList(to, body, sections){
-  return send({
-    messaging_product: "whatsapp",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "list",
-      body: { text: body },
-      action: {
-        button: "Ver opções",
-        sections
-      }
-    }
-  });
+export async function sendList(to, body, sections, options = {}) {
+  return send(
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        body: { text: body },
+        action: {
+          button: "Ver opções",
+          sections,
+        },
+      },
+    },
+    options
+  );
 }
 
 export function randomize(arr = []) {
