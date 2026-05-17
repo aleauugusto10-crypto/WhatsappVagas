@@ -133,14 +133,15 @@ function wantsPreview(message = "") {
     text.includes("fazer a minha")
   );
 }
-
 function extractLocation(message = "") {
-  const cityMatch = message.match(/minha cidade:\s*(.+)/i);
-  const stateMatch = message.match(/estado:\s*(.+)/i);
+  const text = String(message || "");
+
+  const cityMatch = text.match(/cidade\s*:\s*([^,;\n]+?)(?=\s+estado\s*:|$)/i);
+  const stateMatch = text.match(/estado\s*:\s*([a-zA-Z]{2})/i);
 
   return {
     cidade: cityMatch?.[1]?.trim() || null,
-    estado: stateMatch?.[1]?.trim() || null,
+    estado: stateMatch?.[1]?.trim()?.toUpperCase() || null,
   };
 }
 
@@ -833,10 +834,21 @@ Itabaiana - SE`;
 }
 
 if (currentStage === "onboarding_city") {
-  const parts = String(userMessage || "").split(/-|,|\//);
+  const rawLocation = String(userMessage || "").trim();
 
-  const city = parts[0]?.trim() || userMessage;
-  const uf = parts[1]?.trim()?.toUpperCase() || lead.estado || "SE";
+const explicitLocation = extractLocation(rawLocation);
+
+let city = explicitLocation.cidade;
+let uf = explicitLocation.estado;
+
+if (!city) {
+  const parts = rawLocation.split(/-|,|\//);
+
+  city = parts[0]?.trim() || rawLocation;
+  uf = parts[1]?.trim()?.toUpperCase() || lead.estado || "SE";
+}
+
+uf = String(uf || "SE").replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase();
 
   await service.updateLead(lead.id, {
     cidade: city,
@@ -1964,6 +1976,23 @@ if (onboardingStages.includes(currentAIState?.stage)) {
 }
 
 if (onboardingIncomplete) {
+  const replyStage = currentAIState?.stage;
+
+  if (onboardingStages.includes(replyStage)) {
+    const fakeReq = {
+      params: {
+        conversationId: conversation.id,
+      },
+      body: {
+        message: inboundMessage,
+        receiverPhoneNumberId:
+          receiverPhoneNumberId || process.env.WHATSAPP_PHONE_ID,
+      },
+    };
+
+    return continueConversation(fakeReq, res);
+  }
+
   await updateAIState(conversation.id, {
     stage: "onboarding_name",
     last_intent: "collect_business_name",
@@ -1975,6 +2004,16 @@ if (onboardingIncomplete) {
 Antes de montar sua vitrine, me fala:
 
 Qual é o *nome comercial da empresa ou serviço*?`;
+
+  await service.createMessage({
+    conversation_id: conversation.id,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "onboarding_name",
+      generated_by: "inbound_onboarding_start",
+    },
+  });
 
   await sendText(phone, reply, {
     phoneNumberId:
