@@ -1086,7 +1086,12 @@ Estamos ajudando empresas locais a serem encontradas mais facilmente na cidade.`
 
     if (
   currentStage === "greeting" ||
-  lastIntent === "inbound_showcase_request"
+  (
+    lastIntent === "inbound_showcase_request" &&
+    lead.empresa !== "Cadastro em andamento" &&
+    lead.empresa !== "Nova empresa" &&
+    lead.categoria !== "comércio local"
+  )
 ) {
       // veio direto do shopping
       if (
@@ -1809,10 +1814,16 @@ export async function startInboundShowcaseFlow(req, res) {
     const currentAIState =
   await getOrCreateAIState(conversation.id);
 
+const onboardingStages = [
+  "onboarding_name",
+  "onboarding_phone",
+  "onboarding_category",
+];
+
 const alreadyStarted =
   currentAIState?.last_intent &&
-  currentAIState?.last_intent !== "initial_greeting";
-
+  currentAIState?.last_intent !== "initial_greeting" &&
+  !onboardingStages.includes(currentAIState?.stage);
 if (alreadyStarted) {
   const fakeReq = {
     params: {
