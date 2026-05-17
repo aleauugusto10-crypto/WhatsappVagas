@@ -106,7 +106,7 @@ export default function ShoppingTopbar({ location, onLocationChange }) {
   <img src="/compretudo.shop-logo.png" alt="CompreTudo.shop" />
 </a>
 <a
-  href={`https://wa.me/5579991088490?text=${encodeURIComponent(
+  href={`https://wa.me/5579999033717?text=${encodeURIComponent(
     `Quero minha vitrine, como faz?
 
 Minha cidade: ${location?.city || "não informada"}

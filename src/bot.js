@@ -1430,13 +1430,25 @@ const normalizedText = String(rawText || "")
   .replace(/[\u0300-\u036f]/g, "")
   .trim();
 
+const salesConversation = await supabase
+  .from("lead_leads")
+  .select("id,status,source")
+  .eq("whatsapp", phone)
+  .eq("source", "whatsapp_button_showcase")
+  .maybeSingle();
+
+const isSalesConversationActive =
+  !!salesConversation.data &&
+  salesConversation.data.status !== "closed";
+
 const isShowcaseLead =
   normalizedText.includes("quero minha vitrine") ||
   normalizedText.includes("quero vitrine") ||
   normalizedText.includes("minha vitrine como faz");
 
-  const shouldStartSalesFlow =
+const shouldStartSalesFlow =
   isShowcaseLead ||
+  isSalesConversationActive ||
   text === "ct_vender" ||
   normalizedText.includes("vender") ||
   normalizedText.includes("criar vitrine") ||
@@ -1448,6 +1460,8 @@ const isShowcaseLead =
   );
 
 if (shouldStartSalesFlow) {
+
+
   console.log("🔥 BOT PRINCIPAL → FLUXO DE VENDAS:", {
     phone,
     rawText,

@@ -80,7 +80,7 @@ export default function NotificationPackages() {
 
               <a
                 className="notificationPackageButton"
-                href="https://wa.me/5579991088490"
+                href="https://wa.me/5579999033717"
                 target="_blank"
                 rel="noreferrer"
               >
