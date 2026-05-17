@@ -726,7 +726,121 @@ export async function continueConversation(req, res) {
     const phone =
       lead.whatsapp ||
       lead.telefone;
+/*
+|--------------------------------------------------------------------------
+| ONBOARDING DE VITRINE SEM LEAD COMPLETO
+|--------------------------------------------------------------------------
+*/
 
+if (currentStage === "onboarding_name") {
+  await service.updateLead(lead.id, {
+    empresa: userMessage,
+    last_message: userMessage,
+    updated_at: new Date().toISOString(),
+  });
+
+  await updateAIState(conversationId, {
+    stage: "onboarding_phone",
+    last_intent: "collect_business_phone",
+    lead_temperature: 6,
+  });
+
+  const reply = `Perfeito 😄
+
+E qual é o *melhor WhatsApp de atendimento* da empresa?
+
+Pode ser esse mesmo número ou outro.`;
+
+  await sendText(phone, reply, {
+    phoneNumberId: receiverPhoneNumberId,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "onboarding_phone",
+      generated_by: "onboarding_flow",
+    },
+  });
+
+  return res.json(saved);
+}
+
+if (currentStage === "onboarding_phone") {
+  const cleanPhone = String(userMessage || "").replace(/\D/g, "");
+
+  await service.updateLead(lead.id, {
+    whatsapp: cleanPhone.length >= 10 ? cleanPhone : lead.whatsapp,
+    telefone: cleanPhone.length >= 10 ? cleanPhone : lead.telefone,
+    last_message: userMessage,
+    updated_at: new Date().toISOString(),
+  });
+
+  await updateAIState(conversationId, {
+    stage: "onboarding_category",
+    last_intent: "collect_business_category",
+    lead_temperature: 7,
+  });
+
+  const reply = `Show 😄
+
+Agora me diga o *ramo de atividade*.
+
+Exemplo:
+academia, pizzaria, barbearia, loja de roupas, oficina, clínica, delivery, serviços, estética...`;
+
+  await sendText(phone, reply, {
+    phoneNumberId: receiverPhoneNumberId,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "onboarding_category",
+      generated_by: "onboarding_flow",
+    },
+  });
+
+  return res.json(saved);
+}
+
+if (currentStage === "onboarding_category") {
+  await service.updateLead(lead.id, {
+    categoria: userMessage,
+    last_message: userMessage,
+    updated_at: new Date().toISOString(),
+  });
+
+  await updateAIState(conversationId, {
+    stage: "closing",
+    last_intent: "onboarding_completed",
+    lead_temperature: 8,
+  });
+
+  const updatedLead = await service.getLeadById(lead.id);
+
+  const reply = buildDirectClosingReply(updatedLead);
+
+  await sendText(phone, reply, {
+    phoneNumberId: receiverPhoneNumberId,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "closing",
+      generated_by: "onboarding_completed",
+    },
+  });
+
+  return res.json(saved);
+}
     /*
     |--------------------------------------------------------------------------
     | PROSPECÇÃO (INICIADA PELO BOT)
@@ -1387,12 +1501,7 @@ if (
       ["closing", "offer", "preview"].includes(currentStage)
     )
   )
-
-      (
-        isSimpleYes(userMessage) &&
-        ["closing", "offer", "preview"].includes(currentStage)
-      )
-    ) {
+) {
       const planCode =
         selectedFullPlan ? "complete_pro" : "store_start";
 
