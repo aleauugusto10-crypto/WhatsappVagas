@@ -1503,7 +1503,7 @@ if (
   )
 ) {
       const planCode =
-        selectedFullPlan ? "complete_pro" : "store_start";
+        selectedFullPlan ? "complete_pro" : "store_start"; 
 
       const reply =
         selectedFullPlan
@@ -1807,8 +1807,46 @@ export async function startInboundShowcaseFlow(req, res) {
       await service.getOrCreateConversation(lead.id);
 
     const currentAIState =
-      await getOrCreateAIState(conversation.id);
-      if (isGreetingOnly(inboundMessage)) {
+  await getOrCreateAIState(conversation.id);
+
+const alreadyStarted =
+  currentAIState?.last_intent &&
+  currentAIState?.last_intent !== "initial_greeting";
+
+if (alreadyStarted) {
+  const fakeReq = {
+    params: {
+      conversationId: conversation.id,
+    },
+    body: {
+      message: inboundMessage,
+      receiverPhoneNumberId:
+        receiverPhoneNumberId ||
+        process.env.WHATSAPP_PHONE_ID,
+    },
+  };
+
+  const fakeRes = {
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return payload;
+    },
+  };
+
+  await continueConversation(fakeReq, fakeRes);
+
+  return res.json({
+    continued: true,
+    conversation,
+    response: fakeRes.payload,
+  });
+}
+
+if (isGreetingOnly(inboundMessage)) {
   await updateAIState(conversation.id, {
     stage: "greeting",
     last_intent: "marketplace_greeting",
@@ -1840,7 +1878,8 @@ export async function startInboundShowcaseFlow(req, res) {
     lead,
   });
 }
-      const missingBusinessInfo =
+
+const missingBusinessInfo =
   !lead.empresa ||
   lead.empresa === "Nova empresa" ||
   lead.empresa === "Cadastro em andamento" ||
@@ -1873,42 +1912,6 @@ Qual é o *nome comercial* da sua empresa ou serviço?`;
     lead,
   });
 }
-    const alreadyStarted =
-      currentAIState?.last_intent &&
-      currentAIState?.last_intent !== "initial_greeting";
-
-    if (alreadyStarted) {
-      const fakeReq = {
-        params: {
-          conversationId: conversation.id,
-        },
-        body: {
-          message: inboundMessage,
-          receiverPhoneNumberId:
-            receiverPhoneNumberId ||
-            process.env.WHATSAPP_PHONE_ID,
-        },
-      };
-
-      const fakeRes = {
-        status(code) {
-          this.statusCode = code;
-          return this;
-        },
-        json(payload) {
-          this.payload = payload;
-          return payload;
-        },
-      };
-
-      await continueConversation(fakeReq, fakeRes);
-
-      return res.json({
-        continued: true,
-        conversation,
-        response: fakeRes.payload,
-      });
-    }
 
     await updateAIState(conversation.id, {
       stage: "closing",
