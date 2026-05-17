@@ -42,24 +42,25 @@ function normalizeText(value = "") {
     .trim();
 }
 
-async function callSalesFlow({ phone, rawText }) {
+async function callSalesFlow({ phone, rawText, conversationId }) {
   const PORT = process.env.PORT || 3000;
 
-  const response = await fetch(
-    `http://localhost:${PORT}/api/leads/inbound/showcase`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        whatsapp: phone,
-        telefone: phone,
-        message: rawText || "Quero minha vitrine, como faz?",
-        receiverPhoneNumberId: process.env.WHATSAPP_PHONE_ID,
-      }),
-    }
-  );
+  const endpoint = conversationId
+    ? `http://localhost:${PORT}/api/leads/conversations/${conversationId}/reply`
+    : `http://localhost:${PORT}/api/leads/inbound/showcase`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      whatsapp: phone,
+      telefone: phone,
+      message: rawText || "Quero minha vitrine, como faz?",
+      receiverPhoneNumberId: process.env.WHATSAPP_PHONE_ID,
+    }),
+  });
 
   const data = await response.json().catch(() => null);
 
@@ -96,12 +97,31 @@ export async function handleMessage(msg) {
       normalizedText,
     });
 
-    const { data: existingLead, error } = await supabase
-      .from("lead_leads")
-      .select("id,status,source")
-      .eq("whatsapp", phone)
-      .eq("source", "whatsapp_button_showcase")
-      .maybeSingle();
+const { data: existingLead, error } = await supabase
+  .from("lead_leads")
+  .select(`
+    id,
+    status,
+    source,
+    lead_conversations (
+      id,
+      status,
+      created_at
+    )
+  `)
+  .eq("whatsapp", phone)
+  .eq("source", "whatsapp_button_showcase")
+  .order("created_at", {
+    ascending: false,
+    referencedTable: "lead_conversations",
+  })
+  .limit(1, {
+    referencedTable: "lead_conversations",
+  })
+  .maybeSingle();
+  const activeConversationId =
+  existingLead?.lead_conversations?.find((c) => c.status === "open")?.id ||
+  null;
 
     if (error) {
       console.error("❌ erro ao buscar lead de vendas:", error);
@@ -130,18 +150,20 @@ export async function handleMessage(msg) {
       normalizedText === "beleza";
 
     if (hasActiveSalesFlow || wantsShowcase) {
-      await callSalesFlow({
-        phone,
-        rawText,
-      });
+  await callSalesFlow({
+    phone,
+    rawText,
+    conversationId: activeConversationId,
+  });
 
-      return;
-    }
+  return;
+}
 
     await callSalesFlow({
-      phone,
-      rawText: rawText || "Oi, quero conhecer a vitrine do CompreTudo.Shop",
-    });
+  phone,
+  rawText: rawText || "Oi, quero conhecer a vitrine do CompreTudo.Shop",
+  conversationId: activeConversationId,
+});
 
     return;
   } catch (err) {
