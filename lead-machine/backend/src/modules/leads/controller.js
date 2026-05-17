@@ -518,7 +518,62 @@ const {
       last_intent: "inbound_showcase_request",
       lead_temperature: 8,
     });
+const currentAIState =
+  await getOrCreateAIState(conversation.id);
 
+const alreadyStarted =
+  currentAIState?.last_intent === "inbound_showcase_request" ||
+  currentAIState?.stage === "interest" ||
+  currentAIState?.stage === "example" ||
+  currentAIState?.stage === "preview" ||
+  currentAIState?.stage === "offer" ||
+  currentAIState?.stage === "payment";
+
+if (alreadyStarted) {
+  const fakeReq = {
+    params: {
+      conversationId: conversation.id,
+    },
+    body: {
+      message: inboundMessage,
+      receiverPhoneNumberId:
+        req.body.receiverPhoneNumberId ||
+        process.env.WHATSAPP_PHONE_ID,
+    },
+  };
+
+  const fakeRes = {
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return payload;
+    },
+  };
+
+  await continueConversation(fakeReq, fakeRes);
+
+  const reply =
+    fakeRes.payload?.message ||
+    fakeRes.payload?.response ||
+    null;
+
+  if (reply && !fakeRes.payload?.human_mode) {
+    await sendText(phone, reply, {
+      phoneNumberId:
+        req.body.receiverPhoneNumberId ||
+        process.env.WHATSAPP_PHONE_ID,
+    });
+  }
+
+  return res.json({
+    continued: true,
+    conversation,
+    response: fakeRes.payload,
+  });
+}
     await service.createMessage({
       conversation_id: conversation.id,
       role: "user",
