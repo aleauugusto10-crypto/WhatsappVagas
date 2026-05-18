@@ -1673,7 +1673,67 @@ const selectedFullPlan =
   normalizedMessage.includes("plano 2") ||
   normalizedMessage.includes("opcao 2") ||
   normalizedMessage.includes("opção 2");
+const asksHowItWorks =
+  normalizedMessage.includes("como funciona") ||
+  normalizedMessage.includes("como é") ||
+  normalizedMessage.includes("como e") ||
+  normalizedMessage.includes("me explica") ||
+  normalizedMessage.includes("explica") ||
+  normalizedMessage.includes("gostei");
 
+if (
+  asksHowItWorks &&
+  ["offer", "preview", "example", "interest", "value"].includes(currentStage)
+) {
+  const reply = `Que bom que gostou 😄
+
+Funciona assim:
+
+A *${lead.empresa}* fica com uma vitrine profissional dentro do *CompreTudo.Shop*, com informações organizadas, botão direto para WhatsApp, catálogo e uma apresentação mais confiável para quem procura *${lead.categoria || "produtos e serviços"}* em ${lead.cidade || "sua cidade"}.
+
+Temos duas opções:
+
+1️⃣ *Vitrine Inteligente* — R$ 19,90/mês  
+✅ vitrine profissional  
+✅ catálogo online  
+✅ botão direto para WhatsApp  
+✅ presença no CompreTudo.Shop local  
+
+2️⃣ *Gestão Completa* — R$ 49,90/mês  
+✅ tudo da Vitrine Inteligente  
+✅ *presença nas buscas do Google*  
+✅ otimização para buscas locais  
+✅ loja/catálogo mais completo  
+✅ controle de pedidos, caixa, equipe e gestão  
+
+A parte de *presença nas buscas do Google* fica na Gestão Completa.
+
+Qual plano faz mais sentido para você hoje?`;
+
+  await updateAIState(conversationId, {
+    stage: "closing",
+    last_intent: "presented_plan_options",
+    lead_temperature: 9,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "closing",
+      generated_by: "how_it_works_fixed_flow",
+    },
+  });
+
+  if (phone) {
+    await sendText(phone, reply, {
+      phoneNumberId: receiverPhoneNumberId,
+    });
+  }
+
+  return res.json(saved);
+}
     if (
       isNegativeOrLater(userMessage) &&
       ["closing", "offer", "payment"].includes(currentStage)
