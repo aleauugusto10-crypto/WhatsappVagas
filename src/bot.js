@@ -141,15 +141,9 @@ const { data: existingLead, error } = await supabase
       normalizedText.includes("criar loja") ||
       normalizedText.includes("criar minha loja") ||
       normalizedText.includes("compretudo") ||
-      normalizedText === "oi" ||
-      normalizedText === "ola" ||
-      normalizedText === "olá" ||
-      normalizedText === "menu" ||
-      normalizedText === "sim" ||
-      normalizedText === "ok" ||
-      normalizedText === "beleza";
+    normalizedText === "menu";
 
-    if (hasActiveSalesFlow || wantsShowcase) {
+if (activeConversationId) {
   await callSalesFlow({
     phone,
     rawText,
@@ -159,11 +153,27 @@ const { data: existingLead, error } = await supabase
   return;
 }
 
-    await callSalesFlow({
+if (wantsShowcase) {
+  await callSalesFlow({
+    phone,
+    rawText,
+    conversationId: null,
+  });
+
+  return;
+}
+
+await sendText(
   phone,
-  rawText: rawText || "Oi, quero conhecer a vitrine do CompreTudo.Shop",
-  conversationId: activeConversationId,
-});
+  `Oi! 👋
+
+Você está falando com o CompreTudo.Shop.
+
+Para criar sua vitrine, me diga:
+*quero minha vitrine*`
+);
+
+return;
 
     return;
   } catch (err) {

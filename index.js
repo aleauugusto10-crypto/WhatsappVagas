@@ -132,29 +132,15 @@ app.post("/webhook", async (req, res) => {
     });
 
     if (isSalesNumber) {
-      console.log("🔥 Mensagem recebida no número de VENDAS/VITRINE");
+  console.log("🔥 Mensagem recebida no número de VENDAS/VITRINE");
 
-      const response = await fetch(
-        `http://localhost:${PORT}/api/leads/inbound/showcase`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            whatsapp: msg.from,
-            message: textMessage,
-            receiverPhoneNumberId,
-          }),
-        }
-      );
+  await handleMessage({
+    ...msg,
+    receiverPhoneNumberId,
+  });
 
-      const data = await response.json().catch(() => null);
-
-      console.log("✅ Fluxo vitrine iniciado:", data);
-
-      return res.sendStatus(200);
-    }
+  return res.sendStatus(200);
+}
 
     if (isMainNumber) {
       console.log("🛒 Mensagem recebida no número PRINCIPAL/MARKETPLACE");
