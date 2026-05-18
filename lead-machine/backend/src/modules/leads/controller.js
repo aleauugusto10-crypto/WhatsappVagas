@@ -1008,29 +1008,21 @@ if (currentStage === "onboarding_category") {
       if (affirmative) {
         const reply = `Perfeito 😄
 
-Vi a ${
-          lead.empresa
-        } e achei que vocês poderiam aparecer melhor nas buscas da cidade.
+Somos da *CompreTudo.Shop* e encontramos a *${lead.empresa}* aqui na região.
 
-Hoje muita gente procura *${
-          lead.categoria ||
-          "serviços"
-        }* no Google e no marketplace local e acaba não encontrando empresas da região.
+Tive uma ideia simples para ajudar vocês a melhorarem a presença digital e serem encontrados com mais facilidade por clientes que procuram *${lead.categoria || "produtos e serviços"}* em ${lead.cidade || "sua cidade"}.
 
-Olha um exemplo real de vitrine no CompreTudo.Shop:
+Hoje muita gente procura no Google, WhatsApp e redes sociais antes de comprar ou chamar uma empresa. Quando o negócio não aparece bem organizado, acaba perdendo cliente sem nem perceber.
 
-${DEFAULT_EXAMPLE_URL}
+A ideia é colocar a *${lead.empresa}* em uma vitrine profissional dentro do CompreTudo.Shop, com informações organizadas, botão direto para WhatsApp, presença local e uma apresentação mais confiável para quem está procurando.
 
-Posso montar uma prévia gratuita da ${
-          lead.empresa
-        } para você ver como ficaria?`;
+Posso te mostrar rapidinho um exemplo real de como isso funciona?`;
 
         await updateAIState(
           conversationId,
           {
-            stage: "preview_offer",
-            last_intent:
-              "prospection_preview_offer",
+            stage: "interest",
+last_intent: "prospection_interest",
             lead_temperature: 5,
           }
         );
