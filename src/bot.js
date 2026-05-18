@@ -147,7 +147,7 @@ const { data: existingLeads, error } = await supabase
       created_at
     )
   `)
-  .eq("whatsapp", phone)
+  .or(`whatsapp.eq.${phone},telefone.eq.${phone}`)
   .in("source", ["whatsapp_button_showcase", "prospection"])
   .neq("status", "closed")
   .order("created_at", { ascending: false })
@@ -202,9 +202,24 @@ const isBusinessAutoReply =
   looksLikeBusinessAutoReply(rawText);
 
 if (isBusinessAutoReply && !activeConversationId) {
-  console.log("🤖 auto-reply sem lead ativo ignorado:", {
+  console.log("🤖 auto-reply sem conversa ativa. Não vou criar inbound errado:", {
     phone,
     rawText,
+  });
+
+  return;
+}
+
+if (isBusinessAutoReply && activeConversationId) {
+  console.log("🤖 auto-reply com conversa ativa. Continuando prospecção:", {
+    phone,
+    activeConversationId,
+  });
+
+  await callSalesFlow({
+    phone,
+    rawText,
+    conversationId: activeConversationId,
   });
 
   return;

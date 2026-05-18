@@ -898,6 +898,12 @@ if (!isAuthorized) {
   >
     Buscar próxima cidade
   </button>
+  <button
+  onClick={cancelProspection}
+  style={styles.cancelButton}
+>
+  Cancelar
+</button>
 </div>
   </div>
 
@@ -1178,12 +1184,7 @@ if (!isAuthorized) {
                     Vitrine
                   </a>
                 )}
-<button
-  onClick={cancelProspection}
-  style={styles.cancelButton}
->
-  Cancelar
-</button>
+
                 <button
                   onClick={() => setShowPaymentOptions((value) => !value)}
                   style={styles.paymentTopButton}
