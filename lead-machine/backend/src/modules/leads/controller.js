@@ -197,7 +197,7 @@ Hoje temos duas opções:
 Ideal para aparecer no e-commerce local, ter página profissional e receber clientes no WhatsApp.
 
 2️⃣ *Gestão Completa* — R$ 49,90/mês  
-Ideal para quem quer vitrine + loja/catálogo + controle de pedidos, equipe, caixa e gestão.
+Ideal para quem quer vitrine + loja/catálogo + *Presença nas buscas do Google* + controle de pedidos, equipe, caixa e gestão.
 
 Qual dessas faz mais sentido para você hoje?`;
 }
@@ -1670,10 +1670,12 @@ A *Gestão Completa* fica *R$ 49,90/mês* e inclui:
 ✅ loja/catálogo online  
 ✅ botão direto para WhatsApp  
 ✅ presença no marketplace local  
+✅ *presença nas buscas do Google*  
+✅ otimização para buscas locais  
 ✅ controle de pedidos  
 ✅ caixa, equipe e comissões  
 
-Posso gerar o Pix de ativação agora?`
+Posso gerar o Pix de ativação agora? `
           : buildPlanOfferReply();
 
       await updateAIState(conversationId, {
@@ -1800,20 +1802,26 @@ if (
           planCode: selectedPlan,
         });
 
-      const reply = `Perfeito 😄
+      const introReply = `Perfeito 😄
 
 Já deixei tudo pronto.
 
 Assim que o pagamento for confirmado, sua vitrine será ativada automaticamente.
 
-💳 *Pagamento via Pix:*
+💳 *Pagamento via Pix*
 
-🔗 ${payment.checkout_url || ""}
+🔗 Link de pagamento:
+${payment.checkout_url || ""}
 
-📌 *Copia e cola Pix:*
-${payment.qr_code || "Pix não gerado."}
+⚠️ Aviso importante:
+O pagamento pode aparecer em nome de *Alexandre Augusto S. Carvalho*, criador da plataforma CompreTudo.Shop.
 
-Depois que pagar, é só me avisar aqui 👍`;
+Pode ficar tranquilo, é o responsável pela plataforma e o pagamento é seguro.
+
+📌 *Pix copia e cola:*`;
+
+const pixCodeReply =
+  payment.qr_code || "Pix não gerado.";
 
       await updateAIState(conversationId, {
         stage: "payment_sent",
@@ -1821,30 +1829,52 @@ Depois que pagar, é só me avisar aqui 👍`;
         lead_temperature: 10,
       });
 
-      const saved = await service.createMessage({
-        conversation_id: conversationId,
-        role: "assistant",
-        message: reply,
-        metadata: {
-          generated_by: "payment_system",
-          stage: "payment_sent",
-          payment_id: payment.id,
-          selected_plan: selectedPlan,
-        },
-      });
+      const savedIntro = await service.createMessage({
+  conversation_id: conversationId,
+  role: "assistant",
+  message: introReply,
+  metadata: {
+    generated_by: "payment_system",
+    stage: "payment_sent",
+    payment_id: payment.id,
+    selected_plan: selectedPlan,
+    type: "payment_intro",
+  },
+});
 
-      await service.updateLead(lead.id, {
-        status: "payment",
-        last_message: reply,
-      });
+const savedPix = await service.createMessage({
+  conversation_id: conversationId,
+  role: "assistant",
+  message: pixCodeReply,
+  metadata: {
+    generated_by: "payment_system",
+    stage: "payment_sent",
+    payment_id: payment.id,
+    selected_plan: selectedPlan,
+    type: "pix_copy_paste",
+  },
+});
 
-      if (phone) {
-        await sendText(phone, reply, {
-          phoneNumberId: receiverPhoneNumberId,
-        });
-      }
+await service.updateLead(lead.id, {
+  status: "payment",
+  last_message: introReply,
+});
 
-      return res.json(saved);
+if (phone) {
+  await sendText(phone, introReply, {
+    phoneNumberId: receiverPhoneNumberId,
+  });
+
+  await sendText(phone, pixCodeReply, {
+    phoneNumberId: receiverPhoneNumberId,
+  });
+}
+
+return res.json({
+  messages: [savedIntro, savedPix],
+});
+
+      
     }
 
     /*

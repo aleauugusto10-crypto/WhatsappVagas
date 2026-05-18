@@ -714,7 +714,11 @@ async function ensureCarteira(usuarioId) {
   return data;
 }
 
-export async function createProfilePageSubscriptionPayment({ user, profile }) {
+export async function createProfilePageSubscriptionPayment({
+  user,
+  profile,
+  planCode = "store_start",
+}) {
   if (!user?.id) {
     throw new Error("Usuário inválido.");
   }
@@ -723,18 +727,35 @@ export async function createProfilePageSubscriptionPayment({ user, profile }) {
     throw new Error("Página profissional inválida.");
   }
 
-  const valor = 19.9;
+  const PLAN_PRICES = {
+  store_start: 19.9,
+  complete_pro: 49.9,
+};
+
+const PLAN_TITLES = {
+  store_start: "Vitrine Inteligente",
+  complete_pro: "Gestão Completa",
+};
+
+const valor =
+  PLAN_PRICES[planCode] ||
+  PLAN_PRICES.store_start;
+
+const tituloPlano =
+  PLAN_TITLES[planCode] ||
+  PLAN_TITLES.store_start;
 
   const { data: payment, error } = await supabase
     .from("pagamentos_plataforma")
     .insert({
       usuario_id: user.id,
       referencia_tipo: "profile_page_subscription",
-      plano_codigo: "profile_page_mensal",
+      plano_codigo: planCode,
       status: "pendente",
       valor,
       metadata: {
-        titulo: "Assinatura mensal da página profissional CompreTudo.shop",
+        titulo: `${tituloPlano} - CompreTudo.Shop`,
+plan_code: planCode,
         profile_page_id: profile.id,
         profile_slug: profile.slug,
         dias_assinatura: 30,
