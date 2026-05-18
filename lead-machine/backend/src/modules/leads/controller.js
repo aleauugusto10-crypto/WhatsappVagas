@@ -1660,9 +1660,9 @@ if (
       const planCode =
         selectedFullPlan ? "complete_pro" : "store_start"; 
 
-      const reply =
-        selectedFullPlan
-          ? `Perfeito 😄
+     const reply =
+  selectedFullPlan
+    ? `Perfeito 😄
 
 A *Gestão Completa* fica *R$ 49,90/mês* e inclui:
 
@@ -1675,8 +1675,17 @@ A *Gestão Completa* fica *R$ 49,90/mês* e inclui:
 ✅ controle de pedidos  
 ✅ caixa, equipe e comissões  
 
-Posso gerar o Pix de ativação agora? `
-          : buildPlanOfferReply();
+Posso gerar o Pix de ativação agora?`
+    : `Perfeito 😄
+
+A *Vitrine Inteligente* fica *R$ 19,90/mês* e inclui:
+
+✅ vitrine profissional  
+✅ catálogo online  
+✅ botão direto para WhatsApp  
+✅ presença no CompreTudo.Shop local  
+
+Posso gerar o Pix de ativação agora?`;
 
       await updateAIState(conversationId, {
         stage: "payment",
