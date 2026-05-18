@@ -225,7 +225,7 @@ const { data: existingLeads, error } =
     .order("created_at", {
       ascending: false,
     })
-    .limit(100);
+    .limit(10000);
 
 const normalizedLeads =
   (existingLeads || []).filter(
