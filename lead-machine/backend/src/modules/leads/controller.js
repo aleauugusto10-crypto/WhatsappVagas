@@ -885,28 +885,29 @@ export async function continueConversation(req, res) {
   lead.categoria === "comércio local";
 
 const safeOnboardingStages = [
+  "greeting",
   "onboarding_name",
   "onboarding_phone",
   "onboarding_city",
   "onboarding_category",
-
-  // venda
   "closing",
   "offer",
   "payment",
   "payment_sent",
-
-  // gratuito
   "free_offer",
   "free_active",
-
-  // prospecção
   "preview_offer",
   "example",
 ];
 
+const isProspectionLead =
+  lead.source === "google_maps" ||
+  lead.source === "prospection" ||
+  lastIntent === "initial_greeting";
+
 const shouldForceOnboarding =
   isIncompleteLead &&
+  !isProspectionLead &&
   !safeOnboardingStages.includes(currentStage) &&
   lastIntent !== "payment_generated";
 
