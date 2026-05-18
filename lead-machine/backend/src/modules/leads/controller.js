@@ -35,31 +35,110 @@ function normalizeText(value = "") {
 function isSimpleYes(message = "") {
   const text = normalizeText(message);
 
-  return [
+  const exactMatches = [
     "sim",
     "s",
-    "pode",
-    "pode sim",
-    "claro",
     "ok",
+    "claro",
     "beleza",
     "blz",
     "quero",
     "quero sim",
+    "pode",
+    "pode sim",
+    "pode ser",
     "manda",
     "mande",
     "bora",
     "vamos",
-    "pode ser",
-"fechado",
-"manda o pix",
-"gere o pix",
-"gerar pix",
-"gera o pix",
-"pode gerar",
-  ].includes(text);
+    "fechado",
+    "fala",
+    "diga",
+    "pois nao",
+    "pois não",
+    "opa",
+    "estamos sim",
+    "sim sou eu",
+    "sim somos nos",
+    "sim somos nós",
+  ];
+
+  if (exactMatches.includes(text)) {
+    return true;
+  }
+
+  const positivePatterns = [
+    "sim,",
+    "sim ",
+    "sim e",
+    "em que posso ajudar",
+    "em que podemos ajudar",
+    "como posso ajudar",
+    "como podemos ajudar",
+    "pode falar",
+    "pode mandar",
+    "manda ai",
+    "manda aí",
+    "fala ai",
+    "fala aí",
+    "diga",
+    "quem gostaria",
+    "quem fala",
+    "quem deseja",
+    "boa tarde",
+    "bom dia",
+    "boa noite",
+    "comercial",
+    "atendimento",
+    "empresa",
+  ];
+
+  return positivePatterns.some((pattern) =>
+    text.includes(pattern)
+  );
 }
 
+function looksLikeBusinessAutoReply(message = "") {
+  const text = normalizeText(message);
+
+  if (!text) return false;
+
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+  const autoReplyPatterns = [
+    "em que posso ajudar",
+    "em que podemos ajudar",
+    "como posso ajudar",
+    "como podemos ajudar",
+    "atendimento",
+    "comercial",
+    "bem vindo",
+    "bem-vindo",
+    "obrigado por entrar em contato",
+    "agradecemos seu contato",
+    "digite",
+    "menu",
+    "opcao",
+    "opção",
+    "para falar",
+    "nosso horario",
+    "nosso horário",
+    "horario de atendimento",
+    "horário de atendimento",
+    "responderemos em breve",
+    "mensagem automatica",
+    "mensagem automática",
+    "sou assistente virtual",
+    "escolha uma opcao",
+    "escolha uma opção",
+  ];
+
+  if (autoReplyPatterns.some((pattern) => text.includes(pattern))) {
+    return true;
+  }
+
+  return wordCount >= 5 && text.length >= 25;
+}
 function isGreetingOnly(message = "") {
   const text = normalizeText(message);
 
@@ -1004,15 +1083,12 @@ if (currentStage === "onboarding_category") {
       "initial_greeting"
     ) {
       const affirmative =
-        isSimpleYes(userMessage) ||
-        normalizedMessage.includes(
-          "sou eu"
-        ) ||
-        normalizedMessage.includes(
-          "sim e"
-        );
+  isSimpleYes(userMessage) ||
+  looksLikeBusinessAutoReply(userMessage) ||
+  normalizedMessage.includes("sou eu") ||
+  normalizedMessage.includes("sim e");
 
-      if (affirmative) {
+if (affirmative) {
         const reply = `Perfeito 😄
 
 Somos da *CompreTudo.Shop* e encontramos a *${lead.empresa}* aqui na região.
@@ -1041,12 +1117,12 @@ last_intent: "prospection_interest",
                 conversationId,
               role: "assistant",
               message: reply,
-              metadata: {
-                stage:
-                  "preview_offer",
-                generated_by:
-                  "prospection_flow",
-              },
+           metadata: {
+  stage: "interest",
+  generated_by: "prospection_flow",
+  detected_auto_reply:
+    looksLikeBusinessAutoReply(userMessage),
+},
             }
           );
 
