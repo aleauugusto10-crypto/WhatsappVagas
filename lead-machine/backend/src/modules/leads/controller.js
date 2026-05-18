@@ -1577,19 +1577,27 @@ Se fizer sentido, podemos ativar a versão completa da vitrine para sua empresa 
       normalizedMessage.includes("ativar");
 
     const selectedBasicPlan =
-      normalizedMessage.includes("19") ||
-      normalizedMessage.includes("vitrine inteligente") ||
-      normalizedMessage.includes("primeiro plano") ||
-      normalizedMessage.includes("mais simples") ||
-      normalizedMessage.includes("basico") ||
-      normalizedMessage.includes("básico");
+  normalizedMessage === "1" ||
+  normalizedMessage.includes("19") ||
+  normalizedMessage.includes("vitrine inteligente") ||
+  normalizedMessage.includes("primeiro plano") ||
+  normalizedMessage.includes("plano 1") ||
+  normalizedMessage.includes("opcao 1") ||
+  normalizedMessage.includes("opção 1") ||
+  normalizedMessage.includes("mais simples") ||
+  normalizedMessage.includes("basico") ||
+  normalizedMessage.includes("básico");
 
-    const selectedFullPlan =
-      normalizedMessage.includes("49") ||
-      normalizedMessage.includes("gestao") ||
-      normalizedMessage.includes("gestão") ||
-      normalizedMessage.includes("completa") ||
-      normalizedMessage.includes("completo");
+const selectedFullPlan =
+  normalizedMessage === "2" ||
+  normalizedMessage.includes("49") ||
+  normalizedMessage.includes("gestao") ||
+  normalizedMessage.includes("gestão") ||
+  normalizedMessage.includes("completa") ||
+  normalizedMessage.includes("completo") ||
+  normalizedMessage.includes("plano 2") ||
+  normalizedMessage.includes("opcao 2") ||
+  normalizedMessage.includes("opção 2");
 
     if (
       isNegativeOrLater(userMessage) &&
