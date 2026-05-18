@@ -50,6 +50,13 @@ function isSimpleYes(message = "") {
     "mande",
     "bora",
     "vamos",
+    "pode ser",
+"fechado",
+"manda o pix",
+"gere o pix",
+"gerar pix",
+"gera o pix",
+"pode gerar",
   ].includes(text);
 }
 
