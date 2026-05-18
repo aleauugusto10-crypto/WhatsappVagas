@@ -751,6 +751,56 @@ export async function continueConversation(req, res) {
     const phone =
       lead.whatsapp ||
       lead.telefone;
+      const isIncompleteLead =
+  !lead.empresa ||
+  lead.empresa === "Cadastro em andamento" ||
+  lead.empresa === "Nova empresa" ||
+  !lead.cidade ||
+  !lead.estado ||
+  !lead.categoria ||
+  lead.categoria === "comércio local";
+
+const safeOnboardingStages = [
+  "onboarding_name",
+  "onboarding_phone",
+  "onboarding_city",
+  "onboarding_category",
+];
+
+if (
+  isIncompleteLead &&
+  !safeOnboardingStages.includes(currentStage)
+) {
+  await updateAIState(conversationId, {
+    stage: "onboarding_name",
+    last_intent: "forced_onboarding",
+    lead_temperature: 6,
+  });
+
+  const reply = `Perfeito 😄
+
+Vou montar sua vitrine no CompreTudo.Shop.
+
+Primeiro me diga o *nome comercial da empresa ou serviço*.`;
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "onboarding_name",
+      generated_by: "forced_onboarding_guard",
+    },
+  });
+
+  if (phone) {
+    await sendText(phone, reply, {
+      phoneNumberId: receiverPhoneNumberId,
+    });
+  }
+
+  return res.json(saved);
+}
 /*
 |--------------------------------------------------------------------------
 | ONBOARDING DE VITRINE SEM LEAD COMPLETO
