@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { supabase } from "../supabase.js";
 import { sendText } from "../services/whatsapp.js";
-import { generateProfilePagePayload } from "../lib/pageGenerator.js";
+
 const MP_BASE_URL = "https://api.mercadopago.com";
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 const MP_WEBHOOK_SECRET = process.env.MERCADO_PAGO_WEBHOOK_SECRET || "";
@@ -971,7 +971,7 @@ async function uniqueProfileSlug(base = "") {
 
   return `${clean}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
-
+/*
 export async function createProfileFromPendingSignupPayment(payment) {
   if (payment.referencia_tipo !== "profile_pending_signup") return null;
   if (payment.status !== "pago") return null;
@@ -1149,7 +1149,7 @@ export async function createProfileFromPendingSignupPayment(payment) {
   });
 
   return profile;
-}
+}*/
 async function createAffiliateCommissionFromPayment(payment, profile = null) {
   if (!payment?.id) return null;
 
@@ -1300,7 +1300,7 @@ export async function processApprovedMercadoPagoPayment(mpPaymentId) {
   // Se já está pago internamente, não reaplica efeitos
   if (internalPayment.status === "pago") {
   console.log("🔁 pagamento já marcado como pago, garantindo efeitos...");
-const existingProfile = await createProfileFromPendingSignupPayment(internalPayment);
+//const existingProfile = await createProfileFromPendingSignupPayment(internalPayment);
 await createAffiliateCommissionFromPayment(internalPayment, existingProfile);
   await activateProfilePageFromPayment(internalPayment);
   await activateProfilePlanFromPayment(internalPayment);
@@ -1325,7 +1325,8 @@ await activateCompanyJobCreditsFromPayment(internalPayment);
   });
 
   if (!paid) return null;
-const createdProfile = await createProfileFromPendingSignupPayment(paid);
+const existingProfile = null;
+const createdProfile = null;
 await createAffiliateCommissionFromPayment(paid, createdProfile);
   await activateSubscriptionFromPayment(paid);
 await activateAlertPlanFromPayment(paid);
