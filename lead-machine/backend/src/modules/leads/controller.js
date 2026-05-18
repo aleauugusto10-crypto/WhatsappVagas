@@ -37,6 +37,7 @@ function isSimpleYes(message = "") {
 
   const exactMatches = [
     "sim",
+   
     "s",
     "ok",
     "claro",
@@ -61,6 +62,15 @@ function isSimpleYes(message = "") {
     "sim sou eu",
     "sim somos nos",
     "sim somos nós",
+     "e",
+    "é",
+    "E",
+    "tá",
+    "ta",
+    "ta bom",
+    "tá bom",
+    "tudo bem",
+    "Tudo bem",
   ];
 
   if (exactMatches.includes(text)) {
