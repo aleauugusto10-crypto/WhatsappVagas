@@ -723,9 +723,7 @@ export async function createProfilePageSubscriptionPayment({
     throw new Error("Usuário inválido.");
   }
 
-  if (!profile?.id) {
-    throw new Error("Página profissional inválida.");
-  }
+  
 
   const PLAN_PRICES = {
   store_start: 19.9,
@@ -753,13 +751,14 @@ const tituloPlano =
       plano_codigo: planCode,
       status: "pendente",
       valor,
-      metadata: {
-        titulo: `${tituloPlano} - CompreTudo.Shop`,
-plan_code: planCode,
-        profile_page_id: profile.id,
-        profile_slug: profile.slug,
-        dias_assinatura: 30,
-      },
+     metadata: {
+  titulo: `${tituloPlano} - CompreTudo.Shop`,
+  profile_page_id: profile?.id || null,
+  profile_slug: profile?.slug || null,
+  lead_data: leadData,
+  dias_assinatura: 30,
+  plan_code: planCode,
+},
     })
     .select()
     .single();

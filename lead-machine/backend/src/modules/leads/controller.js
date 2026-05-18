@@ -1727,28 +1727,7 @@ if (
   selectedFullPlan || lastIntent === "selected_full_plan"
     ? "complete_pro"
     : "store_start";
-      let profile = null;
-
-      if (lead.preview_url) {
-        const slug = String(lead.preview_url)
-          .split("/p/")[1]
-          ?.split("?")[0];
-
-        if (slug) {
-          const bySlug = await supabase
-            .from("profiles_pages")
-            .select("*")
-            .eq("slug", slug)
-            .maybeSingle();
-
-          profile = bySlug.data || null;
-        }
-      }
-
-      if (!profile) {
-        const preview = await createPreviewForLead(lead);
-        profile = preview.previewPage;
-      }
+      
 
       const phoneNumber = lead.whatsapp || lead.telefone || "";
 
@@ -1782,34 +1761,22 @@ if (
         });
       }
 
-      const { data: updatedProfile, error: updateProfileError } =
-        await supabase
-          .from("profiles_pages")
-          .update({
-            user_id: usuario.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", profile.id)
-          .select("*")
-          .single();
-
-      if (updateProfileError || !updatedProfile) {
-        console.error(
-          "Erro ao transferir vitrine para usuário:",
-          updateProfileError
-        );
-
-        return res.status(500).json({
-          error: "Não foi possível vincular a vitrine ao usuário.",
-        });
-      }
+      
 
       const payment =
-        await createProfilePageSubscriptionPayment({
-          user: { id: usuario.id },
-          profile: updatedProfile,
-          planCode: selectedPlan,
-        });
+  await createProfilePageSubscriptionPayment({
+    user: { id: usuario.id },
+    planCode: selectedPlan,
+    leadData: {
+      lead_id: lead.id,
+      nome: lead.empresa,
+      telefone: lead.whatsapp || lead.telefone,
+      whatsapp: lead.whatsapp || lead.telefone,
+      cidade: lead.cidade,
+      estado: lead.estado || "SE",
+      categoria: lead.categoria,
+    },
+  });
 
       const introReply = `Perfeito 😄
 
