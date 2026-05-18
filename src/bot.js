@@ -97,12 +97,13 @@ export async function handleMessage(msg) {
       normalizedText,
     });
 
-const { data: existingLead, error } = await supabase
+const { data: existingLeads, error } = await supabase
   .from("lead_leads")
   .select(`
     id,
     status,
     source,
+    created_at,
     lead_conversations (
       id,
       status,
@@ -111,24 +112,31 @@ const { data: existingLead, error } = await supabase
   `)
   .eq("whatsapp", phone)
   .eq("source", "whatsapp_button_showcase")
-  .order("created_at", {
-    ascending: false,
-    referencedTable: "lead_conversations",
-  })
-  .limit(1, {
-    referencedTable: "lead_conversations",
-  })
-  .maybeSingle();
-  const activeConversationId =
-  existingLead?.lead_conversations?.find((c) => c.status === "open")?.id ||
+  .neq("status", "closed")
+  .order("created_at", { ascending: false })
+  .limit(5);
+
+if (error) {
+  console.error("❌ erro ao buscar lead de vendas:", error);
+}
+
+const existingLead =
+  existingLeads?.find((lead) =>
+    lead.lead_conversations?.some((c) => c.status === "open")
+  ) ||
+  existingLeads?.[0] ||
   null;
+
+const activeConversationId =
+  existingLead?.lead_conversations
+    ?.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    ?.find((c) => c.status === "open")?.id || null;
 
     if (error) {
       console.error("❌ erro ao buscar lead de vendas:", error);
     }
 
-    const hasActiveSalesFlow =
-      !!existingLead && existingLead.status !== "closed";
+    
 
     const wantsShowcase =
       normalizedText.includes("quero minha vitrine") ||
@@ -180,9 +188,9 @@ return;
     console.error("❌ erro no bot de vendas:", err);
 
     await sendText(
-      phone,
-      "Tive um erro aqui ao processar sua mensagem. Pode me mandar novamente?"
-    );
+  phone,
+  "Tive um erro aqui ao processar sua mensagem. Vou reiniciar o atendimento da vitrine. Me diga: quero minha vitrine"
+);
 
     return;
   } finally {
