@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { supabase } from "../supabase.js";
 import { sendText } from "../services/whatsapp.js";
-import { generateProfilePagePayload } from "./pageGenerator.js";
+import { generateProfilePagePayload } from "../lib/pageGenerator.js";
 const MP_BASE_URL = "https://api.mercadopago.com";
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 const MP_WEBHOOK_SECRET = process.env.MERCADO_PAGO_WEBHOOK_SECRET || "";
@@ -714,31 +714,51 @@ async function ensureCarteira(usuarioId) {
   return data;
 }
 
-export async function createProfilePageSubscriptionPayment({ user, profile }) {
+export async function createProfilePageSubscriptionPayment({
+  user,
+  profile,
+  planCode = "store_start",
+}) {
   if (!user?.id) {
     throw new Error("Usuário inválido.");
   }
 
-  if (!profile?.id) {
-    throw new Error("Página profissional inválida.");
-  }
+  
 
-  const valor = 19.9;
+  const PLAN_PRICES = {
+  store_start: 19.9,
+  complete_pro: 49.9,
+};
+
+const PLAN_TITLES = {
+  store_start: "Vitrine Inteligente",
+  complete_pro: "Gestão Completa",
+};
+
+const valor =
+  PLAN_PRICES[planCode] ||
+  PLAN_PRICES.store_start;
+
+const tituloPlano =
+  PLAN_TITLES[planCode] ||
+  PLAN_TITLES.store_start;
 
   const { data: payment, error } = await supabase
     .from("pagamentos_plataforma")
     .insert({
       usuario_id: user.id,
       referencia_tipo: "profile_page_subscription",
-      plano_codigo: "profile_page_mensal",
+      plano_codigo: planCode,
       status: "pendente",
       valor,
-      metadata: {
-        titulo: "Assinatura mensal da página profissional CompreTudo.shop",
-        profile_page_id: profile.id,
-        profile_slug: profile.slug,
-        dias_assinatura: 30,
-      },
+     metadata: {
+  titulo: `${tituloPlano} - CompreTudo.Shop`,
+  profile_page_id: profile?.id || null,
+  profile_slug: profile?.slug || null,
+  lead_data: leadData,
+  dias_assinatura: 30,
+  plan_code: planCode,
+},
     })
     .select()
     .single();
