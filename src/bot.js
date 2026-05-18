@@ -195,11 +195,6 @@ export async function handleMessage(msg) {
 const phoneVariants =
   getPhoneVariants(phone);
 
-console.log(
-  "📞 PHONE VARIANTS",
-  phoneVariants
-);
-
 const { data: existingLeads, error } =
   await supabase
     .from("lead_leads")
@@ -216,6 +211,10 @@ const { data: existingLeads, error } =
         created_at
       )
     `)
+    .in(
+      "phone_digits",
+      phoneVariants
+    )
     .in("source", [
       "whatsapp_button_showcase",
       "prospection",
@@ -224,8 +223,7 @@ const { data: existingLeads, error } =
     .neq("status", "closed")
     .order("created_at", {
       ascending: false,
-    })
-    .limit(10000);
+    });
 
 const normalizedLeads =
   (existingLeads || []).filter(
