@@ -765,12 +765,28 @@ const safeOnboardingStages = [
   "onboarding_phone",
   "onboarding_city",
   "onboarding_category",
+
+  // venda
+  "closing",
+  "offer",
+  "payment",
+  "payment_sent",
+
+  // gratuito
+  "free_offer",
+  "free_active",
+
+  // prospecção
+  "preview_offer",
+  "example",
 ];
 
-if (
+const shouldForceOnboarding =
   isIncompleteLead &&
-  !safeOnboardingStages.includes(currentStage)
-) {
+  !safeOnboardingStages.includes(currentStage) &&
+  lastIntent !== "payment_generated";
+
+if (shouldForceOnboarding){
   await updateAIState(conversationId, {
     stage: "onboarding_name",
     last_intent: "forced_onboarding",
@@ -2061,23 +2077,6 @@ if (onboardingStages.includes(currentAIState?.stage)) {
 }
 
 if (onboardingIncomplete) {
-  const replyStage = currentAIState?.stage;
-
-  if (onboardingStages.includes(replyStage)) {
-    const fakeReq = {
-      params: {
-        conversationId: conversation.id,
-      },
-      body: {
-        message: inboundMessage,
-        receiverPhoneNumberId:
-          receiverPhoneNumberId || process.env.WHATSAPP_PHONE_ID,
-      },
-    };
-
-    return continueConversation(fakeReq, res);
-  }
-
   await updateAIState(conversation.id, {
     stage: "onboarding_name",
     last_intent: "collect_business_name",
@@ -2086,9 +2085,9 @@ if (onboardingIncomplete) {
 
   const reply = `Perfeito 😄
 
-  Antes de montar sua vitrine, me fala:
+Antes de montar sua vitrine, me fala:
 
-  Qual é o *nome comercial da empresa ou serviço*?`;
+Qual é o *nome comercial da empresa ou serviço*?`;
 
   await service.createMessage({
     conversation_id: conversation.id,
