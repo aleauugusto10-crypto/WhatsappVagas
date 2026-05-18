@@ -1882,7 +1882,15 @@ return res.json({
     | FALLBACK INTELIGENTE
     |--------------------------------------------------------------------------
     */
-
+if (
+  ["closing", "payment", "payment_sent", "free_offer", "free_active"].includes(currentStage)
+) {
+  return res.json({
+    ignored: true,
+    reason: "no_ai_fallback_in_sales_stage",
+    stage: currentStage,
+  });
+}
     let intent = null;
 
     try {
@@ -2102,9 +2110,9 @@ if (onboardingIncomplete) {
 
   const reply = `Perfeito 😄
 
-Antes de montar sua vitrine, me fala:
+  Antes de montar sua vitrine, me fala:
 
-Qual é o *nome comercial da empresa ou serviço*?`;
+  Qual é o *nome comercial da empresa ou serviço*?`;
 
   await service.createMessage({
     conversation_id: conversation.id,
@@ -2130,92 +2138,13 @@ Qual é o *nome comercial da empresa ou serviço*?`;
   });
 }
 
-const alreadyStarted =
-  currentAIState?.last_intent &&
-  currentAIState?.last_intent !== "initial_greeting";
-
-if (alreadyStarted) {
-  const fakeReq = {
-    params: {
-      conversationId: conversation.id,
-    },
-    body: {
-      message: inboundMessage,
-      receiverPhoneNumberId:
-        receiverPhoneNumberId ||
-        process.env.WHATSAPP_PHONE_ID,
-    },
-  };
-
-  const fakeRes = {
-    status(code) {
-      this.statusCode = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return payload;
-    },
-  };
-
-  await continueConversation(fakeReq, fakeRes);
-
-  return res.json({
-    continued: true,
-    conversation,
-    response: fakeRes.payload,
-  });
-}
-    await updateAIState(conversation.id, {
-      stage: "closing",
-      last_intent: "inbound_showcase_request",
-      lead_temperature: 8,
-    });
-
-    await service.createMessage({
-      conversation_id: conversation.id,
-      role: "user",
-      message: inboundMessage,
-      metadata: {
-        source: "whatsapp_button_showcase",
-        inbound: true,
-      },
-    });
-
-    const aiMessage =
-      isGreetingOnly(inboundMessage)
-        ? buildMarketplaceGreeting()
-        : buildDirectClosingReply(lead);
-
-    const savedReply = await service.createMessage({
-      conversation_id: conversation.id,
-      role: "assistant",
-      message: aiMessage,
-      metadata: {
-        generated_by: "inbound_showcase_flow",
-        stage: isGreetingOnly(inboundMessage)
-          ? "greeting"
-          : "closing",
-      },
-    });
-
-    await sendText(phone, aiMessage, {
-      phoneNumberId:
-        receiverPhoneNumberId ||
-        process.env.WHATSAPP_PHONE_ID,
-    });
-
-    await service.updateLead(lead.id, {
-      status: "inbound_contacted",
-      prospection_started_at: new Date().toISOString(),
-      last_message: aiMessage,
-    });
-
-    return res.json({
-      lead,
-      conversation,
-      message: savedReply,
-    });
+return res.json({
+  ignored: true,
+  reason: "inbound_showcase_only_starts_new_flow",
+  conversation,
+  lead,
+});
+  
   } catch (err) {
     console.error("Erro no fluxo inbound showcase:", err);
 
