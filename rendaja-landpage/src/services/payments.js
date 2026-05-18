@@ -716,8 +716,9 @@ async function ensureCarteira(usuarioId) {
 
 export async function createProfilePageSubscriptionPayment({
   user,
-  profile,
+  profile = null,
   planCode = "store_start",
+  leadData = {},
 }) {
   if (!user?.id) {
     throw new Error("Usuário inválido.");
