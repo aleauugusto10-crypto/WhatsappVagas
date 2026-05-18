@@ -3,6 +3,7 @@ import { sendText } from "./services/whatsapp.js";
 
 const processingUsers = new Set();
 
+
 function normalizeBRPhone(phone = "") {
   let digits = String(phone || "").replace(/\D/g, "");
 
@@ -23,6 +24,64 @@ function normalizeBRPhone(phone = "") {
   return `${country}${ddd}${number}`;
 }
 
+function getPhoneVariants(phone = "") {
+  const normalized =
+    String(phone || "").replace(/\D/g, "");
+
+  if (!normalized) return [];
+
+  const variants = new Set();
+
+  let digits = normalized;
+
+  if (!digits.startsWith("55")) {
+    digits = `55${digits}`;
+  }
+
+  variants.add(digits);
+
+  const country = digits.slice(0, 2);
+  const ddd = digits.slice(2, 4);
+  const number = digits.slice(4);
+
+  // original
+  variants.add(
+    `${country}${ddd}${number}`
+  );
+
+  // celular COM 9 → SEM 9
+  if (
+    number.length === 9 &&
+    number.startsWith("9")
+  ) {
+    variants.add(
+      `${country}${ddd}${number.slice(1)}`
+    );
+  }
+
+  // celular SEM 9 → COM 9
+  if (number.length === 8) {
+    variants.add(
+      `${country}${ddd}9${number}`
+    );
+  }
+
+  // fixo comercial
+  if (
+    number.length === 8 &&
+    !number.startsWith("9")
+  ) {
+    variants.add(
+      `${country}${ddd}${number}`
+    );
+
+    variants.add(
+      `${country}${ddd}9${number}`
+    );
+  }
+
+  return Array.from(variants);
+}
 function getMessageText(msg = {}) {
   return (
     msg?.interactive?.button_reply?.title ||
@@ -133,35 +192,71 @@ export async function handleMessage(msg) {
       rawText,
       normalizedText,
     });
+const phoneVariants =
+  getPhoneVariants(phone);
 
-const { data: existingLeads, error } = await supabase
-  .from("lead_leads")
-  .select(`
-    id,
-    status,
-    source,
-    created_at,
-    lead_conversations (
+console.log(
+  "📞 PHONE VARIANTS",
+  phoneVariants
+);
+
+const { data: existingLeads, error } =
+  await supabase
+    .from("lead_leads")
+    .select(`
       id,
       status,
-      created_at
-    )
-  `)
-  .or(`whatsapp.eq.${phone},telefone.eq.${phone}`)
-  .in("source", ["whatsapp_button_showcase", "prospection"])
-  .neq("status", "closed")
-  .order("created_at", { ascending: false })
-  .limit(5);
+      source,
+      whatsapp,
+      telefone,
+      created_at,
+      lead_conversations (
+        id,
+        status,
+        created_at
+      )
+    `)
+    .in("source", [
+      "whatsapp_button_showcase",
+      "prospection",
+      "google_maps",
+    ])
+    .neq("status", "closed")
+    .order("created_at", {
+      ascending: false,
+    })
+    .limit(100);
+
+const normalizedLeads =
+  (existingLeads || []).filter(
+    (lead) => {
+      const leadPhones = [
+        lead.whatsapp,
+        lead.telefone,
+      ]
+        .filter(Boolean)
+        .map((p) =>
+          String(p).replace(/\D/g, "")
+        );
+
+      return phoneVariants.some(
+        (variant) =>
+          leadPhones.includes(
+            variant
+          )
+      );
+    }
+  );
 
 if (error) {
   console.error("❌ erro ao buscar lead de vendas:", error);
 }
 
 const existingLead =
-  existingLeads?.find((lead) =>
+  normalizedLeads?.find((lead) =>
     lead.lead_conversations?.some((c) => c.status === "open")
   ) ||
-  existingLeads?.[0] ||
+  normalizedLeads?.[0] ||
   null;
 
 const activeConversation =
@@ -174,9 +269,7 @@ const activeConversation =
 const activeConversationId =
   activeConversation?.id || null;
 
-    if (error) {
-      console.error("❌ erro ao buscar lead de vendas:", error);
-    }
+  
 
     
 
