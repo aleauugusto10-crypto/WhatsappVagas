@@ -111,7 +111,7 @@ const { data: existingLeads, error } = await supabase
     )
   `)
   .eq("whatsapp", phone)
-  .eq("source", "whatsapp_button_showcase")
+  .in("source", ["whatsapp_button_showcase", "prospection"])
   .neq("status", "closed")
   .order("created_at", { ascending: false })
   .limit(5);
