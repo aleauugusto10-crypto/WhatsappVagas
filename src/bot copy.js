@@ -1433,8 +1433,11 @@ const normalizedText = String(rawText || "")
 const salesConversation = await supabase
   .from("lead_leads")
   .select("id,status,source")
-  .eq("whatsapp", phone)
-  .eq("source", "whatsapp_button_showcase")
+  .in("whatsapp", getBRPhoneCandidates(phone))
+.in("source", [
+  "whatsapp_button_showcase",
+  "prospection"
+])
   .maybeSingle();
 
 const isSalesConversationActive =
@@ -1447,17 +1450,9 @@ const isShowcaseLead =
   normalizedText.includes("minha vitrine como faz");
 
 const shouldStartSalesFlow =
-  isShowcaseLead ||
   isSalesConversationActive ||
-  text === "ct_vender" ||
-  normalizedText.includes("vender") ||
-  normalizedText.includes("criar vitrine") ||
-  normalizedText.includes("quero vender") ||
-  normalizedText.includes("loja online") ||
-  normalizedText.includes("vitrine") ||
-  ["oi", "ola", "olá", "menu", "inicio", "início", "começar", "comecar"].includes(
-    normalizedText
-  );
+  isShowcaseLead ||
+  text === "ct_vender";
 
 if (shouldStartSalesFlow) {
 
