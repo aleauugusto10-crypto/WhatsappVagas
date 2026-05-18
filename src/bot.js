@@ -127,10 +127,15 @@ const existingLead =
   existingLeads?.[0] ||
   null;
 
+const activeConversation =
+  existingLead?.lead_conversations?.find(
+    (c) => c.status === "open"
+  ) ||
+  existingLead?.lead_conversations?.[0] ||
+  null;
+
 const activeConversationId =
-  existingLead?.lead_conversations
-    ?.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    ?.find((c) => c.status === "open")?.id || null;
+  activeConversation?.id || null;
 
     if (error) {
       console.error("❌ erro ao buscar lead de vendas:", error);
@@ -150,7 +155,12 @@ const activeConversationId =
       normalizedText.includes("criar minha loja") ||
       normalizedText.includes("compretudo") ||
     normalizedText === "menu";
-
+console.log("🧪 DEBUG BOT", {
+  existingLeadId: existingLead?.id,
+  activeConversationId,
+  leadConversations:
+    existingLead?.lead_conversations,
+});
 if (activeConversationId) {
   await callSalesFlow({
     phone,
