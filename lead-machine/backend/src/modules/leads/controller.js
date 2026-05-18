@@ -1661,6 +1661,38 @@ const selectedFullPlan =
 
       return res.json(saved);
     }
+    if (
+  asksPrice &&
+  !selectedBasicPlan &&
+  !selectedFullPlan &&
+  ["offer", "closing", "preview", "example", "interest"].includes(currentStage)
+) {
+  const reply = buildPlanOfferReply();
+
+  await updateAIState(conversationId, {
+    stage: "closing",
+    last_intent: "presented_plan_options",
+    lead_temperature: 9,
+  });
+
+  const saved = await service.createMessage({
+    conversation_id: conversationId,
+    role: "assistant",
+    message: reply,
+    metadata: {
+      stage: "closing",
+      generated_by: "plan_options",
+    },
+  });
+
+  if (phone) {
+    await sendText(phone, reply, {
+      phoneNumberId: receiverPhoneNumberId,
+    });
+  }
+
+  return res.json(saved);
+}
 if (
   currentStage !== "payment" &&
   (
