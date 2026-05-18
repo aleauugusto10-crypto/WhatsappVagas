@@ -395,7 +395,39 @@ async function createPreviewForLead(lead) {
     previewUrl,
   };
 }
+export async function cancelProspection(req, res) {
+  try {
+    const leadId = req.params.leadId;
 
+    const conversation =
+      await service.getOrCreateConversation(leadId);
+
+    await updateAIState(conversation.id, {
+      stage: "cancelled",
+      last_intent: "prospection_cancelled",
+      lead_temperature: 0,
+    });
+
+    const updated = await service.updateLead(leadId, {
+      status: "ignored",
+      conversation_mode: "human",
+      prospection_finished_at: new Date().toISOString(),
+      last_message: "Prospecção cancelada manualmente.",
+      updated_at: new Date().toISOString(),
+    });
+
+    return res.json({
+      success: true,
+      lead: updated,
+    });
+  } catch (err) {
+    console.error("Erro ao cancelar prospecção:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
+  }
+}
 export async function startProspection(req, res) {
   try {
     const leadId = req.params.leadId;
@@ -426,7 +458,13 @@ export async function startProspection(req, res) {
     });
 
     const empresa = lead?.empresa || "empresa";
-    const hour = new Date().getHours();
+    const hour = Number(
+  new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hour12: false,
+  }).format(new Date())
+);
 
     const greetingOptions =
       hour < 12

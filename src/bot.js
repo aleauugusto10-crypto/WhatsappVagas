@@ -41,7 +41,44 @@ function normalizeText(value = "") {
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
+function looksLikeBusinessAutoReply(text = "") {
+  const normalized = normalizeText(text);
 
+  if (!normalized) return false;
+
+  const wordCount = normalized
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  const patterns = [
+    "como podemos ajudar",
+    "como posso ajudar",
+    "em que podemos ajudar",
+    "em que posso ajudar",
+    "agradece seu contato",
+    "obrigado pelo contato",
+    "obrigada pelo contato",
+    "bem vindo",
+    "bem-vindo",
+    "seja bem vindo",
+    "seja bem-vindo",
+    "estamos a disposicao",
+    "estamos a disposição",
+    "horario de atendimento",
+    "horário de atendimento",
+    "digite",
+    "opcao",
+    "opção",
+    "atendimento",
+    "assistente virtual",
+  ];
+
+  if (patterns.some((p) => normalized.includes(p))) {
+    return true;
+  }
+
+  return wordCount >= 8 && normalized.length >= 45;
+}
 async function callSalesFlow({ phone, rawText, conversationId }) {
   const PORT = process.env.PORT || 3000;
 
@@ -161,6 +198,17 @@ console.log("🧪 DEBUG BOT", {
   leadConversations:
     existingLead?.lead_conversations,
 });
+const isBusinessAutoReply =
+  looksLikeBusinessAutoReply(rawText);
+
+if (isBusinessAutoReply && !activeConversationId) {
+  console.log("🤖 auto-reply sem lead ativo ignorado:", {
+    phone,
+    rawText,
+  });
+
+  return;
+}
 if (activeConversationId) {
   await callSalesFlow({
     phone,
@@ -181,15 +229,10 @@ if (wantsShowcase) {
   return;
 }
 
-await sendText(
+console.log("⛔ mensagem sem contexto ignorada:", {
   phone,
-  `Oi! 👋
-
-Você está falando com o CompreTudo.Shop.
-
-Para criar sua vitrine, me diga:
-*quero minha vitrine*`
-);
+  rawText,
+});
 
 return;
 

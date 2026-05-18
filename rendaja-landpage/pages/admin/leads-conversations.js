@@ -1,7 +1,7 @@
 // rendaja-landpage/pages/admin/leads-conversations.js
 
 import { useEffect, useMemo, useState } from "react";
-
+import { useRouter } from "next/router";
 const API_BASE =
   process.env.NEXT_PUBLIC_LEAD_API_URL || "http://localhost:3000";
 
@@ -202,8 +202,42 @@ const PIPELINE_TABS = [
     filter: (lead) => lead.status === "ignored",
   },
 ];
+async function cancelProspection() {
+  if (!selectedLead?.id) return;
 
+  const confirmed = confirm(
+    "Cancelar a prospecção desse lead e parar a IA?"
+  );
+
+  if (!confirmed) return;
+
+  const res = await fetch(
+    `${API_BASE}/api/leads/${selectedLead.id}/cancel-prospection`,
+    {
+      method: "POST",
+    }
+  );
+
+  const data = await safeJson(res);
+
+  if (!res.ok) {
+    alert(data.error || "Erro ao cancelar prospecção.");
+    return;
+  }
+
+  await loadLeads({ silent: true });
+  await openLead(data.lead);
+
+  alert("Prospecção cancelada.");
+}
 export default function LeadsConversationsPage() {
+  const router = useRouter();
+
+const [isAuthorized, setIsAuthorized] =
+  useState(false);
+
+const [checkingAuth, setCheckingAuth] =
+  useState(true);
   const [leads, setLeads] = useState([]);
   const [selectedLead, setSelectedLead] = useState(null);
   const [conversation, setConversation] = useState(null);
@@ -507,12 +541,7 @@ async function createDiscoveryJobs() {
       const conv = await safeJson(convRes);
       setConversation(conv);
 
-      const msgRes = await fetch(
-        `${API_BASE}/api/leads/conversations/${conv.id}/messages`
-      );
-
-      const msgs = await safeJson(msgRes);
-      setMessages(Array.isArray(msgs) ? msgs : []);
+      await loadMessages(conv.id, { silent: false });
     } catch (err) {
       console.error("Erro ao abrir conversa:", err);
       alert("Erro ao abrir conversa. Veja o console.");
@@ -520,7 +549,25 @@ async function createDiscoveryJobs() {
       setLoadingMessages(false);
     }
   }
+async function loadMessages(conversationId, { silent = true } = {}) {
+  if (!conversationId) return;
 
+  try {
+    if (!silent) setLoadingMessages(true);
+
+    const msgRes = await fetch(
+      `${API_BASE}/api/leads/conversations/${conversationId}/messages`
+    );
+
+    const msgs = await safeJson(msgRes);
+
+    setMessages(Array.isArray(msgs) ? msgs : []);
+  } catch (err) {
+    console.error("Erro ao atualizar mensagens:", err);
+  } finally {
+    if (!silent) setLoadingMessages(false);
+  }
+}
   async function assumeConversation() {
     if (!selectedLead?.id) {
       alert("Selecione uma conversa primeiro.");
@@ -741,6 +788,8 @@ async function startFilteredProspection() {
   }
 }
  useEffect(() => {
+  if (!isAuthorized) return;
+
   loadLeads();
   loadDiscoveryJobs();
 
@@ -750,7 +799,44 @@ async function startFilteredProspection() {
   }, 15000);
 
   return () => clearInterval(interval);
+}, [isAuthorized]);
+useEffect(() => {
+  if (!isAuthorized || !conversation?.id) return;
+
+  const interval = setInterval(() => {
+    loadMessages(conversation.id, { silent: true });
+    loadLeads({ silent: true });
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, [isAuthorized, conversation?.id]);
+
+useEffect(() => {
+  const adminToken =
+    localStorage.getItem("crm_admin_token");
+
+  const expectedToken =
+    process.env.NEXT_PUBLIC_CRM_ADMIN_TOKEN;
+
+  if (
+    adminToken &&
+    adminToken === expectedToken
+  ) {
+    setIsAuthorized(true);
+  } else {
+    router.replace("/admin/login");
+  }
+
+  setCheckingAuth(false);
 }, []);
+
+if (checkingAuth) {
+  return null;
+}
+
+if (!isAuthorized) {
+  return null;
+}
     return (
   <>
     <style jsx global>{`
@@ -1092,7 +1178,12 @@ async function startFilteredProspection() {
                     Vitrine
                   </a>
                 )}
-
+<button
+  onClick={cancelProspection}
+  style={styles.cancelButton}
+>
+  Cancelar
+</button>
                 <button
                   onClick={() => setShowPaymentOptions((value) => !value)}
                   style={styles.paymentTopButton}
@@ -1368,7 +1459,15 @@ discoveryJobs: {
   paddingBottom: 2,
   maxWidth: "100%",
 },
-
+cancelButton: {
+  background: "#fee2e2",
+  color: "#991b1b",
+  border: "1px solid #fecaca",
+  padding: "10px 12px",
+  borderRadius: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+},
 discoveryMuted: {
   color: "#64748b",
   fontSize: 13,
@@ -1628,7 +1727,7 @@ discoveryJobPill: {
 
   panelActions: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
+    gridTemplateColumns: "1fr 1fr 1fr 1fr",
     gap: 8,
   },
 stateRow: {
