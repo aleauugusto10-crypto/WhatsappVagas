@@ -269,13 +269,13 @@ Posso te mostrar um exemplo real de como essa vitrine fica?`;
 }
 
 function buildExampleReply() {
-  return `Claro. Esse é um exemplo real de vitrine no CompreTudo.Shop:
+  return `Olha esse exemplo rapidinho 👇
 
 ${DEFAULT_EXAMPLE_URL}
 
-Ela mostra como uma empresa pode aparecer com visual profissional, informações organizadas, botão de WhatsApp, catálogo e presença online.
+A ideia é deixar a empresa organizada online, com botão direto para WhatsApp, catálogo e melhor presença local para quem procura no Google.
 
-Quer que eu monte uma prévia gratuita de como ficaria a vitrine da sua empresa?`;
+Ficou parecido com algo que faria sentido para sua empresa? 😄`;
 }
 
 function buildDirectClosingReply(lead = {}) {
@@ -325,31 +325,17 @@ Depois, se quiser deixar mais completa, com catálogo, destaque e personalizaç�
 }
 
 function buildPlanOfferReply() {
-  return `Perfeito 😄
+  return `Que massa 😄
 
-Temos duas opções:
+Hoje temos duas opções:
 
-1️⃣ *Vitrine Inteligente — R$ 19,90/mês*
+1️⃣ *Vitrine Inteligente* — *R$ 19,90/mês*  
+WhatsApp, catálogo, presença local e vitrine profissional.
 
-✅ vitrine profissional  
-✅ catálogo online  
-✅ botão direto para WhatsApp  
-✅ presença no CompreTudo.Shop local  
+2️⃣ *Gestão Completa* — *R$ 49,90/mês*  
+Tudo do plano anterior + presença nas buscas do Google e sistema de gestão.
 
----
-
-2️⃣ *Gestão Completa — R$ 49,90/mês*
-
-✅ tudo da Vitrine Inteligente  
-✅ *visibilidade no Google*  
-✅ otimização para aparecer em buscas locais  
-✅ presença profissional no Google  
-✅ pedidos, equipe, caixa e gestão  
-✅ mais chances de clientes encontrarem sua empresa
-
-A presença no Google é ativada *somente na Gestão Completa*.
-
-Qual plano faz mais sentido para você hoje?`;
+Qual faz mais sentido para vocês hoje? 👀`;
 }
 
 async function createPreviewForLead(lead) {
@@ -1140,15 +1126,13 @@ if (currentStage === "onboarding_category") {
 if (affirmative) {
         const reply = `Perfeito 😄
 
-Somos da *CompreTudo.Shop* e encontramos a *${lead.empresa}* aqui na região.
+Aqui é da *CompreTudo.Shop*.
 
-Tive uma ideia simples para ajudar vocês a melhorarem a presença digital e serem encontrados com mais facilidade por clientes que procuram *${lead.categoria || "produtos e serviços"}* em ${lead.cidade || "sua cidade"}.
+Encontrei a *${lead.empresa}* e tive uma ideia simples para ajudar vocês a aparecerem melhor no Google e serem encontrados mais facilmente por clientes da região.
 
-Hoje muita gente procura no Google, WhatsApp e redes sociais antes de comprar ou chamar uma empresa. Quando o negócio não aparece bem organizado, acaba perdendo cliente sem nem perceber.
+A gente cria uma vitrine profissional com WhatsApp, catálogo e presença local.
 
-A ideia é colocar a *${lead.empresa}* em uma vitrine profissional dentro do CompreTudo.Shop, com informações organizadas, botão direto para WhatsApp, presença local e uma apresentação mais confiável para quem está procurando.
-
-Posso te mostrar rapidinho um exemplo real de como isso funciona?`;
+Posso te mostrar rapidinho um exemplo real? `;
 
         await updateAIState(
           conversationId,
@@ -1633,16 +1617,15 @@ if (
             lead
           );
 
-        const reply = `Perfeito 😄
+        const reply = `Pronto 😄
 
-Já deixei uma prévia inicial da ${
-          lead.empresa
-        } pronta:
+Montei uma prévia inicial da *${lead.empresa}*:
 
 ${previewUrl}
 
-Se fizer sentido, podemos ativar a versão completa da vitrine para sua empresa aparecer com mais destaque e receber clientes da cidade.`;
+Ela já mostra como sua empresa pode aparecer com WhatsApp, catálogo e presença local.
 
+Quer ativar essa vitrine para a *${lead.empresa}*?`;
         await updateAIState(
           conversationId,
           {
