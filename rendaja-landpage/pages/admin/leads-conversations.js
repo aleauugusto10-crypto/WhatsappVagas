@@ -51,7 +51,9 @@ function getLeadStatusLabel(lead) {
   if (!hasConversation(lead)) return "Novo lead";
   return lead?.status || "Aberto";
 }
-
+function hasUnreadClientReply(lead) {
+  return lead?.last_message_role === "user";
+}
 function getLeadBadgeStyle(lead) {
   if (lead?.status === "ignored") {
     return {
@@ -101,6 +103,7 @@ function getLeadBadgeStyle(lead) {
 }
 
 function getPriorityScore(lead) {
+  if (hasUnreadClientReply(lead)) return 2000;
   if (lead?.conversation_mode === "waiting_human") return 1000;
   if (lead?.last_message?.toLowerCase?.().includes("pix")) return 900;
   if (lead?.conversation_mode === "human") return 800;
@@ -1087,9 +1090,10 @@ if (!isAuthorized) {
                   key={lead.id}
                   onClick={() => openLead(lead)}
                   style={{
-                    ...styles.card,
-                    ...(selected ? styles.cardSelected : {}),
-                  }}
+  ...styles.card,
+  ...(hasUnreadClientReply(lead) ? styles.cardUnread : {}),
+  ...(selected ? styles.cardSelected : {}),
+}}
                 >
                   <div style={styles.cardTop}>
                     <strong style={styles.name}>
@@ -1105,7 +1109,11 @@ if (!isAuthorized) {
                       {getLeadStatusLabel(lead)}
                     </span>
                   </div>
-
+{hasUnreadClientReply(lead) && (
+  <div style={styles.replyBadge}>
+    Cliente respondeu
+  </div>
+)}
                   <div style={styles.cardMeta}>
                     <span>{lead.categoria || "Sem categoria"}</span>
                     <span>•</span>
@@ -1284,20 +1292,18 @@ if (!isAuthorized) {
 }
 
 const styles = {
-  page: {
-    minHeight: "100vh",
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) 520px",
-    gap: 20,
-    padding: 20,
-    background: "#f6f3ee",
-    color: "#07111f",
-    fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-  },
+ page: {
+  minHeight: "100vh",
+  padding: "20px 560px 20px 20px",
+  background: "#f6f3ee",
+  color: "#07111f",
+  fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+},
 
   crm: {
-    minWidth: 0,
-  },
+  minWidth: 0,
+  width: "100%",
+},
 categoryBar: {
   display: "flex",
   gap: 8,
@@ -1396,7 +1402,11 @@ discoveryBox: {
   boxShadow: "0 12px 30px rgba(7,17,31,.06)",
   border: "1px solid rgba(7,17,31,.06)",
 },
-
+cardUnread: {
+  border: "2px solid #16a34a",
+  boxShadow: "0 18px 45px rgba(22,163,74,.22)",
+  background: "#f0fdf4",
+},
 discoveryHeader: {
   display: "flex",
   justifyContent: "space-between",
@@ -1404,7 +1414,16 @@ discoveryHeader: {
   alignItems: "flex-start",
   marginBottom: 12,
 },
-
+replyBadge: {
+  display: "inline-flex",
+  marginTop: 8,
+  padding: "5px 9px",
+  borderRadius: 999,
+  background: "#16a34a",
+  color: "#fff",
+  fontSize: 11,
+  fontWeight: 900,
+},
 discoveryTitle: {
   fontSize: 16,
 },
@@ -1667,17 +1686,20 @@ discoveryJobPill: {
   },
 
   panel: {
-    position: "sticky",
-    top: 20,
-    height: "calc(100vh - 40px)",
-    background: "#fff",
-    borderRadius: 24,
-    boxShadow: "0 18px 50px rgba(7,17,31,.12)",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    minWidth: 0,
-  },
+  position: "fixed",
+  top: 20,
+  right: 20,
+  width: 520,
+  height: "calc(100vh - 40px)",
+  background: "#fff",
+  borderRadius: 24,
+  boxShadow: "0 18px 50px rgba(7,17,31,.12)",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+  minWidth: 0,
+  zIndex: 20,
+},
 
   emptyPanel: {
     margin: "auto",

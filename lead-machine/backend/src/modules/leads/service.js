@@ -102,14 +102,50 @@ export async function createLead(payload) {
 export async function getLeads() {
   const { data, error } = await supabase
     .from("lead_leads")
-    .select("*")
+    .select(`
+      *,
+      lead_conversations (
+        id,
+        status,
+        created_at,
+        lead_messages (
+          id,
+          role,
+          message,
+          created_at
+        )
+      )
+    `)
     .order("created_at", { ascending: false });
 
   if (error) {
     throw error;
   }
 
-  return data;
+  return (data || []).map((lead) => {
+    const openConversation =
+      lead.lead_conversations?.find((c) => c.status === "open") ||
+      lead.lead_conversations?.[0] ||
+      null;
+
+    const messages =
+      openConversation?.lead_messages || [];
+
+    const lastMessage =
+      [...messages].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime()
+      )[0] || null;
+
+    return {
+      ...lead,
+      conversation_id: openConversation?.id || null,
+      last_message_role: lastMessage?.role || null,
+      last_message_at: lastMessage?.created_at || null,
+      last_message: lastMessage?.message || lead.last_message || null,
+    };
+  });
 }
 
 export async function getLeadById(leadId) {
