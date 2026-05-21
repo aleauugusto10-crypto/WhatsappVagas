@@ -117,7 +117,70 @@ function isLoginRequest(text = "") {
     t.includes("login")
   );
 }
+function isOrderTrackingRequest(text = "") {
+  const t = normalizeText(text);
 
+  return (
+    t.includes("codigo do pedido") ||
+    t.includes("código do pedido") ||
+    t.includes("acompanhar minha solicitacao") ||
+    t.includes("acompanhar minha solicitação") ||
+    t.includes("aguardo a confirmacao") ||
+    t.includes("aguardo a confirmação")
+  );
+}
+
+function extractOrderId(text = "") {
+  const match = String(text).match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+  );
+
+  return match?.[0] || null;
+}
+
+async function sendOrderTrackingReply(phone, rawText) {
+  const orderId = extractOrderId(rawText);
+
+  if (!orderId) {
+    return sendText(
+      phone,
+      "Recebi sua solicitação, mas não encontrei o código do pedido. Me envie o código para eu acompanhar."
+    );
+  }
+
+  const { data: order, error } = await supabase
+    .from("profile_orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error || !order) {
+    return sendText(
+      phone,
+      `Recebi seu pedido, mas não consegui localizar esse código agora:\n\n${orderId}`
+    );
+  }
+
+  const statusLabel =
+    order.status === "confirmed"
+      ? "confirmado ✅"
+      : order.status === "cancelled"
+      ? "cancelado"
+      : order.status === "delivered"
+      ? "entregue ✅"
+      : "pendente de confirmação";
+
+  return sendText(
+    phone,
+    `📦 *Status do seu pedido*
+
+Código: ${orderId}
+
+Seu pedido está: *${statusLabel}*.
+
+Assim que a empresa atualizar, você será avisado por aqui.`
+  );
+}
 async function sendDashboardAccess(phone) {
   return sendText(
     phone,
@@ -229,6 +292,16 @@ export async function handleMessage(msg) {
   });
 
   await sendDashboardAccess(phone);
+
+  return;
+}
+if (isOrderTrackingRequest(rawText)) {
+  console.log("📦 ORDER TRACKING REQUEST NO BOT:", {
+    phone,
+    rawText,
+  });
+
+  await sendOrderTrackingReply(phone, rawText);
 
   return;
 }
