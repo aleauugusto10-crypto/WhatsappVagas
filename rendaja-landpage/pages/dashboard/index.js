@@ -891,10 +891,10 @@ const [cardError, setCardError] = useState("");
 const [brickReady, setBrickReady] = useState(false);
   const plans = {
     store_start: {
-      code: "store_start",
-      name: "Loja Start",
-      setup: 50,
-      monthly: 19.9,
+  code: "store_start",
+  name: "Loja Start",
+  setup: 19.9,
+  monthly: 19.9,
       credits: 30,
       features: [
         "Loja liberada na vitrine",
@@ -905,10 +905,10 @@ const [brickReady, setBrickReady] = useState(false);
       ],
     },
     equipe_pro: {
-      code: "equipe_pro",
-      name: "Equipe Pro",
-      setup: 150,
-      monthly: 49.9,
+  code: "equipe_pro",
+  name: "Equipe Pro",
+  setup: 49.9,
+  monthly: 49.9,
       credits: 100,
     features: [
   "Tudo do Loja Start",
@@ -921,10 +921,10 @@ const [brickReady, setBrickReady] = useState(false);
 ],
     },
     complete_pro: {
-      code: "complete_pro",
-      name: "Finance Premium",
-      setup: 350,
-      monthly: 59.9,
+  code: "complete_pro",
+  name: "Finance Premium",
+  setup: 59.9,
+  monthly: 59.9,
       credits: 250,
      features: [
   "Tudo do Equipe Pro",
@@ -1094,8 +1094,8 @@ async function processCardPayment({ formData }) {
         {Object.values(plans).map((plan) => (
           <div key={plan.code} className="upgrade-plan-card">
             <span className="card-label">{plan.name}</span>
-            <h3>{money(plan.setup)} agora</h3>
-            <p>Depois {money(plan.monthly)}/mês após 30 dias.</p>
+            <h3>{money(plan.monthly)}/mês</h3>
+<p>Cobrança recorrente mensal.</p>
 
             <ul>
               {plan.features.map((item) => (
@@ -1149,13 +1149,13 @@ async function processCardPayment({ formData }) {
           <h2>{selectedPlan.name}</h2>
 
           <div className="payment-summary">
-            <span>Ativação hoje</span>
-            <strong>{money(selectedPlan.setup)}</strong>
+            <span>Primeira mensalidade</span>
+<strong>{money(selectedPlan.monthly)}</strong>
           </div>
 
           <div className="payment-summary">
-            <span>Mensalidade</span>
-            <strong>{money(selectedPlan.monthly)}/mês após 30 dias</strong>
+            <span>Plano</span>
+<strong>{money(selectedPlan.monthly)}/mês</strong>
           </div>
 
           <div className="payment-summary">
@@ -1204,7 +1204,7 @@ async function processCardPayment({ formData }) {
     <MercadoPayment
       key={`payment-${selectedPlan.code}-${selectedPlan.setup}`}
       initialization={{
-        amount: Number(selectedPlan.setup || 0),
+        amount: Number(selectedPlan.monthly || 0),
       }}
       customization={{
         paymentMethods: {

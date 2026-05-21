@@ -1131,8 +1131,16 @@ if (!isAuthorized) {
                   <div style={styles.cardFooter}>
                     <span>{lead.whatsapp || lead.telefone || "Sem WhatsApp"}</span>
                     {lead.preview_url ? (
-                      <span style={styles.miniFlag}>Vitrine</span>
-                    ) : null}
+  <a
+    href={lead.preview_url}
+    target="_blank"
+    rel="noreferrer"
+    style={styles.previewLink}
+    onClick={(e) => e.stopPropagation()}
+  >
+    Abrir vitrine
+  </a>
+) : null}
                   </div>
                 </button>
               );
@@ -1374,7 +1382,16 @@ discoveryButtonDark: {
     alignItems: "center",
     gap: 10,
   },
-
+previewLink: {
+  background: "#ffedd5",
+  color: "#9a3412",
+  borderRadius: 999,
+  padding: "4px 8px",
+  fontWeight: 900,
+  fontSize: 12,
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+},
   updatedAt: {
     fontSize: 12,
     color: "#64748b",

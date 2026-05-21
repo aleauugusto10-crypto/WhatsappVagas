@@ -161,14 +161,17 @@ export default async function handler(req, res) {
     if (profileError || !profile) {
       return res.status(404).json({ error: "Vitrine não encontrada." });
     }
-
-    const TEST_PLAN_VALUES = {
-  store_start: 1,
-  equipe_pro: 2.5,
-  complete_pro: 1.5,
+const TEST_PLAN_VALUES = {
+  store_start: 19.9,
+  equipe_pro: 49.9,
+  complete_pro: 59.9,
 };
 
-const valor = Number(TEST_PLAN_VALUES[planCode] || plan.setup_price || 0);
+const valor = Number(
+  TEST_PLAN_VALUES[planCode] ||
+  plan.monthly_price ||
+  0
+);
 
     if (!valor || valor <= 0) {
       return res.status(400).json({ error: "Plano sem valor de ativação." });
@@ -178,19 +181,21 @@ const valor = Number(TEST_PLAN_VALUES[planCode] || plan.setup_price || 0);
       .from("pagamentos_plataforma")
       .insert({
         usuario_id: profile.user_id,
-        referencia_tipo: "profile_plan_setup",
+        referencia_tipo: "profile_plan_subscription",
         plano_codigo: planCode,
         status: "pendente",
         valor,
         metadata: {
-          titulo: `Ativação do plano ${PLAN_LABELS[planCode] || plan.name}`,
+          titulo: `Assinatura do plano ${
+  PLAN_LABELS[planCode] || plan.name
+}`,
           profile_page_id: profile.id,
           profile_slug: profile.slug,
           plan_code: planCode,
           plan_name: plan.name,
-          setup_price: Number(plan.setup_price || 0),
-          monthly_price: Number(plan.monthly_price || 0),
-          monthly_credits: Number(plan.monthly_credits || 0),
+          setup_price: Number(plan.monthly_price || 0),
+monthly_price: Number(plan.monthly_price || 0),
+dias_ate_primeira_mensalidade: 0,
           dias_ate_primeira_mensalidade: 30,
           payment_method: paymentMethod,
         },
