@@ -50,6 +50,11 @@ router.post(
   controller.assumeConversation
 );
 
+
+router.post(
+  "/:leadId/generate-showcase",
+  controller.generateShowcaseForLead
+);
 /*
 |--------------------------------------------------------------------------
 | Prospection
@@ -107,7 +112,7 @@ router.post("/ai/test", async (req, res) => {
 | First Contact AI
 |--------------------------------------------------------------------------
 */
-
+router.post("/:leadId/cancel-prospection", controller.cancelProspection);
 router.post("/ai/first-contact", async (req, res) => {
   try {
     const { generateFirstContact } = await import(

@@ -2356,6 +2356,50 @@ export async function getProspectionQueue(req, res) {
   }
 }
 
+export async function generateShowcaseForLead(req, res) {
+  try {
+    const leadId = req.params.leadId;
+
+    const lead = await service.getLeadById(leadId);
+
+    if (!lead) {
+      return res.status(404).json({
+        error: "Lead não encontrado.",
+      });
+    }
+
+    if (lead.preview_url || lead.preview_status === "generated") {
+      return res.json({
+        skipped: true,
+        reason: "vitrine_ja_gerada",
+        lead,
+        preview_url: lead.preview_url,
+      });
+    }
+
+    const { previewUrl } = await createPreviewForLead(lead);
+
+    const updated = await service.updateLead(lead.id, {
+      status: "showcase_generated",
+      preview_url: previewUrl,
+      preview_status: "generated",
+      last_message: "Vitrine gerada automaticamente pelo sistema.",
+      updated_at: new Date().toISOString(),
+    });
+
+    return res.json({
+      success: true,
+      lead: updated,
+      preview_url: previewUrl,
+    });
+  } catch (err) {
+    console.error("Erro ao gerar vitrine do lead:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
+  }
+}
 export async function startQueueProspection(req, res) {
   try {
     const limit = Number(req.body.limit || 5);

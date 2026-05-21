@@ -1310,6 +1310,8 @@ async function processCardPayment({ formData }) {
     </div>
   );
 }
+
+
 const SERVICE_EMOJI_CATEGORIES = [
   {
     id: "recentes",

@@ -699,18 +699,25 @@ async function startFilteredProspection() {
   try {
     const eligibleLeads = filteredLeads.filter((lead) => {
       return (
-        !hasConversation(lead) &&
+        !lead.preview_url &&
+        lead.preview_status !== "generated" &&
+        lead.empresa &&
+        lead.empresa !== "Cadastro em andamento" &&
+        lead.empresa !== "Nova empresa" &&
+        lead.cidade &&
+        lead.categoria &&
+        lead.categoria !== "comércio local" &&
         lead.status !== "ignored"
       );
     });
 
     if (!eligibleLeads.length) {
-      alert("Todos os leads dessa seleção já foram iniciados ou não estão disponíveis para prospecção.");
+      alert("Nenhum lead disponível para gerar vitrine nessa seleção.");
       return;
     }
 
     const confirmed = confirm(
-      `Iniciar prospecção de ${eligibleLeads.length} leads?`
+      `Gerar vitrines para ${eligibleLeads.length} leads dessa seleção?\n\nSerá gerada 1 vitrine a cada 30 segundos.`
     );
 
     if (!confirmed) return;
@@ -719,28 +726,24 @@ async function startFilteredProspection() {
     let failed = 0;
     let skipped = 0;
 
-    function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
-      return Promise.race([
-        fetch(url, options),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timeout: esse lead travou por mais de 20s.")),
-            timeoutMs
-          )
-        ),
-      ]);
+    function wait(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    for (const lead of eligibleLeads) {
-      try {
-        console.log("🚀 Iniciando prospecção:", lead.empresa);
+    for (let index = 0; index < eligibleLeads.length; index++) {
+      const lead = eligibleLeads[index];
 
-        const res = await fetchWithTimeout(
-          `${API_BASE}/api/leads/${lead.id}/start-prospection`,
+      try {
+        console.log(
+          `🛍️ Gerando vitrine ${index + 1}/${eligibleLeads.length}:`,
+          lead.empresa
+        );
+
+        const res = await fetch(
+          `${API_BASE}/api/leads/${lead.id}/generate-showcase`,
           {
             method: "POST",
-          },
-          20000
+          }
         );
 
         const data = await safeJson(res);
@@ -748,7 +751,7 @@ async function startFilteredProspection() {
         if (!res.ok) {
           failed++;
 
-          console.error("❌ Falhou prospecção:", {
+          console.error("❌ Falhou vitrine:", {
             lead: lead.empresa,
             status: res.status,
             data,
@@ -757,18 +760,21 @@ async function startFilteredProspection() {
           continue;
         }
 
-        success++;
+        if (data.skipped) {
+          skipped++;
+        } else {
+          success++;
+        }
 
-        const wait =
-          Math.floor(Math.random() * 12000) + 8000;
+        await loadLeads({ silent: true });
 
-        await new Promise((resolve) =>
-          setTimeout(resolve, wait)
-        );
+        if (index < eligibleLeads.length - 1) {
+          await wait(30000);
+        }
       } catch (err) {
         failed++;
 
-        console.error("⏭️ Pulando lead travado:", {
+        console.error("❌ Erro ao gerar vitrine:", {
           lead: lead.empresa,
           error: err.message,
         });
@@ -780,14 +786,12 @@ async function startFilteredProspection() {
     await loadLeads();
 
     alert(
-      `Prospecção finalizada.\n\n✅ Iniciados: ${success}\n❌ Falharam/pulados: ${failed}\n⏭️ Ignorados: ${skipped}`
+      `Geração finalizada.\n\n✅ Vitrines geradas: ${success}\n⏭️ Puladas: ${skipped}\n❌ Falharam: ${failed}`
     );
   } catch (err) {
-    console.error("Erro geral na prospecção:", err);
+    console.error("Erro geral ao gerar vitrines:", err);
 
-    alert(
-      "A prospecção travou de um jeito que não deu para continuar. Veja o console do navegador."
-    );
+    alert("A geração travou. Veja o console do navegador.");
   }
 }
  useEffect(() => {
@@ -1070,7 +1074,7 @@ if (!isAuthorized) {
   onClick={startFilteredProspection}
   style={styles.prospectButton}
 >
-  Iniciar prospecção
+  Gerar vitrines
 </button>
         </div>
 
