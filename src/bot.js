@@ -100,6 +100,36 @@ function normalizeText(value = "") {
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
+
+const DASHBOARD_URL =
+  process.env.DASHBOARD_URL ||
+  "https://compretudo.shop/dashboard";
+
+function isLoginRequest(text = "") {
+  const t = normalizeText(text);
+
+  return (
+    t.includes("codigo de login") ||
+    t.includes("código de login") ||
+    t.includes("buscar meu codigo") ||
+    t.includes("buscar meu código") ||
+    t.includes("vim buscar") ||
+    t.includes("login")
+  );
+}
+
+async function sendDashboardAccess(phone) {
+  return sendText(
+    phone,
+    `🔐 *Acesso ao painel CompreTudo.shop*
+
+Acesse o painel abaixo e entre com o mesmo número deste WhatsApp:
+
+${DASHBOARD_URL}
+
+Se você solicitou um código de login no site, aguarde alguns instantes.`
+  );
+}
 function looksLikeBusinessAutoReply(text = "") {
   const normalized = normalizeText(text);
 
@@ -192,6 +222,16 @@ export async function handleMessage(msg) {
       rawText,
       normalizedText,
     });
+    if (isLoginRequest(rawText)) {
+  console.log("🔐 LOGIN REQUEST NO BOT:", {
+    phone,
+    rawText,
+  });
+
+  await sendDashboardAccess(phone);
+
+  return;
+}
 const phoneVariants =
   getPhoneVariants(phone);
 
